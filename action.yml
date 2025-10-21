@@ -1,0 +1,21 @@
+name: Github Action Template
+description: Github Action Template
+author: JeongMin Oh
+
+branding:
+  icon: file
+  color: purple
+
+inputs:
+  input:
+    description: The file to read from
+    required: true
+    default: .env.development
+  output:
+    description: The file to overwrite to
+    required: true
+    default: .env.production
+
+runs:
+  using: node24
+  main: ./dist/index.js
