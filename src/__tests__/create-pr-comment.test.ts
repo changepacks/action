@@ -71,8 +71,8 @@ test('createPrComment updates existing Changepacks comment by github-actions[bot
       },
     ],
   }))
-  const updateCommentMock = mock(async (_params: unknown) => ({}))
-  const createCommentMock = mock(async (_params: unknown) => ({}))
+  const updateCommentMock = mock()
+  const createCommentMock = mock()
   const octokit = {
     rest: {
       issues: {
