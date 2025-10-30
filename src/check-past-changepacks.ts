@@ -18,6 +18,9 @@ export async function checkPastChangepacks(): Promise<ChangepackResultMap> {
             stdout: (data: Buffer) => {
               diffOutput += data.toString()
             },
+            stderr: (data: Buffer) => {
+              diffOutput += data.toString()
+            },
           },
         },
       )
