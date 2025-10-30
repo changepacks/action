@@ -170,9 +170,9 @@ test('checkPastChangepacks returns {} and does not setFailed when no HEAD~1', as
     async (
       _cmd: string,
       _args?: string[],
-      options?: { listeners?: { stdout?: (data: Buffer) => void } },
+      options?: { listeners?: { stderr?: (data: Buffer) => void } },
     ) => {
-      options?.listeners?.stdout?.(Buffer.from("fatal: bad revision 'HEAD~1'"))
+      options?.listeners?.stderr?.(Buffer.from("fatal: bad revision 'HEAD~1'"))
       throw new Error("fatal: bad revision 'HEAD~1'")
     },
   )
