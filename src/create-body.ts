@@ -12,6 +12,7 @@ export function createBody(changepack: ChangepackResult): string {
         : (changepack.version ?? 'Unknown')
     } - ${changepack.path}`,
   ]
+  debug(`changepack: ${JSON.stringify(changepack)}`)
   if (majorLogs.length > 0) {
     logs.push('## Major')
     logs.push(...majorLogs.map((log) => `- ${log.type}: ${log.note}`))
