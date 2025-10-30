@@ -32,7 +32,6 @@ export async function checkPastChangepacks(): Promise<ChangepackResultMap> {
           .filter((file: string) => file.trim())
       }
     } catch (error: unknown) {
-      console.log('LOG', JSON.stringify({ error, diffOutput }, null, 2))
       if (
         /bad revision|unknown revision|ambiguous argument|bad object/i.test(
           diffOutput,

@@ -1,4 +1,5 @@
 import { expect, mock, test } from 'bun:test'
+import { isDebug } from '@actions/core'
 import { createBody } from '../create-body'
 import type { ChangepackResultMap } from '../types'
 
@@ -52,11 +53,13 @@ test('createPr runs update and opens PR with formatted body', async () => {
   const { createPr } = await import('../create-pr')
   await createPr(changepacks)
 
-  expect(execMock).toHaveBeenCalledWith('./changepacks', [
-    'update',
-    '--format',
-    'json',
-  ])
+  expect(execMock).toHaveBeenCalledWith(
+    './changepacks',
+    ['update', '--format', 'json'],
+    {
+      silent: !isDebug(),
+    },
+  )
 
   expect(pullsCreateMock).toHaveBeenCalledWith({
     owner: 'acme',

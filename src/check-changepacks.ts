@@ -1,5 +1,5 @@
 import { resolve } from 'node:path'
-import { debug } from '@actions/core'
+import { debug, isDebug } from '@actions/core'
 import { exec } from '@actions/exec'
 import type { ChangepackResultMap } from './types'
 
@@ -34,6 +34,7 @@ export async function checkChangepacks(): Promise<ChangepackResultMap> {
         output += data.toString()
       },
     },
+    silent: !isDebug(),
   })
   return JSON.parse(output)
 }
