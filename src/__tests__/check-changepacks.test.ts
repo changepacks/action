@@ -1,4 +1,5 @@
 import { expect, mock, test } from 'bun:test'
+import { resolve } from 'node:path'
 import type { ChangepackResultMap } from '../types'
 
 test('checkChangepacks parses JSON from exec stdout (chunked)', async () => {
@@ -34,7 +35,7 @@ test('checkChangepacks parses JSON from exec stdout (chunked)', async () => {
   const result = await checkChangepacks()
 
   expect(execMock).toHaveBeenCalledWith(
-    './changepacks',
+    resolve('changepacks'),
     ['check', '--format', 'json'],
     expect.any(Object),
   )

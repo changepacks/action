@@ -36,7 +36,6 @@ export async function installChangepacks() {
   const assetUrl = asset.browser_download_url
   const client = new HttpClient()
   const binResponse = await client.get(assetUrl)
-  console.log('binResponse', binResponse.readBodyBuffer)
   await writeFile(
     `changepacks${os === 'windows' ? '.exe' : ''}`,
     Buffer.from((await binResponse.readBodyBuffer?.()) ?? ''),

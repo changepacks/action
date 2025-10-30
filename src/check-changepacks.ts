@@ -1,3 +1,5 @@
+import { resolve } from 'node:path'
+import { debug } from '@actions/core'
 import { exec } from '@actions/exec'
 import type { ChangepackResultMap } from './types'
 
@@ -21,7 +23,9 @@ import type { ChangepackResultMap } from './types'
  */
 export async function checkChangepacks(): Promise<ChangepackResultMap> {
   let output = ''
-  await exec('./changepacks', ['check', '--format', 'json'], {
+  debug('running changepacks check')
+  debug(`changepacks path: ${resolve('changepacks')}`)
+  await exec(resolve('changepacks'), ['check', '--format', 'json'], {
     listeners: {
       stdout: (data) => {
         output += data.toString()
