@@ -1,3 +1,4 @@
+import { debug } from '@actions/core'
 import type { ChangepackResult } from './types'
 
 export function createBody(changepack: ChangepackResult): string {
@@ -32,5 +33,6 @@ export function createBody(changepack: ChangepackResult): string {
       'Maybe you forgot to write the following files to the latest version',
     )
   }
+  debug(`createBody: ${logs.join('\n')}`)
   return logs.join('\n')
 }
