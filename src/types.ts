@@ -1,4 +1,4 @@
-export type UpdateType = 'MAJOR' | 'MINOR' | 'PATCH'
+export type UpdateType = 'Major' | 'Minor' | 'Patch'
 export interface ChangepackResult {
   logs: {
     type: UpdateType

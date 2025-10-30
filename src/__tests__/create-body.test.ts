@@ -4,8 +4,8 @@ import { createBody } from '../create-body'
 test('createBody includes reminder when changed=true and has logs', () => {
   const body = createBody({
     logs: [
-      { type: 'PATCH', note: 'fix x' },
-      { type: 'MINOR', note: 'feat y' },
+      { type: 'Patch', note: 'fix x' },
+      { type: 'Minor', note: 'feat y' },
     ],
     version: '1.0.0',
     nextVersion: '1.1.0',
@@ -22,7 +22,7 @@ test('createBody includes reminder when changed=true and has logs', () => {
 
 test('createBody does not include reminder when changed=false or no logs', () => {
   const bodyNoChange = createBody({
-    logs: [{ type: 'PATCH', note: 'fix' }],
+    logs: [{ type: 'Patch', note: 'fix' }],
     version: '1.0.0',
     nextVersion: '1.0.1',
     name: 'pkg',

@@ -33,8 +33,8 @@ test('createPr runs update and opens PR with formatted body', async () => {
   const changepacks: ChangepackResultMap = {
     'packages/a/package.json': {
       logs: [
-        { type: 'MAJOR', note: 'Breaking API change' },
-        { type: 'PATCH', note: 'Fix typo' },
+        { type: 'Major', note: 'Breaking API change' },
+        { type: 'Patch', note: 'Fix typo' },
       ],
       version: '1.0.0',
       nextVersion: '2.0.0',
@@ -43,7 +43,7 @@ test('createPr runs update and opens PR with formatted body', async () => {
       changed: false,
     },
     'packages/b/package.json': {
-      logs: [{ type: 'MINOR', note: 'Add feature X' }],
+      logs: [{ type: 'Minor', note: 'Add feature X' }],
       version: '0.9.0',
       nextVersion: '0.10.0',
       name: 'pkg-b',

@@ -2,9 +2,9 @@ import { debug } from '@actions/core'
 import type { ChangepackResult } from './types'
 
 export function createBody(changepack: ChangepackResult): string {
-  const majorLogs = changepack.logs.filter((log) => log.type === 'MAJOR')
-  const minorLogs = changepack.logs.filter((log) => log.type === 'MINOR')
-  const patchLogs = changepack.logs.filter((log) => log.type === 'PATCH')
+  const majorLogs = changepack.logs.filter((log) => log.type === 'Major')
+  const minorLogs = changepack.logs.filter((log) => log.type === 'Minor')
+  const patchLogs = changepack.logs.filter((log) => log.type === 'Patch')
   const logs = [
     `## ${changepack.name ?? 'Unknown'}@${
       changepack.nextVersion
