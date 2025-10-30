@@ -7,11 +7,33 @@ export async function createPrComment(
   changepacks: ChangepackResultMap,
 ): Promise<void> {
   const octokit = getOctokit(getInput('token'))
-  const comment = Object.values(changepacks).map(createBody).join('\n')
-  await octokit.rest.issues.createComment({
+  const body = `# Changepacks\n${Object.values(changepacks).map(createBody).join('\n')}`
+
+  const comments = await octokit.rest.issues.listComments({
     owner: context.repo.owner,
     repo: context.repo.repo,
     issue_number: context.issue.number,
-    body: comment,
+    per_page: 100,
   })
+  if (
+    comments.data.some(
+      (c) =>
+        c.user?.login === 'github-actions[bot]' &&
+        c.body?.startsWith('# Changepacks'),
+    )
+  ) {
+    await octokit.rest.issues.updateComment({
+      owner: context.repo.owner,
+      repo: context.repo.repo,
+      comment_id: comments.data[0].id,
+      body: body,
+    })
+  } else {
+    await octokit.rest.issues.createComment({
+      owner: context.repo.owner,
+      repo: context.repo.repo,
+      issue_number: context.issue.number,
+      body: body,
+    })
+  }
 }
