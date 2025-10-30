@@ -1,4 +1,5 @@
 import { expect, mock, test } from 'bun:test'
+import { resolve } from 'node:path'
 
 test('installChangepacks downloads asset and writes binary (linux/x64)', async () => {
   const originalFs = { ...(await import('node:fs/promises')) }
@@ -60,7 +61,7 @@ test('installChangepacks downloads asset and writes binary (linux/x64)', async (
     'https://example.com/changepacks-linux-x64',
   )
   expect(writeFileMock).toHaveBeenCalledWith(
-    'changepacks',
+    resolve('changepacks'),
     Buffer.from('BINARYDATA'),
   )
   expect(setFailedMock).not.toHaveBeenCalled()

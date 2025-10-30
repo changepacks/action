@@ -1,5 +1,6 @@
 import { writeFile } from 'node:fs/promises'
 import { machine, type } from 'node:os'
+import { resolve } from 'node:path'
 import { debug, getInput, info, setFailed } from '@actions/core'
 import { getOctokit } from '@actions/github'
 import { HttpClient } from '@actions/http-client'
@@ -36,8 +37,12 @@ export async function installChangepacks() {
   const assetUrl = asset.browser_download_url
   const client = new HttpClient()
   const binResponse = await client.get(assetUrl)
+  const binary = Buffer.from((await binResponse.readBodyBuffer?.()) ?? '')
   await writeFile(
-    `changepacks${os === 'windows' ? '.exe' : ''}`,
-    Buffer.from((await binResponse.readBodyBuffer?.()) ?? ''),
+    resolve(`changepacks${os === 'windows' ? '.exe' : ''}`),
+    binary,
+  )
+  debug(
+    `wrote binary to ${resolve(`changepacks${os === 'windows' ? '.exe' : ''}`)}: ${binary.length} bytes`,
   )
 }
