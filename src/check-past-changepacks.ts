@@ -29,14 +29,14 @@ export async function checkPastChangepacks(): Promise<ChangepackResultMap> {
           .filter((file: string) => file.trim())
       }
     } catch (error: unknown) {
-      const message = (error as Error)?.message ?? String(error)
+      console.log(error, diffOutput)
       if (
         /bad revision|unknown revision|ambiguous argument|bad object/i.test(
-          message,
+          diffOutput,
         )
       ) {
         // No previous commit (e.g., shallow clone or first commit)
-        debug(`skip past changepacks: ${message}`)
+        debug(`skip past changepacks: ${diffOutput}`)
         return {}
       }
       setFailed(error as Error)
