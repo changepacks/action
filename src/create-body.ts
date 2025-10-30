@@ -14,15 +14,15 @@ export function createBody(changepack: ChangepackResult): string {
   ]
   debug(`changepack: ${JSON.stringify(changepack)}`)
   if (majorLogs.length > 0) {
-    logs.push('## Major')
+    logs.push('### Major')
     logs.push(...majorLogs.map((log) => `- ${log.type}: ${log.note}`))
   }
   if (minorLogs.length > 0) {
-    logs.push('## Minor')
+    logs.push('### Minor')
     logs.push(...minorLogs.map((log) => `- ${log.type}: ${log.note}`))
   }
   if (patchLogs.length > 0) {
-    logs.push('## Patch')
+    logs.push('### Patch')
     logs.push(...patchLogs.map((log) => `- ${log.type}: ${log.note}`))
   }
   if (

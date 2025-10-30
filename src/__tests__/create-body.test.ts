@@ -13,8 +13,8 @@ test('createBody includes reminder when changed=true and has logs', () => {
     path: 'packages/pkg/package.json',
     changed: true,
   })
-  expect(body).toContain('## Minor')
-  expect(body).toContain('## Patch')
+  expect(body).toContain('### Minor')
+  expect(body).toContain('### Patch')
   expect(body).toContain(
     'Maybe you forgot to write the following files to the latest version',
   )
