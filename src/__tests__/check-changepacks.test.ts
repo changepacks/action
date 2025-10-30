@@ -35,7 +35,7 @@ test('checkChangepacks parses JSON from exec stdout (chunked)', async () => {
   const result = await checkChangepacks()
 
   expect(execMock).toHaveBeenCalledWith(
-    resolve('changepacks'),
+    resolve(process.platform === 'win32' ? 'changepacks.exe' : 'changepacks'),
     ['check', '--format', 'json'],
     expect.any(Object),
   )

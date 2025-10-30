@@ -9,7 +9,10 @@ test('installChangepacks downloads asset and writes binary (linux/x64)', async (
   const originalHttp = { ...(await import('@actions/http-client')) }
 
   const writeFileMock = mock()
-  mock.module('node:fs/promises', () => ({ writeFile: writeFileMock }))
+  mock.module('node:fs/promises', () => ({
+    writeFile: writeFileMock,
+    chmod: mock(),
+  }))
 
   const typeMock = mock(() => 'Linux')
   const machineMock = mock(() => 'x64')

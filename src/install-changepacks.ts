@@ -1,4 +1,4 @@
-import { writeFile } from 'node:fs/promises'
+import { chmod, writeFile } from 'node:fs/promises'
 import { machine, type } from 'node:os'
 import { resolve } from 'node:path'
 import { debug, getInput, info, setFailed } from '@actions/core'
@@ -38,11 +38,10 @@ export async function installChangepacks() {
   const client = new HttpClient()
   const binResponse = await client.get(assetUrl)
   const binary = Buffer.from((await binResponse.readBodyBuffer?.()) ?? '')
-  await writeFile(
-    resolve(`changepacks${os === 'windows' ? '.exe' : ''}`),
-    binary,
-  )
-  debug(
-    `wrote binary to ${resolve(`changepacks${os === 'windows' ? '.exe' : ''}`)}: ${binary.length} bytes`,
-  )
+  const binPath = resolve(`changepacks${os === 'windows' ? '.exe' : ''}`)
+  await writeFile(binPath, binary)
+  if (os !== 'windows') {
+    await chmod(binPath, 0o755)
+  }
+  debug(`wrote binary to ${binPath}: ${binary.length} bytes`)
 }

@@ -24,8 +24,11 @@ import type { ChangepackResultMap } from './types'
 export async function checkChangepacks(): Promise<ChangepackResultMap> {
   let output = ''
   debug('running changepacks check')
-  debug(`changepacks path: ${resolve('changepacks')}`)
-  await exec(resolve('changepacks'), ['check', '--format', 'json'], {
+  const bin = resolve(
+    process.platform === 'win32' ? 'changepacks.exe' : 'changepacks',
+  )
+  debug(`changepacks path: ${bin}`)
+  await exec(bin, ['check', '--format', 'json'], {
     listeners: {
       stdout: (data) => {
         output += data.toString()
