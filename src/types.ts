@@ -4,9 +4,11 @@ export interface ChangepackResult {
     type: UpdateType
     note: string
   }[]
-  version: string
-  nextVersion: string
-  name: string
+  version: string | null
+  nextVersion: string | null
+  name: string | null
+  path: string
+  changed: boolean
 }
 
 export type ChangepackResultMap = Record<string, ChangepackResult>
