@@ -1,4 +1,4 @@
-import { getInput, isDebug } from '@actions/core'
+import { debug, error, getInput, isDebug, setFailed } from '@actions/core'
 import { exec } from '@actions/exec'
 import { context, getOctokit } from '@actions/github'
 import { createBody } from './create-body'
@@ -15,12 +15,18 @@ export async function createPr(changepacks: ChangepackResultMap) {
   )
 
   const octokit = getOctokit(getInput('token'))
-  await octokit.rest.pulls.create({
-    owner: context.repo.owner,
-    repo: context.repo.repo,
-    title: 'Update Versions',
-    body: Object.values(changepacks).map(createBody).join('\n'),
-    head: 'changepacks',
-    base: context.ref,
-  })
+  debug(`create pr: ${JSON.stringify(changepacks)}`)
+  try {
+    await octokit.rest.pulls.create({
+      owner: context.repo.owner,
+      repo: context.repo.repo,
+      title: 'Update Versions',
+      body: Object.values(changepacks).map(createBody).join('\n'),
+      head: 'changepacks',
+      base: context.ref,
+    })
+  } catch (err: unknown) {
+    error('create pr failed')
+    setFailed(err as Error)
+  }
 }

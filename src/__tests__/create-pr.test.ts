@@ -79,3 +79,62 @@ test('createPr runs update and opens PR with formatted body', async () => {
   mock.module('@actions/core', () => originalCore)
   mock.module('@actions/github', () => originalGithub)
 })
+
+test('createPr logs error and sets failed on API failure', async () => {
+  const originalExec = { ...(await import('@actions/exec')) }
+  const originalCore = { ...(await import('@actions/core')) }
+  const originalGithub = { ...(await import('@actions/github')) }
+
+  const execMock = mock(async () => 0)
+  mock.module('@actions/exec', () => ({ exec: execMock }))
+
+  const errorMock = mock()
+  const setFailedMock = mock()
+  const getInputMock = mock((name: string) =>
+    name === 'token' ? 'TEST_TOKEN' : '',
+  )
+  mock.module('@actions/core', () => ({
+    getInput: getInputMock,
+    isDebug,
+    error: errorMock,
+    setFailed: setFailedMock,
+  }))
+
+  const pullsCreateMock = mock(async () => {
+    throw new Error('boom')
+  })
+  const octokit = { rest: { pulls: { create: pullsCreateMock } } }
+  const contextMock = {
+    repo: { owner: 'acme', repo: 'widgets' },
+    ref: 'refs/heads/main',
+  }
+  const getOctokitMock = mock((_token: string) => octokit)
+  mock.module('@actions/github', () => ({
+    getOctokit: getOctokitMock,
+    context: contextMock,
+  }))
+
+  const changepacks: ChangepackResultMap = {
+    'packages/a/package.json': {
+      logs: [{ type: 'Patch', note: 'fix' }],
+      version: '1.0.0',
+      nextVersion: '1.0.1',
+      name: 'a',
+      path: 'packages/a/package.json',
+      changed: false,
+    },
+  }
+
+  const { createPr } = await import('../create-pr')
+  await createPr(changepacks)
+
+  expect(pullsCreateMock).toHaveBeenCalled()
+  expect(errorMock).toHaveBeenCalledWith(
+    expect.stringContaining('create pr failed'),
+  )
+  expect(setFailedMock).toHaveBeenCalled()
+
+  mock.module('@actions/exec', () => originalExec)
+  mock.module('@actions/core', () => originalCore)
+  mock.module('@actions/github', () => originalGithub)
+})
