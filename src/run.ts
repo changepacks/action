@@ -7,7 +7,9 @@ import { installChangepacks } from './install-changepacks'
 export async function run() {
   await installChangepacks()
   const changepacks = await checkChangepacks()
-  if (Object.keys(changepacks).length > 0) {
+  if (
+    Object.values(changepacks).some((changepack) => !!changepack.nextVersion)
+  ) {
     await createPr(changepacks)
   } else {
     const pastChangepacks = await checkPastChangepacks()
