@@ -5,11 +5,11 @@ export function createBody(changepack: ChangepackResult): string {
   const minorLogs = changepack.logs.filter((log) => log.type === 'MINOR')
   const patchLogs = changepack.logs.filter((log) => log.type === 'PATCH')
   const logs = [
-    `# ${changepack.name ?? changepack.path}@${
+    `# ${changepack.name ?? 'Unknown'}@${
       changepack.nextVersion
         ? `${changepack.version} → ${changepack.nextVersion}`
         : (changepack.version ?? 'Unknown')
-    }`,
+    } - ${changepack.path}`,
   ]
   if (majorLogs.length > 0) {
     logs.push('## Major')
