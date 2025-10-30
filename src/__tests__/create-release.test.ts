@@ -8,12 +8,16 @@ test('createRelease sets output and creates releases per project', async () => {
 
   const setOutputMock = mock(() => {})
   const getInputMock = mock((name: string) => (name === 'token' ? 'T' : ''))
+  const getBooleanInputMock = mock((name: string) => name === 'create_release')
   mock.module('@actions/core', () => ({
     setOutput: setOutputMock,
     getInput: getInputMock,
+    getBooleanInput: getBooleanInputMock,
   }))
 
-  const createReleaseMock = mock(async (_params: unknown) => ({ data: {} }))
+  const createReleaseMock = mock(async (_params: unknown) => ({
+    data: { assets_url: 'https://example.com/assets/a.zip' },
+  }))
   const octokit = { rest: { repos: { createRelease: createReleaseMock } } }
   const contextMock = {
     repo: { owner: 'acme', repo: 'widgets' },
@@ -47,7 +51,10 @@ test('createRelease sets output and creates releases per project', async () => {
     'changepacks',
     Object.keys(changepacks),
   )
-
+  expect(setOutputMock).toHaveBeenCalledWith('release_assets_urls', {
+    'packages/a/package.json': expect.any(String),
+    'packages/b/package.json': expect.any(String),
+  })
   expect(createReleaseMock).toHaveBeenCalledWith({
     owner: 'acme',
     repo: 'widgets',
@@ -67,4 +74,34 @@ test('createRelease sets output and creates releases per project', async () => {
 
   mock.module('@actions/core', () => originalCore)
   mock.module('@actions/github', () => originalGithub)
+})
+
+test('createRelease sets only changepacks output when create_release=false', async () => {
+  const originalCore = { ...(await import('@actions/core')) }
+
+  const setOutputMock = mock()
+  const getBooleanInputMock = mock((_name: string) => false)
+  mock.module('@actions/core', () => ({
+    setOutput: setOutputMock,
+    getBooleanInput: getBooleanInputMock,
+  }))
+
+  const changepacks: ChangepackResultMap = {
+    'packages/a/package.json': {
+      logs: [{ type: 'MINOR', note: 'feat A' }],
+      version: '1.0.0',
+      nextVersion: '1.1.0',
+      name: 'a',
+    },
+  }
+
+  const { createRelease } = await import('../create-release')
+  await createRelease(changepacks)
+
+  expect(setOutputMock).toHaveBeenCalledWith(
+    'changepacks',
+    Object.keys(changepacks),
+  )
+
+  mock.module('@actions/core', () => originalCore)
 })

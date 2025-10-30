@@ -12,15 +12,17 @@ inputs:
     required: true
     default: ${{ github.token }}
     type: string
-  release-asset-files:
-    description: The files to release as assets
+  create_release:
+    description: Whether to create a release
     required: false
-    default: ''
-    type: string
+    default: true
+    type: boolean
 
 outputs:
   changepacks:
     description: Changed project paths
+  release_assets_urls:
+    description: The URLs of the release assets
 
 runs:
   using: node24
