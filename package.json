@@ -1,11 +1,11 @@
 {
-	"name": "action-tools",
+	"name": "action",
 	"version": "1.0.0",
-	"description": "github action template",
+	"description": "changepacks github action",
 	"author": "JeongMin Oh",
 	"license": "Apache-2.0",
 	"scripts": {
-		"build": "bunx @vercel/ncc build ./src/index.ts -m -o dist",
+		"build": "bun build --target node src/index.ts --production --outfile=dist/index.js --format=cjs",
 		"lint": "biome check",
 		"lint:fix": "biome check --write",
 		"prepare": "husky"
@@ -15,5 +15,11 @@
 		"@types/bun": "^1.3",
 		"husky": "^9",
 		"typescript": "^5.9"
+	},
+	"dependencies": {
+		"@actions/core": "^1.11.1",
+		"@actions/exec": "^1.1.1",
+		"@actions/github": "^6.0.1",
+		"@actions/http-client": "^2.2.3"
 	}
 }

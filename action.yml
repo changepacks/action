@@ -1,5 +1,5 @@
-name: Github Action Template
-description: Github Action Template
+name: Changepacks Action
+description: Changepacks Action
 author: JeongMin Oh
 
 branding:
@@ -7,14 +7,20 @@ branding:
   color: purple
 
 inputs:
-  input:
-    description: The file to read from
+  token:
+    description: The token to use for the action
     required: true
-    default: .env.development
-  output:
-    description: The file to overwrite to
-    required: true
-    default: .env.production
+    default: ${{ github.token }}
+    type: string
+  release-asset-files:
+    description: The files to release as assets
+    required: false
+    default: ''
+    type: string
+
+outputs:
+  changepacks:
+    description: Changed project paths
 
 runs:
   using: node24
