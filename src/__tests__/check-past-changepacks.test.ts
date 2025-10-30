@@ -121,6 +121,36 @@ test('checkPastChangepacks returns {} and setsFailed when git diff errors', asyn
   mock.module('@actions/core', () => originalCore)
 })
 
+test('checkPastChangepacks returns {} and does not setFailed when no HEAD~1', async () => {
+  const originalExec = { ...(await import('@actions/exec')) }
+  const originalCore = { ...(await import('@actions/core')) }
+
+  const execMock = mock(async (_cmd: string, args?: string[]) => {
+    if (args?.[0] === 'diff') {
+      throw new Error("fatal: bad revision 'HEAD~1'")
+    }
+    return 0
+  })
+  mock.module('@actions/exec', () => ({ exec: execMock }))
+
+  const setFailedMock = mock()
+  const debugMock = mock()
+  mock.module('@actions/core', () => ({
+    setFailed: setFailedMock,
+    debug: debugMock,
+  }))
+
+  const { checkPastChangepacks } = await import('../check-past-changepacks')
+  const result = await checkPastChangepacks()
+
+  expect(result).toEqual({})
+  expect(setFailedMock).not.toHaveBeenCalled()
+  expect(debugMock).toHaveBeenCalled()
+
+  mock.module('@actions/exec', () => originalExec)
+  mock.module('@actions/core', () => originalCore)
+})
+
 test('checkPastChangepacks returns {} and setsFailed when later step throws (outer catch)', async () => {
   const originalExec = { ...(await import('@actions/exec')) }
   const originalCore = { ...(await import('@actions/core')) }

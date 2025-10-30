@@ -1,4 +1,4 @@
-import { setFailed } from '@actions/core'
+import { debug, setFailed } from '@actions/core'
 import { exec } from '@actions/exec'
 import { checkChangepacks } from './check-changepacks'
 import type { ChangepackResultMap } from './types'
@@ -29,6 +29,16 @@ export async function checkPastChangepacks(): Promise<ChangepackResultMap> {
           .filter((file: string) => file.trim())
       }
     } catch (error: unknown) {
+      const message = (error as Error)?.message ?? String(error)
+      if (
+        /bad revision|unknown revision|ambiguous argument|bad object/i.test(
+          message,
+        )
+      ) {
+        // No previous commit (e.g., shallow clone or first commit)
+        debug(`skip past changepacks: ${message}`)
+        return {}
+      }
       setFailed(error as Error)
       return {}
     }
