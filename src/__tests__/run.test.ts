@@ -52,6 +52,7 @@ test('run creates releases from past changepacks when current is empty', async (
   const originalPast = { ...(await import('../check-past-changepacks')) }
   const originalPr = { ...(await import('../create-pr')) }
   const originalRel = { ...(await import('../create-release')) }
+  mock.module('@actions/core', () => ({ context: {} }))
 
   const installMock = mock(async () => {})
   mock.module('../install-changepacks', () => ({

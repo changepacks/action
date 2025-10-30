@@ -39,12 +39,16 @@ test('createPr runs update and opens PR with formatted body', async () => {
       version: '1.0.0',
       nextVersion: '2.0.0',
       name: 'pkg-a',
+      path: 'packages/a/package.json',
+      changed: false,
     },
     'packages/b/package.json': {
       logs: [{ type: 'MINOR', note: 'Add feature X' }],
       version: '0.9.0',
       nextVersion: '0.10.0',
       name: 'pkg-b',
+      path: 'packages/b/package.json',
+      changed: false,
     },
   }
 
@@ -55,7 +59,7 @@ test('createPr runs update and opens PR with formatted body', async () => {
 
   expect(execMock).toHaveBeenCalledWith(
     './changepacks',
-    ['update', '--format', 'json'],
+    ['update', '--format', 'json', '-y'],
     {
       silent: !isDebug(),
     },

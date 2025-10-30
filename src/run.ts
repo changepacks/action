@@ -10,7 +10,7 @@ export async function run() {
   await installChangepacks()
   const changepacks = await checkChangepacks()
   // add pull request comment
-  if (context.payload.pull_request) {
+  if (context.payload?.pull_request) {
     await createPrComment(changepacks)
     return
   }

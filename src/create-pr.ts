@@ -7,7 +7,7 @@ import type { ChangepackResultMap } from './types'
 export async function createPr(changepacks: ChangepackResultMap) {
   await exec(
     './changepacks',
-    ['update', '--format', 'json'],
+    ['update', '--format', 'json', '-y'],
 
     {
       silent: !isDebug(),
