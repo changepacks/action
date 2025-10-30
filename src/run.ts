@@ -1,3 +1,4 @@
+import { debug } from '@actions/core'
 import { context } from '@actions/github'
 import { checkChangepacks } from './check-changepacks'
 import { checkPastChangepacks } from './check-past-changepacks'
@@ -9,6 +10,7 @@ import { installChangepacks } from './install-changepacks'
 export async function run() {
   await installChangepacks()
   const changepacks = await checkChangepacks()
+  debug(`changepacks: ${JSON.stringify(context)}`)
   // add pull request comment
   if (context.payload?.pull_request) {
     await createPrComment(changepacks)
