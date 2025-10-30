@@ -27,9 +27,8 @@ test('installChangepacks downloads asset and writes binary (linux/x64)', async (
     data: {
       assets: [
         {
-          name: 'changepacks-linux-x64.tar.gz',
-          browser_download_url:
-            'https://example.com/changepacks-linux-x64.tar.gz',
+          name: 'changepacks-linux-x64',
+          browser_download_url: 'https://example.com/changepacks-linux-x64',
         },
       ],
     },
@@ -54,9 +53,11 @@ test('installChangepacks downloads asset and writes binary (linux/x64)', async (
   expect(getInputMock).toHaveBeenCalledWith('token')
   expect(getOctokitMock).toHaveBeenCalledWith('TOKEN')
   expect(pullsGetLatestReleaseMock).toHaveBeenCalled()
-  expect(infoMock).toHaveBeenCalledWith('os: linux, arch: x64')
+  expect(infoMock).toHaveBeenCalledWith(
+    'downloading asset: changepacks-linux-x64',
+  )
   expect(httpGetMock).toHaveBeenCalledWith(
-    'https://example.com/changepacks-linux-x64.tar.gz',
+    'https://example.com/changepacks-linux-x64',
   )
   expect(writeFileMock).toHaveBeenCalledWith(
     'changepacks',

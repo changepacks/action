@@ -1,6 +1,6 @@
 import { writeFile } from 'node:fs/promises'
 import { machine, type } from 'node:os'
-import { getInput, info, setFailed } from '@actions/core'
+import { debug, getInput, info, setFailed } from '@actions/core'
 import { getOctokit } from '@actions/github'
 import { HttpClient } from '@actions/http-client'
 
@@ -14,16 +14,21 @@ export async function installChangepacks() {
     repo: 'changepacks',
   })
   const release = response.data
-  const os = {
-    Linux: 'linux',
-    Darwin: 'darwin',
-    Windows_NT: 'windows',
-  }[type()]
+  const os = (
+    {
+      Linux: 'linux',
+      Darwin: 'darwin',
+      Windows_NT: 'windows',
+    } as const
+  )[type()]
   const ma = machine()
-  info(`os: ${os}, arch: ${ma}`)
+  debug(`os: ${os}, arch: ${ma}`)
   const asset = release.assets.find((asset) =>
-    asset.name.endsWith(`changepacks-${os}-${ma}.tar.gz`),
+    asset.name.endsWith(
+      `changepacks-${os}-${ma}${os === 'windows' ? '.exe' : ''}`,
+    ),
   )
+  info(`downloading asset: ${asset?.name}`)
   if (!asset) {
     setFailed('changepacks binary not found')
     return
@@ -33,7 +38,7 @@ export async function installChangepacks() {
   const binResponse = await client.get(assetUrl)
   console.log('binResponse', binResponse.readBodyBuffer)
   await writeFile(
-    `changepacks${os === 'win32' ? '.exe' : ''}`,
+    `changepacks${os === 'windows' ? '.exe' : ''}`,
     Buffer.from((await binResponse.readBodyBuffer?.()) ?? ''),
   )
 }
