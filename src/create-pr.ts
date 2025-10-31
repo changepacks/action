@@ -10,26 +10,25 @@ export async function createPr(changepacks: ChangepackResultMap) {
 
   const octokit = getOctokit(getInput('token'))
 
-  // Get base branch info
-  const { data: branches } = await octokit.rest.repos.listBranches({
-    repo: context.repo.repo,
-    owner: context.repo.owner,
-  })
-  if (!branches.some((branch) => branch.name === 'dev')) {
-    const { data } = await octokit.rest.repos.getBranch({
-      repo: context.repo.repo,
-      owner: context.repo.owner,
-      branch: base,
-    })
-    await octokit.rest.git.createRef({
-      owner: context.repo.owner,
-      repo: context.repo.repo,
-      ref: `refs/heads/${head}`,
-      sha: data.commit.sha,
-    })
-  }
-
   try {
+    // Get base branch info
+    const { data: branches } = await octokit.rest.repos.listBranches({
+      repo: context.repo.repo,
+      owner: context.repo.owner,
+    })
+    if (!branches.some((branch) => branch.name === 'dev')) {
+      const { data } = await octokit.rest.repos.getBranch({
+        repo: context.repo.repo,
+        owner: context.repo.owner,
+        branch: base,
+      })
+      await octokit.rest.git.createRef({
+        owner: context.repo.owner,
+        repo: context.repo.repo,
+        ref: `refs/heads/${head}`,
+        sha: data.commit.sha,
+      })
+    }
     await exec('git', ['checkout', '-b', head], {
       silent: !isDebug(),
     })
