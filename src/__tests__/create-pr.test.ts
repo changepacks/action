@@ -1009,7 +1009,7 @@ test('createPr returns early when all changepacks have no nextVersion', async ()
     data: { commit: { sha: 'abc123' } },
   }))
   const createRefMock = mock()
-  const pullsListMock = mock()
+  const pullsListMock = mock(async () => ({ data: [] }))
   const pullsCreateMock = mock()
   const octokit = {
     rest: {
@@ -1071,10 +1071,7 @@ test('createPr returns early when all changepacks have no nextVersion', async ()
   expect(createRefMock).toHaveBeenCalled()
   expect(runChpacksMockSkip).toHaveBeenCalledWith('update')
 
-  // debug should log skip message
-  expect(debugMock).toHaveBeenCalledWith('no changepacks, skip')
-
-  // early return - these should NOT be called
+  // when all nextVersion are null, git operations are skipped
   expect(execMock).not.toHaveBeenCalledWith(
     'git',
     ['add', '.changepacks'],
@@ -1090,8 +1087,15 @@ test('createPr returns early when all changepacks have no nextVersion', async ()
     ['push', 'origin', 'changepacks/main'],
     expect.any(Object),
   )
-  expect(pullsListMock).not.toHaveBeenCalled()
-  expect(pullsCreateMock).not.toHaveBeenCalled()
+
+  // but PR list is still called
+  expect(pullsListMock).toHaveBeenCalledWith({
+    owner: 'acme',
+    repo: 'widgets',
+    head: 'acme:changepacks/main',
+    base: 'main',
+    state: 'open',
+  })
 
   mock.module('@actions/exec', () => originalExec)
   mock.module('@actions/core', () => originalCore)

@@ -65,35 +65,32 @@ export async function createPr() {
 
     // if not changed, return
     if (
-      Object.values(changepacks).every((changepack) => !changepack.nextVersion)
+      !Object.values(changepacks).every((changepack) => !changepack.nextVersion)
     ) {
-      debug(`no changepacks, skip`)
-      return
-    }
-
-    debug(`add changepacks`)
-    await exec('git', ['add', '.changepacks'], {
-      silent: !isDebug(),
-    })
-    debug(`configure git user`)
-    await exec('git', ['config', 'user.name', 'changepacks'], {
-      silent: !isDebug(),
-    })
-    await exec(
-      'git',
-      ['config', 'user.email', 'changepacks@users.noreply.github.com'],
-      {
+      debug(`add changepacks`)
+      await exec('git', ['add', '.changepacks'], {
         silent: !isDebug(),
-      },
-    )
-    debug(`commit changepacks`)
-    await exec('git', ['commit', '-m', 'Update Versions'], {
-      silent: !isDebug(),
-    })
-    debug(`push branch: ${head}`)
-    await exec('git', ['push', 'origin', head], {
-      silent: !isDebug(),
-    })
+      })
+      debug(`configure git user`)
+      await exec('git', ['config', 'user.name', 'changepacks'], {
+        silent: !isDebug(),
+      })
+      await exec(
+        'git',
+        ['config', 'user.email', 'changepacks@users.noreply.github.com'],
+        {
+          silent: !isDebug(),
+        },
+      )
+      debug(`commit changepacks`)
+      await exec('git', ['commit', '-m', 'Update Versions'], {
+        silent: !isDebug(),
+      })
+      debug(`push branch: ${head}`)
+      await exec('git', ['push', 'origin', head], {
+        silent: !isDebug(),
+      })
+    }
 
     const { data: pulls } = await octokit.rest.pulls.list({
       owner: context.repo.owner,
