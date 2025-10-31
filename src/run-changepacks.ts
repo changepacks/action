@@ -21,20 +21,29 @@ import type { ChangepackResultMap } from './types'
  *  }
  * }
  */
-export async function checkChangepacks(): Promise<ChangepackResultMap> {
+export async function runChangepacks(
+  command: 'check' | 'update',
+): Promise<ChangepackResultMap> {
   let output = ''
-  debug('running changepacks check')
+  debug(`running changepacks ${command}`)
   const bin = resolve(
     process.platform === 'win32' ? 'changepacks.exe' : 'changepacks',
   )
   debug(`changepacks path: ${bin}`)
-  await exec(bin, ['check', '--format', 'json'], {
-    listeners: {
-      stdout: (data) => {
-        output += data.toString()
+  await exec(
+    bin,
+    [command, '--format', 'json', ...(command === 'update' ? ['-y'] : [])],
+    {
+      listeners: {
+        stdout: (data) => {
+          output += data.toString()
+        },
+        stderr: (data) => {
+          output += data.toString()
+        },
       },
+      silent: !isDebug(),
     },
-    silent: !isDebug(),
-  })
+  )
   return JSON.parse(output)
 }

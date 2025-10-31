@@ -6,8 +6,8 @@
 	"license": "Apache-2.0",
 	"scripts": {
 		"build": "bun build --target node src/index.ts --production --outfile=dist/index.js --format=cjs",
-		"lint": "biome check",
-		"lint:fix": "biome check --write",
+		"lint": "biome check && tsc --noEmit",
+		"lint:fix": "biome check --write && tsc --noEmit",
 		"prepare": "husky"
 	},
 	"devDependencies": {

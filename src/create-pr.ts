@@ -2,9 +2,9 @@ import { debug, error, getInput, isDebug, setFailed } from '@actions/core'
 import { exec } from '@actions/exec'
 import { context, getOctokit } from '@actions/github'
 import { createBody } from './create-body'
-import type { ChangepackResultMap } from './types'
+import { runChangepacks } from './run-changepacks'
 
-export async function createPr(changepacks: ChangepackResultMap) {
+export async function createPr() {
   const base = context.ref.replace(/^refs\/heads\//, '')
   const head = `changepacks/${base}`
 
@@ -61,11 +61,18 @@ export async function createPr(changepacks: ChangepackResultMap) {
     }
 
     debug(`update changepacks`)
-    await exec('./changepacks', ['update', '--format', 'json', '-y'], {
-      silent: !isDebug(),
-    })
+    const changepacks = await runChangepacks('update')
+
+    // if not changed, return
+    if (
+      Object.values(changepacks).every((changepack) => !changepack.nextVersion)
+    ) {
+      debug(`no changepacks, skip`)
+      return
+    }
+
     debug(`add changepacks`)
-    await exec('git', ['add', '.'], {
+    await exec('git', ['add', '.changepacks'], {
       silent: !isDebug(),
     })
     debug(`configure git user`)

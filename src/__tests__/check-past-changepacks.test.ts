@@ -36,6 +36,7 @@ test('checkPastChangepacks returns empty when no .changepacks diff', async () =>
 test('checkPastChangepacks rollbacks, reads, and restores when diff exists', async () => {
   const originalExec = { ...(await import('@actions/exec')) }
   const originalCore = { ...(await import('@actions/core')) }
+  const originalRunChangepacks = { ...(await import('../run-changepacks')) }
 
   const diffOutput = '.changepacks/a.md\n.changepacks/b.md\n'
   const execMock = mock(
@@ -57,7 +58,9 @@ test('checkPastChangepacks rollbacks, reads, and restores when diff exists', asy
 
   const payload: ChangepackResultMap = {
     'packages/a/package.json': {
-      logs: [{ type: 'PATCH', note: 'fix' }],
+      logs: [{ type: 'Patch', note: 'fix' }],
+      path: 'packages/a/package.json',
+      changed: false,
       version: '1.0.0',
       nextVersion: '1.0.1',
       name: 'a',
@@ -65,8 +68,8 @@ test('checkPastChangepacks rollbacks, reads, and restores when diff exists', asy
   }
 
   const checkChangepacksMock = mock(async () => payload)
-  mock.module('../check-changepacks', () => ({
-    checkChangepacks: checkChangepacksMock,
+  mock.module('../run-changepacks', () => ({
+    runChangepacks: checkChangepacksMock,
   }))
 
   const { checkPastChangepacks } = await import('../check-past-changepacks')
@@ -95,6 +98,7 @@ test('checkPastChangepacks rollbacks, reads, and restores when diff exists', asy
   ])
   expect(setFailedMock).not.toHaveBeenCalled()
 
+  mock.module('../run-changepacks', () => originalRunChangepacks)
   mock.module('@actions/exec', () => originalExec)
   mock.module('@actions/core', () => originalCore)
 })
@@ -102,6 +106,7 @@ test('checkPastChangepacks rollbacks, reads, and restores when diff exists', asy
 test('checkPastChangepacks returns {} and setsFailed when git diff errors', async () => {
   const originalExec = { ...(await import('@actions/exec')) }
   const originalCore = { ...(await import('@actions/core')) }
+  const originalRunChangepacks = { ...(await import('../run-changepacks')) }
 
   const execMock = mock(async (_cmd: string, _args?: string[]) => {
     throw new Error('diff failed')
@@ -119,12 +124,13 @@ test('checkPastChangepacks returns {} and setsFailed when git diff errors', asyn
 
   mock.module('@actions/exec', () => originalExec)
   mock.module('@actions/core', () => originalCore)
+  mock.module('../run-changepacks', () => originalRunChangepacks)
 })
 
 test('checkPastChangepacks returns {} and setsFailed when later step throws (outer catch)', async () => {
   const originalExec = { ...(await import('@actions/exec')) }
   const originalCore = { ...(await import('@actions/core')) }
-  const originalCheck = { ...(await import('../check-changepacks')) }
+  const originalRunChangepacks = { ...(await import('../run-changepacks')) }
 
   const diffOutput = '.changepacks/a.md\n'
   const execMock = mock(
@@ -147,8 +153,8 @@ test('checkPastChangepacks returns {} and setsFailed when later step throws (out
   const checkChangepacksMock = mock(async () => {
     throw new Error('parse failed')
   })
-  mock.module('../check-changepacks', () => ({
-    checkChangepacks: checkChangepacksMock,
+  mock.module('../run-changepacks', () => ({
+    runChangepacks: checkChangepacksMock,
   }))
 
   const { checkPastChangepacks } = await import('../check-past-changepacks')
@@ -159,7 +165,7 @@ test('checkPastChangepacks returns {} and setsFailed when later step throws (out
 
   mock.module('@actions/exec', () => originalExec)
   mock.module('@actions/core', () => originalCore)
-  mock.module('../check-changepacks', () => originalCheck)
+  mock.module('../run-changepacks', () => originalRunChangepacks)
 })
 
 test('checkPastChangepacks returns {} and does not setFailed when no HEAD~1', async () => {

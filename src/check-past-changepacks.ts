@@ -1,6 +1,6 @@
 import { debug, setFailed } from '@actions/core'
 import { exec } from '@actions/exec'
-import { checkChangepacks } from './check-changepacks'
+import { runChangepacks } from './run-changepacks'
 import type { ChangepackResultMap } from './types'
 
 // check past commit and rollback, then `changepacks check --format json` if result is not empty, set changepacks of output to publish
@@ -48,7 +48,7 @@ export async function checkPastChangepacks(): Promise<ChangepackResultMap> {
     if (changedFiles.length > 0) {
       // rollback to past commit only .changepacks folder
       await exec('git', ['checkout', 'HEAD~1', '--', '.changepacks/'])
-      const changepacks = await checkChangepacks()
+      const changepacks = await runChangepacks('check')
       await exec('git', ['checkout', 'HEAD', '--', '.changepacks/'])
       return changepacks
     }

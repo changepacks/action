@@ -3,7 +3,7 @@ import { context as realContext } from '@actions/github'
 
 test('run creates PR when current changepacks exist', async () => {
   const originalInstall = { ...(await import('../install-changepacks')) }
-  const originalCheck = { ...(await import('../check-changepacks')) }
+  const originalCheck = { ...(await import('../run-changepacks')) }
   const originalPast = { ...(await import('../check-past-changepacks')) }
   const originalPr = { ...(await import('../create-pr')) }
   const originalRel = { ...(await import('../create-release')) }
@@ -17,7 +17,7 @@ test('run creates PR when current changepacks exist', async () => {
     'pkg/a': { logs: [], version: '1.0.0', nextVersion: '1.0.1', name: 'a' },
   }
   const checkMock = mock(async () => currentChangepacks)
-  mock.module('../check-changepacks', () => ({ checkChangepacks: checkMock }))
+  mock.module('../run-changepacks', () => ({ runChangepacks: checkMock }))
 
   const checkPastMock = mock()
   mock.module('../check-past-changepacks', () => ({
@@ -34,13 +34,13 @@ test('run creates PR when current changepacks exist', async () => {
   await run()
 
   expect(installMock).toHaveBeenCalled()
-  expect(checkMock).toHaveBeenCalled()
-  expect(createPrMock).toHaveBeenCalledWith(currentChangepacks)
+  expect(checkMock).toHaveBeenCalledWith('check')
+  expect(createPrMock).toHaveBeenCalled()
   expect(checkPastMock).not.toHaveBeenCalled()
   expect(createReleaseMock).not.toHaveBeenCalled()
 
   mock.module('../install-changepacks', () => originalInstall)
-  mock.module('../check-changepacks', () => originalCheck)
+  mock.module('../run-changepacks', () => originalCheck)
   mock.module('../check-past-changepacks', () => originalPast)
   mock.module('../create-pr', () => originalPr)
   mock.module('../create-release', () => originalRel)
@@ -48,7 +48,7 @@ test('run creates PR when current changepacks exist', async () => {
 
 test('run creates releases from past changepacks when current is empty', async () => {
   const originalInstall = { ...(await import('../install-changepacks')) }
-  const originalCheck = { ...(await import('../check-changepacks')) }
+  const originalCheck = { ...(await import('../run-changepacks')) }
   const originalPast = { ...(await import('../check-past-changepacks')) }
   const originalPr = { ...(await import('../create-pr')) }
   const originalRel = { ...(await import('../create-release')) }
@@ -60,7 +60,7 @@ test('run creates releases from past changepacks when current is empty', async (
   }))
 
   const checkMock = mock(async () => ({}))
-  mock.module('../check-changepacks', () => ({ checkChangepacks: checkMock }))
+  mock.module('../run-changepacks', () => ({ runChangepacks: checkMock }))
 
   const pastChangepacks = {
     'pkg/b': { logs: [], version: '2.0.0', nextVersion: '2.1.0', name: 'b' },
@@ -80,13 +80,13 @@ test('run creates releases from past changepacks when current is empty', async (
   await run()
 
   expect(installMock).toHaveBeenCalled()
-  expect(checkMock).toHaveBeenCalled()
+  expect(checkMock).toHaveBeenCalledWith('check')
   expect(checkPastMock).toHaveBeenCalled()
   expect(createReleaseMock).toHaveBeenCalledWith(pastChangepacks)
   expect(createPrMock).not.toHaveBeenCalled()
 
   mock.module('../install-changepacks', () => originalInstall)
-  mock.module('../check-changepacks', () => originalCheck)
+  mock.module('../run-changepacks', () => originalCheck)
   mock.module('../check-past-changepacks', () => originalPast)
   mock.module('../create-pr', () => originalPr)
   mock.module('../create-release', () => originalRel)
@@ -94,7 +94,7 @@ test('run creates releases from past changepacks when current is empty', async (
 
 test('run posts PR comment and returns early when payload.pull_request exists', async () => {
   const originalInstall = { ...(await import('../install-changepacks')) }
-  const originalCheck = { ...(await import('../check-changepacks')) }
+  const originalCheck = { ...(await import('../run-changepacks')) }
   const originalPast = { ...(await import('../check-past-changepacks')) }
   const originalPr = { ...(await import('../create-pr')) }
   const originalRel = { ...(await import('../create-release')) }
@@ -110,7 +110,7 @@ test('run posts PR comment and returns early when payload.pull_request exists', 
     'pkg/a': { logs: [], version: '1.0.0', nextVersion: '1.0.1', name: 'a' },
   }
   const checkMock = mock(async () => currentChangepacks)
-  mock.module('../check-changepacks', () => ({ checkChangepacks: checkMock }))
+  mock.module('../run-changepacks', () => ({ runChangepacks: checkMock }))
 
   const createPrCommentMock = mock()
   mock.module('../create-pr-comment', () => ({
@@ -137,7 +137,7 @@ test('run posts PR comment and returns early when payload.pull_request exists', 
   await run()
 
   expect(installMock).toHaveBeenCalled()
-  expect(checkMock).toHaveBeenCalled()
+  expect(checkMock).toHaveBeenCalledWith('check')
   expect(createPrCommentMock).toHaveBeenCalledWith(currentChangepacks)
   // early return prevents PR/release paths
   expect(createPrMock).not.toHaveBeenCalled()
@@ -145,7 +145,7 @@ test('run posts PR comment and returns early when payload.pull_request exists', 
   expect(createReleaseMock).not.toHaveBeenCalled()
 
   mock.module('../install-changepacks', () => originalInstall)
-  mock.module('../check-changepacks', () => originalCheck)
+  mock.module('../run-changepacks', () => originalCheck)
   mock.module('../check-past-changepacks', () => originalPast)
   mock.module('../create-pr', () => originalPr)
   mock.module('../create-release', () => originalRel)
