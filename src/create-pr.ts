@@ -16,33 +16,48 @@ export async function createPr(changepacks: ChangepackResultMap) {
       repo: context.repo.repo,
       owner: context.repo.owner,
     })
-    if (!branches.some((branch) => branch.name === 'dev')) {
-      const { data } = await octokit.rest.repos.getBranch({
-        repo: context.repo.repo,
-        owner: context.repo.owner,
-        branch: base,
-      })
-      await octokit.rest.git.createRef({
+    const hasBaseBranch = branches.some((branch) => branch.name === head)
+    debug(`hasBaseBranch: ${hasBaseBranch}`)
+    if (hasBaseBranch) {
+      debug(`delete branch: ${head}`)
+      await octokit.rest.git.deleteRef({
         owner: context.repo.owner,
         repo: context.repo.repo,
         ref: `refs/heads/${head}`,
-        sha: data.commit.sha,
       })
     }
+    debug(`get base branch: ${base}`)
+    const { data } = await octokit.rest.repos.getBranch({
+      repo: context.repo.repo,
+      owner: context.repo.owner,
+      branch: base,
+    })
+    debug(`base branch commit: ${data.commit.sha}`)
+    await octokit.rest.git.createRef({
+      owner: context.repo.owner,
+      repo: context.repo.repo,
+      ref: `refs/heads/${head}`,
+      sha: data.commit.sha,
+    })
+    debug(`create branch: ${head}`)
     await exec('git', ['checkout', '-b', head], {
       silent: !isDebug(),
     })
 
+    debug(`update changepacks`)
     await exec('./changepacks', ['update', '--format', 'json', '-y'], {
       silent: !isDebug(),
     })
+    debug(`add changepacks`)
     // switch to head branch
     await exec('git', ['add', '.'], {
       silent: !isDebug(),
     })
+    debug(`commit changepacks`)
     await exec('git', ['commit', '-m', 'Update Versions'], {
       silent: !isDebug(),
     })
+    debug(`push branch: ${head}`)
     await exec('git', ['push', 'origin', head], {
       silent: !isDebug(),
     })

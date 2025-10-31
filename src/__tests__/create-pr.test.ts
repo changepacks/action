@@ -24,11 +24,19 @@ test('createPr runs update and opens PR with formatted body', async () => {
   const listBranchesMock = mock(async () => ({
     data: [{ name: 'main' }, { name: 'dev' }],
   }))
+  const getBranchMock = mock(async () => ({
+    data: { commit: { sha: 'abc123' } },
+  }))
+  const createRefMock = mock(async () => ({ data: {} }))
   const pullsCreateMock = mock(async (_params: unknown) => ({ data: {} }))
   const octokit = {
     rest: {
       pulls: { create: pullsCreateMock },
-      repos: { listBranches: listBranchesMock },
+      repos: {
+        listBranches: listBranchesMock,
+        getBranch: getBranchMock,
+      },
+      git: { createRef: createRefMock },
     },
   }
 
@@ -73,6 +81,19 @@ test('createPr runs update and opens PR with formatted body', async () => {
   expect(listBranchesMock).toHaveBeenCalledWith({
     owner: 'acme',
     repo: 'widgets',
+  })
+
+  expect(getBranchMock).toHaveBeenCalledWith({
+    owner: 'acme',
+    repo: 'widgets',
+    branch: 'main',
+  })
+
+  expect(createRefMock).toHaveBeenCalledWith({
+    owner: 'acme',
+    repo: 'widgets',
+    ref: 'refs/heads/changepacks/main',
+    sha: 'abc123',
   })
 
   expect(execMock).toHaveBeenCalledWith(
@@ -147,13 +168,21 @@ test('createPr logs error and sets failed on API failure', async () => {
   const listBranchesMock = mock(async () => ({
     data: [{ name: 'main' }, { name: 'dev' }],
   }))
+  const getBranchMock = mock(async () => ({
+    data: { commit: { sha: 'abc123' } },
+  }))
+  const createRefMock = mock(async () => ({ data: {} }))
   const pullsCreateMock = mock(async () => {
     throw new Error('boom')
   })
   const octokit = {
     rest: {
       pulls: { create: pullsCreateMock },
-      repos: { listBranches: listBranchesMock },
+      repos: {
+        listBranches: listBranchesMock,
+        getBranch: getBranchMock,
+      },
+      git: { createRef: createRefMock },
     },
   }
   const contextMock = {
@@ -191,7 +220,7 @@ test('createPr logs error and sets failed on API failure', async () => {
   mock.module('@actions/github', () => originalGithub)
 })
 
-test('createPr creates branch when dev branch does not exist', async () => {
+test('createPr creates branch when head branch does not exist', async () => {
   const originalExec = { ...(await import('@actions/exec')) }
   const originalCore = { ...(await import('@actions/core')) }
   const originalGithub = { ...(await import('@actions/github')) }
@@ -337,11 +366,19 @@ test('createPr handles different base branch', async () => {
   const listBranchesMock = mock(async () => ({
     data: [{ name: 'develop' }, { name: 'dev' }],
   }))
+  const getBranchMock = mock(async () => ({
+    data: { commit: { sha: 'def456' } },
+  }))
+  const createRefMock = mock(async () => ({ data: {} }))
   const pullsCreateMock = mock(async (_params: unknown) => ({ data: {} }))
   const octokit = {
     rest: {
       pulls: { create: pullsCreateMock },
-      repos: { listBranches: listBranchesMock },
+      repos: {
+        listBranches: listBranchesMock,
+        getBranch: getBranchMock,
+      },
+      git: { createRef: createRefMock },
     },
   }
 
@@ -369,6 +406,19 @@ test('createPr handles different base branch', async () => {
 
   const { createPr } = await import('../create-pr')
   await createPr(changepacks)
+
+  expect(getBranchMock).toHaveBeenCalledWith({
+    owner: 'acme',
+    repo: 'widgets',
+    branch: 'develop',
+  })
+
+  expect(createRefMock).toHaveBeenCalledWith({
+    owner: 'acme',
+    repo: 'widgets',
+    ref: 'refs/heads/changepacks/develop',
+    sha: 'def456',
+  })
 
   expect(execMock).toHaveBeenCalledWith(
     'git',
@@ -408,6 +458,106 @@ test('createPr handles different base branch', async () => {
     body: Object.values(changepacks).map(createBody).join('\n'),
     head: 'changepacks/develop',
     base: 'develop',
+  })
+
+  mock.module('@actions/exec', () => originalExec)
+  mock.module('@actions/core', () => originalCore)
+  mock.module('@actions/github', () => originalGithub)
+})
+
+test('createPr deletes existing head branch before creating new one', async () => {
+  const originalExec = { ...(await import('@actions/exec')) }
+  const originalCore = { ...(await import('@actions/core')) }
+  const originalGithub = { ...(await import('@actions/github')) }
+
+  const execMock = mock(async () => 0)
+  mock.module('@actions/exec', () => ({ exec: execMock }))
+
+  const debugMock = mock()
+  const getInputMock = mock((name: string) =>
+    name === 'token' ? 'TEST_TOKEN' : '',
+  )
+  mock.module('@actions/core', () => ({
+    getInput: getInputMock,
+    isDebug,
+    debug: debugMock,
+  }))
+
+  const listBranchesMock = mock(async () => ({
+    data: [{ name: 'main' }, { name: 'changepacks/main' }],
+  }))
+  const deleteRefMock = mock(async () => ({ data: {} }))
+  const getBranchMock = mock(async () => ({
+    data: { commit: { sha: 'abc123' } },
+  }))
+  const createRefMock = mock(async () => ({ data: {} }))
+  const pullsCreateMock = mock(async (_params: unknown) => ({ data: {} }))
+  const octokit = {
+    rest: {
+      pulls: { create: pullsCreateMock },
+      repos: {
+        listBranches: listBranchesMock,
+        getBranch: getBranchMock,
+      },
+      git: {
+        deleteRef: deleteRefMock,
+        createRef: createRefMock,
+      },
+    },
+  }
+
+  const contextMock = {
+    repo: { owner: 'acme', repo: 'widgets' },
+    ref: 'refs/heads/main',
+  }
+
+  const getOctokitMock = mock((_token: string) => octokit)
+  mock.module('@actions/github', () => ({
+    getOctokit: getOctokitMock,
+    context: contextMock,
+  }))
+
+  const changepacks: ChangepackResultMap = {
+    'packages/a/package.json': {
+      logs: [{ type: 'Patch', note: 'fix' }],
+      version: '1.0.0',
+      nextVersion: '1.0.1',
+      name: 'pkg-a',
+      path: 'packages/a/package.json',
+      changed: false,
+    },
+  }
+
+  const { createPr } = await import('../create-pr')
+  await createPr(changepacks)
+
+  expect(listBranchesMock).toHaveBeenCalledWith({
+    owner: 'acme',
+    repo: 'widgets',
+  })
+
+  expect(deleteRefMock).toHaveBeenCalledWith({
+    owner: 'acme',
+    repo: 'widgets',
+    ref: 'refs/heads/changepacks/main',
+  })
+
+  expect(debugMock).toHaveBeenCalledWith('delete branch: changepacks/main')
+  expect(debugMock).toHaveBeenCalledWith('get base branch: main')
+  expect(debugMock).toHaveBeenCalledWith('base branch commit: abc123')
+  expect(debugMock).toHaveBeenCalledWith('create branch: changepacks/main')
+
+  expect(getBranchMock).toHaveBeenCalledWith({
+    owner: 'acme',
+    repo: 'widgets',
+    branch: 'main',
+  })
+
+  expect(createRefMock).toHaveBeenCalledWith({
+    owner: 'acme',
+    repo: 'widgets',
+    ref: 'refs/heads/changepacks/main',
+    sha: 'abc123',
   })
 
   mock.module('@actions/exec', () => originalExec)
