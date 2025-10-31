@@ -45,14 +45,10 @@ export async function createPr(mainChangepacks: ChangepackResultMap) {
           silent: !isDebug(),
         },
       )
-      debug(`merging ${base} into ${head}`)
-      await exec(
-        'git',
-        ['merge', `origin/${base}`, '--no-edit', '--allow-unrelated-histories'],
-        {
-          silent: !isDebug(),
-        },
-      )
+      debug(`checking out .changepacks from ${base}`)
+      await exec('git', ['checkout', `origin/${base}`, '--', '.changepacks/'], {
+        silent: !isDebug(),
+      })
     } else {
       debug(`get base branch: ${base}`)
       const { data } = await octokit.rest.repos.getBranch({
