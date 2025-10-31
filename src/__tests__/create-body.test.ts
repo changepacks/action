@@ -1,39 +1,65 @@
 import { expect, test } from 'bun:test'
 import { createBody } from '../create-body'
 
-test('createBody includes reminder when changed=true and has logs', () => {
+test('createBody generates correct header with nextVersion', () => {
   const body = createBody({
-    logs: [
-      { type: 'Patch', note: 'fix x' },
-      { type: 'Minor', note: 'feat y' },
-    ],
+    logs: [],
     version: '1.0.0',
     nextVersion: '1.1.0',
     name: 'pkg',
     path: 'packages/pkg/package.json',
-    changed: true,
+    changed: false,
   })
-  expect(body).toContain('### Minor')
-  expect(body).toContain('### Patch')
-  expect(body).toContain(
-    'Maybe you forgot to write the following files to the latest version',
-  )
+  expect(body).toContain('## pkg@1.0.0 → 1.1.0 - packages/pkg/package.json')
 })
 
-test('createBody does not include reminder when changed=false or no logs', () => {
-  const bodyNoChange = createBody({
-    logs: [{ type: 'Patch', note: 'fix' }],
+test('createBody generates correct header without nextVersion', () => {
+  const body = createBody({
+    logs: [],
     version: '1.0.0',
-    nextVersion: '1.0.1',
+    nextVersion: null,
     name: 'pkg',
-    changed: false,
     path: 'packages/pkg/package.json',
+    changed: false,
   })
-  expect(bodyNoChange).not.toContain(
-    'Maybe you forgot to write the following files to the latest version',
-  )
+  expect(body).toContain('## pkg@1.0.0 - packages/pkg/package.json')
+})
 
-  const bodyNoLogs = createBody({
+test('createBody generates correct header with null name and version', () => {
+  const body = createBody({
+    logs: [],
+    version: null,
+    nextVersion: null,
+    name: null,
+    path: 'packages/pkg/package.json',
+    changed: false,
+  })
+  expect(body).toContain('## Unknown@Unknown - packages/pkg/package.json')
+})
+
+test('createBody includes Major, Minor, and Patch sections', () => {
+  const body = createBody({
+    logs: [
+      { type: 'Major', note: 'Breaking change' },
+      { type: 'Minor', note: 'New feature' },
+      { type: 'Patch', note: 'Bug fix' },
+    ],
+    version: '1.0.0',
+    nextVersion: '2.0.0',
+    name: 'pkg',
+    path: 'packages/pkg/package.json',
+    changed: false,
+  })
+  expect(body).toContain('### Major')
+  expect(body).toContain('- Breaking change')
+  expect(body).toContain('### Minor')
+  expect(body).toContain('- New feature')
+  expect(body).toContain('### Patch')
+  expect(body).toContain('- Bug fix')
+})
+
+test('createBody includes reminder when changed=true and no logs', () => {
+  const body = createBody({
     logs: [],
     version: '1.0.0',
     nextVersion: '1.0.1',
@@ -41,7 +67,37 @@ test('createBody does not include reminder when changed=false or no logs', () =>
     path: 'packages/pkg/package.json',
     changed: true,
   })
-  expect(bodyNoLogs).not.toContain(
+  expect(body).toContain(
+    'Maybe you forgot to write the following files to the latest version',
+  )
+})
+
+test('createBody does not include reminder when changed=true but has logs', () => {
+  const body = createBody({
+    logs: [{ type: 'Patch', note: 'fix x' }],
+    version: '1.0.0',
+    nextVersion: '1.0.1',
+    name: 'pkg',
+    path: 'packages/pkg/package.json',
+    changed: true,
+  })
+  expect(body).not.toContain(
+    'Maybe you forgot to write the following files to the latest version',
+  )
+  expect(body).toContain('### Patch')
+  expect(body).toContain('- fix x')
+})
+
+test('createBody does not include reminder when changed=false', () => {
+  const body = createBody({
+    logs: [],
+    version: '1.0.0',
+    nextVersion: '1.0.1',
+    name: 'pkg',
+    path: 'packages/pkg/package.json',
+    changed: false,
+  })
+  expect(body).not.toContain(
     'Maybe you forgot to write the following files to the latest version',
   )
 })

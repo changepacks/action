@@ -27,7 +27,9 @@ export function createBody(changepack: ChangepackResult): string {
   }
   if (
     changepack.changed &&
-    (majorLogs.length > 0 || minorLogs.length > 0 || patchLogs.length > 0)
+    majorLogs.length === 0 &&
+    minorLogs.length === 0 &&
+    patchLogs.length === 0
   ) {
     // Maybe you forgot to write the following files to the latest version:
     logs.push(
