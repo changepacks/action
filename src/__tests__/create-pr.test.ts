@@ -233,7 +233,7 @@ test('createPr updates existing branch and updates PR comment when PR exists', a
   )
   expect(execMock).toHaveBeenCalledWith(
     'git',
-    ['merge', 'origin/main', '--no-edit'],
+    ['merge', 'origin/main', '--no-edit', '--allow-unrelated-histories'],
     { silent: !isDebug() },
   )
 
@@ -964,7 +964,7 @@ test('createPr merges base into existing head when branch exists', async () => {
   )
   expect(execMock).toHaveBeenCalledWith(
     'git',
-    ['merge', 'origin/main', '--no-edit'],
+    ['merge', 'origin/main', '--no-edit', '--allow-unrelated-histories'],
     { silent: !isDebug() },
   )
 
