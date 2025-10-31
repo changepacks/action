@@ -79,8 +79,11 @@ export async function createPr(mainChangepacks: ChangepackResultMap) {
     if (
       !Object.values(changepacks).every((changepack) => !changepack.nextVersion)
     ) {
-      debug(`add changepacks`)
-      await exec('git', ['add', '.changepacks'], {
+      debug(`add all files except changepacks binary`)
+      await exec('git', ['add', '.'], {
+        silent: !isDebug(),
+      })
+      await exec('git', ['reset', '--', 'changepacks', 'changepacks.exe'], {
         silent: !isDebug(),
       })
       debug(`configure git user`)
