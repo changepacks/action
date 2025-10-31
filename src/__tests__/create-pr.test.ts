@@ -83,7 +83,7 @@ test('createPr runs update and opens PR with formatted body', async () => {
   const runChpacksMock = mock(async (_cmd: 'check' | 'update') => changepacks)
   mock.module('../run-changepacks', () => ({ runChangepacks: runChpacksMock }))
   const { createPr } = await import('../create-pr')
-  await createPr()
+  await createPr(changepacks)
 
   // branch does not exist path
   expect(getBranchHeadMock).toHaveBeenCalled()
@@ -217,7 +217,7 @@ test('createPr updates existing branch and updates PR comment when PR exists', a
   const runChpacksMock2 = mock(async (_cmd: 'check' | 'update') => changepacks)
   mock.module('../run-changepacks', () => ({ runChangepacks: runChpacksMock2 }))
   const { createPr } = await import('../create-pr')
-  await createPr()
+  await createPr(changepacks)
 
   // branch exists path
   expect(getBranchHeadMock).toHaveBeenCalled()
@@ -353,7 +353,7 @@ test('createPr updates existing PR comment when PR exists with existing comment'
   const runChpacksMock3 = mock(async (_cmd: 'check' | 'update') => changepacks)
   mock.module('../run-changepacks', () => ({ runChangepacks: runChpacksMock3 }))
   const { createPr } = await import('../create-pr')
-  await createPr()
+  await createPr(changepacks)
 
   expect(pullsListMock).toHaveBeenCalledWith({
     owner: 'acme',
@@ -447,7 +447,7 @@ test('createPr creates branch and opens PR when none exists', async () => {
   const runChpacksMock4 = mock(async (_cmd: 'check' | 'update') => changepacks)
   mock.module('../run-changepacks', () => ({ runChangepacks: runChpacksMock4 }))
   const { createPr } = await import('../create-pr')
-  await createPr()
+  await createPr(changepacks)
 
   // branch create path
   expect(getBranchHeadMock).toHaveBeenCalled()
@@ -586,7 +586,7 @@ test('createPr logs error and sets failed on API failure', async () => {
   const runChpacksMock5 = mock(async (_cmd: 'check' | 'update') => changepacks)
   mock.module('../run-changepacks', () => ({ runChangepacks: runChpacksMock5 }))
   const { createPr } = await import('../create-pr')
-  await createPr()
+  await createPr(changepacks)
 
   expect(pullsListMock).toHaveBeenCalledWith({
     owner: 'acme',
@@ -673,7 +673,7 @@ test('createPr creates branch when head branch does not exist', async () => {
   const runChpacksMock6 = mock(async (_cmd: 'check' | 'update') => changepacks)
   mock.module('../run-changepacks', () => ({ runChangepacks: runChpacksMock6 }))
   const { createPr } = await import('../create-pr')
-  await createPr()
+  await createPr(changepacks)
 
   expect(getBranchHeadMock).toHaveBeenCalled()
   expect(getBranchBaseMock).toHaveBeenCalled()
@@ -813,7 +813,7 @@ test('createPr handles different base branch', async () => {
   const runChpacksMock7 = mock(async (_cmd: 'check' | 'update') => changepacks)
   mock.module('../run-changepacks', () => ({ runChangepacks: runChpacksMock7 }))
   const { createPr } = await import('../create-pr')
-  await createPr()
+  await createPr(changepacks)
 
   expect(getBranchHeadMock).toHaveBeenCalled()
   expect(getBranchBaseMock).toHaveBeenCalled()
@@ -949,7 +949,7 @@ test('createPr merges base into existing head when branch exists', async () => {
   const runChpacksMock8 = mock(async (_cmd: 'check' | 'update') => changepacks)
   mock.module('../run-changepacks', () => ({ runChangepacks: runChpacksMock8 }))
   const { createPr } = await import('../create-pr')
-  await createPr()
+  await createPr(changepacks)
 
   expect(getBranchHeadMock).toHaveBeenCalled()
   expect(execMock).toHaveBeenCalledWith(
@@ -1063,7 +1063,7 @@ test('createPr returns early when all changepacks have no nextVersion', async ()
     runChangepacks: runChpacksMockSkip,
   }))
   const { createPr } = await import('../create-pr')
-  await createPr()
+  await createPr(changepacks)
 
   // branch creation should happen
   expect(getBranchHeadMock).toHaveBeenCalled()

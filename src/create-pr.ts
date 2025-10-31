@@ -3,8 +3,9 @@ import { exec } from '@actions/exec'
 import { context, getOctokit } from '@actions/github'
 import { createBody } from './create-body'
 import { runChangepacks } from './run-changepacks'
+import type { ChangepackResultMap } from './types'
 
-export async function createPr() {
+export async function createPr(mainChangepacks: ChangepackResultMap) {
   const base = context.ref.replace(/^refs\/heads\//, '')
   const head = `changepacks/${base}`
 
@@ -100,9 +101,8 @@ export async function createPr() {
       state: 'open',
     })
 
-    const bodyText = Object.values(changepacks).map(createBody).join('\n')
-
     if (pulls.length > 0) {
+      const bodyText = Object.values(changepacks).map(createBody).join('\n')
       const prNumber = pulls[0].number
       debug(`PR #${prNumber} exists, updating comment`)
       const comments = await octokit.rest.issues.listComments({
@@ -135,6 +135,8 @@ export async function createPr() {
       }
     } else {
       debug(`creating new PR`)
+
+      const bodyText = Object.values(mainChangepacks).map(createBody).join('\n')
       await octokit.rest.pulls.create({
         owner: context.repo.owner,
         repo: context.repo.repo,

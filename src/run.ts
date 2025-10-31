@@ -17,7 +17,7 @@ export async function run() {
   if (
     Object.values(changepacks).some((changepack) => !!changepack.nextVersion)
   ) {
-    await createPr()
+    await createPr(changepacks)
   } else {
     const pastChangepacks = await checkPastChangepacks()
     if (Object.keys(pastChangepacks).length > 0) {
