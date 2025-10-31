@@ -15,16 +15,17 @@ export async function createPr(changepacks: ChangepackResultMap) {
   )
 
   const octokit = getOctokit(getInput('token'))
-  debug(`create pr: ${JSON.stringify(changepacks)}`)
+  const body = {
+    owner: context.repo.owner,
+    repo: context.repo.repo,
+    title: 'Update Versions',
+    body: Object.values(changepacks).map(createBody).join('\n'),
+    head: 'changepacks',
+    base: context.ref.replace(/^refs\/heads\//, ''),
+  }
+  debug(`create pr: ${JSON.stringify(body)}`)
   try {
-    await octokit.rest.pulls.create({
-      owner: context.repo.owner,
-      repo: context.repo.repo,
-      title: 'Update Versions',
-      body: Object.values(changepacks).map(createBody).join('\n'),
-      head: `${context.repo.repo}:changepacks`,
-      base: context.ref,
-    })
+    await octokit.rest.pulls.create(body)
   } catch (err: unknown) {
     error('create pr failed')
     setFailed(err as Error)
