@@ -45,5 +45,6 @@ export async function runChangepacks(
       silent: !isDebug(),
     },
   )
+  debug(`changepacks output: ${output}`)
   return JSON.parse(output)
 }
