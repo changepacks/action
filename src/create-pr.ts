@@ -5,6 +5,32 @@ import { createBody } from './create-body'
 import type { ChangepackResultMap } from './types'
 
 export async function createPr(changepacks: ChangepackResultMap) {
+  const base = context.ref.replace(/^refs\/heads\//, '')
+  const head = `changepacks/${base}`
+
+  const octokit = getOctokit(getInput('token'))
+
+  // Get base branch info
+  const { data: branches } = await octokit.rest.repos.listBranches({
+    repo: context.repo.repo,
+    owner: context.repo.owner,
+  })
+  if (!branches.some((branch) => branch.name === 'dev')) {
+    const { data } = await octokit.rest.repos.getBranch({
+      repo: context.repo.repo,
+      owner: context.repo.owner,
+      branch: base,
+    })
+    await octokit.rest.git.createRef({
+      owner: context.repo.owner,
+      repo: context.repo.repo,
+      ref: `refs/heads/${head}`,
+      sha: data.commit.sha,
+    })
+  }
+
+  await exec('git', ['checkout', '-b', head])
+
   await exec(
     './changepacks',
     ['update', '--format', 'json', '-y'],
@@ -13,15 +39,18 @@ export async function createPr(changepacks: ChangepackResultMap) {
       silent: !isDebug(),
     },
   )
+  // switch to head branch
+  await exec('git', ['add', '.'])
+  await exec('git', ['commit', '-m', 'Update Versions'])
+  await exec('git', ['push', 'origin', head])
 
-  const octokit = getOctokit(getInput('token'))
   const body = {
     owner: context.repo.owner,
     repo: context.repo.repo,
     title: 'Update Versions',
     body: Object.values(changepacks).map(createBody).join('\n'),
-    head: 'changepacks',
-    base: context.ref.replace(/^refs\/heads\//, ''),
+    head,
+    base,
   }
   debug(`create pr: ${JSON.stringify(body)}`)
   try {
