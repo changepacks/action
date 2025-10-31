@@ -21,9 +21,9 @@ test('createPr runs update and opens PR with formatted body', async () => {
     debug: debugMock,
   }))
 
-  const listBranchesMock = mock(async () => ({
-    data: [{ name: 'main' }, { name: 'dev' }],
-  }))
+  const deleteRefMock = mock(async () => {
+    throw new Error('Reference does not exist')
+  })
   const getBranchMock = mock(async () => ({
     data: { commit: { sha: 'abc123' } },
   }))
@@ -33,10 +33,12 @@ test('createPr runs update and opens PR with formatted body', async () => {
     rest: {
       pulls: { create: pullsCreateMock },
       repos: {
-        listBranches: listBranchesMock,
         getBranch: getBranchMock,
       },
-      git: { createRef: createRefMock },
+      git: {
+        deleteRef: deleteRefMock,
+        createRef: createRefMock,
+      },
     },
   }
 
@@ -78,9 +80,10 @@ test('createPr runs update and opens PR with formatted body', async () => {
   const { createPr } = await import('../create-pr')
   await createPr(changepacks)
 
-  expect(listBranchesMock).toHaveBeenCalledWith({
+  expect(deleteRefMock).toHaveBeenCalledWith({
     owner: 'acme',
     repo: 'widgets',
+    ref: 'refs/heads/changepacks/main',
   })
 
   expect(getBranchMock).toHaveBeenCalledWith({
@@ -165,9 +168,9 @@ test('createPr logs error and sets failed on API failure', async () => {
     debug: debugMock,
   }))
 
-  const listBranchesMock = mock(async () => ({
-    data: [{ name: 'main' }, { name: 'dev' }],
-  }))
+  const deleteRefMock = mock(async () => {
+    throw new Error('Reference does not exist')
+  })
   const getBranchMock = mock(async () => ({
     data: { commit: { sha: 'abc123' } },
   }))
@@ -179,10 +182,12 @@ test('createPr logs error and sets failed on API failure', async () => {
     rest: {
       pulls: { create: pullsCreateMock },
       repos: {
-        listBranches: listBranchesMock,
         getBranch: getBranchMock,
       },
-      git: { createRef: createRefMock },
+      git: {
+        deleteRef: deleteRefMock,
+        createRef: createRefMock,
+      },
     },
   }
   const contextMock = {
@@ -238,9 +243,9 @@ test('createPr creates branch when head branch does not exist', async () => {
     debug: debugMock,
   }))
 
-  const listBranchesMock = mock(async () => ({
-    data: [{ name: 'main' }],
-  }))
+  const deleteRefMock = mock(async () => {
+    throw new Error('Reference does not exist')
+  })
   const getBranchMock = mock(async () => ({
     data: { commit: { sha: 'abc123' } },
   }))
@@ -250,10 +255,12 @@ test('createPr creates branch when head branch does not exist', async () => {
     rest: {
       pulls: { create: pullsCreateMock },
       repos: {
-        listBranches: listBranchesMock,
         getBranch: getBranchMock,
       },
-      git: { createRef: createRefMock },
+      git: {
+        deleteRef: deleteRefMock,
+        createRef: createRefMock,
+      },
     },
   }
 
@@ -282,9 +289,10 @@ test('createPr creates branch when head branch does not exist', async () => {
   const { createPr } = await import('../create-pr')
   await createPr(changepacks)
 
-  expect(listBranchesMock).toHaveBeenCalledWith({
+  expect(deleteRefMock).toHaveBeenCalledWith({
     owner: 'acme',
     repo: 'widgets',
+    ref: 'refs/heads/changepacks/main',
   })
 
   expect(getBranchMock).toHaveBeenCalledWith({
@@ -363,9 +371,9 @@ test('createPr handles different base branch', async () => {
     debug: debugMock,
   }))
 
-  const listBranchesMock = mock(async () => ({
-    data: [{ name: 'develop' }, { name: 'dev' }],
-  }))
+  const deleteRefMock = mock(async () => {
+    throw new Error('Reference does not exist')
+  })
   const getBranchMock = mock(async () => ({
     data: { commit: { sha: 'def456' } },
   }))
@@ -375,10 +383,12 @@ test('createPr handles different base branch', async () => {
     rest: {
       pulls: { create: pullsCreateMock },
       repos: {
-        listBranches: listBranchesMock,
         getBranch: getBranchMock,
       },
-      git: { createRef: createRefMock },
+      git: {
+        deleteRef: deleteRefMock,
+        createRef: createRefMock,
+      },
     },
   }
 
@@ -406,6 +416,12 @@ test('createPr handles different base branch', async () => {
 
   const { createPr } = await import('../create-pr')
   await createPr(changepacks)
+
+  expect(deleteRefMock).toHaveBeenCalledWith({
+    owner: 'acme',
+    repo: 'widgets',
+    ref: 'refs/heads/changepacks/develop',
+  })
 
   expect(getBranchMock).toHaveBeenCalledWith({
     owner: 'acme',
@@ -483,9 +499,6 @@ test('createPr deletes existing head branch before creating new one', async () =
     debug: debugMock,
   }))
 
-  const listBranchesMock = mock(async () => ({
-    data: [{ name: 'main' }, { name: 'changepacks/main' }],
-  }))
   const deleteRefMock = mock(async () => ({ data: {} }))
   const getBranchMock = mock(async () => ({
     data: { commit: { sha: 'abc123' } },
@@ -496,7 +509,6 @@ test('createPr deletes existing head branch before creating new one', async () =
     rest: {
       pulls: { create: pullsCreateMock },
       repos: {
-        listBranches: listBranchesMock,
         getBranch: getBranchMock,
       },
       git: {
@@ -531,18 +543,18 @@ test('createPr deletes existing head branch before creating new one', async () =
   const { createPr } = await import('../create-pr')
   await createPr(changepacks)
 
-  expect(listBranchesMock).toHaveBeenCalledWith({
-    owner: 'acme',
-    repo: 'widgets',
-  })
-
   expect(deleteRefMock).toHaveBeenCalledWith({
     owner: 'acme',
     repo: 'widgets',
     ref: 'refs/heads/changepacks/main',
   })
 
-  expect(debugMock).toHaveBeenCalledWith('delete branch: changepacks/main')
+  expect(debugMock).toHaveBeenCalledWith(
+    'attempting to delete branch: changepacks/main',
+  )
+  expect(debugMock).toHaveBeenCalledWith(
+    'deleted existing branch: changepacks/main',
+  )
   expect(debugMock).toHaveBeenCalledWith('get base branch: main')
   expect(debugMock).toHaveBeenCalledWith('base branch commit: abc123')
   expect(debugMock).toHaveBeenCalledWith('create branch: changepacks/main')

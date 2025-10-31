@@ -11,20 +11,17 @@ export async function createPr(changepacks: ChangepackResultMap) {
   const octokit = getOctokit(getInput('token'))
 
   try {
-    // Get base branch info
-    const { data: branches } = await octokit.rest.repos.listBranches({
-      repo: context.repo.repo,
-      owner: context.repo.owner,
-    })
-    const hasBaseBranch = branches.some((branch) => branch.name === head)
-    debug(`hasBaseBranch: ${hasBaseBranch}`)
-    if (hasBaseBranch) {
-      debug(`delete branch: ${head}`)
+    // Try to delete existing head branch if it exists
+    debug(`attempting to delete branch: ${head}`)
+    try {
       await octokit.rest.git.deleteRef({
         owner: context.repo.owner,
         repo: context.repo.repo,
         ref: `refs/heads/${head}`,
       })
+      debug(`deleted existing branch: ${head}`)
+    } catch {
+      debug(`branch ${head} does not exist or already deleted`)
     }
     debug(`get base branch: ${base}`)
     const { data } = await octokit.rest.repos.getBranch({
