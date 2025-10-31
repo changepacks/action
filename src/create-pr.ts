@@ -29,31 +29,34 @@ export async function createPr(changepacks: ChangepackResultMap) {
     })
   }
 
-  await exec('git', ['checkout', '-b', head])
-
-  await exec(
-    './changepacks',
-    ['update', '--format', 'json', '-y'],
-
-    {
-      silent: !isDebug(),
-    },
-  )
-  // switch to head branch
-  await exec('git', ['add', '.'])
-  await exec('git', ['commit', '-m', 'Update Versions'])
-  await exec('git', ['push', 'origin', head])
-
-  const body = {
-    owner: context.repo.owner,
-    repo: context.repo.repo,
-    title: 'Update Versions',
-    body: Object.values(changepacks).map(createBody).join('\n'),
-    head,
-    base,
-  }
-  debug(`create pr: ${JSON.stringify(body)}`)
   try {
+    await exec('git', ['checkout', '-b', head], {
+      silent: !isDebug(),
+    })
+
+    await exec('./changepacks', ['update', '--format', 'json', '-y'], {
+      silent: !isDebug(),
+    })
+    // switch to head branch
+    await exec('git', ['add', '.'], {
+      silent: !isDebug(),
+    })
+    await exec('git', ['commit', '-m', 'Update Versions'], {
+      silent: !isDebug(),
+    })
+    await exec('git', ['push', 'origin', head], {
+      silent: !isDebug(),
+    })
+
+    const body = {
+      owner: context.repo.owner,
+      repo: context.repo.repo,
+      title: 'Update Versions',
+      body: Object.values(changepacks).map(createBody).join('\n'),
+      head,
+      base,
+    }
+    debug(`create pr: ${JSON.stringify(body)}`)
     await octokit.rest.pulls.create(body)
   } catch (err: unknown) {
     error('create pr failed')

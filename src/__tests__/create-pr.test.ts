@@ -75,11 +75,13 @@ test('createPr runs update and opens PR with formatted body', async () => {
     repo: 'widgets',
   })
 
-  expect(execMock).toHaveBeenCalledWith('git', [
-    'checkout',
-    '-b',
-    'changepacks/main',
-  ])
+  expect(execMock).toHaveBeenCalledWith(
+    'git',
+    ['checkout', '-b', 'changepacks/main'],
+    {
+      silent: !isDebug(),
+    },
+  )
   expect(execMock).toHaveBeenCalledWith(
     './changepacks',
     ['update', '--format', 'json', '-y'],
@@ -87,17 +89,23 @@ test('createPr runs update and opens PR with formatted body', async () => {
       silent: !isDebug(),
     },
   )
-  expect(execMock).toHaveBeenCalledWith('git', ['add', '.'])
-  expect(execMock).toHaveBeenCalledWith('git', [
-    'commit',
-    '-m',
-    'Update Versions',
-  ])
-  expect(execMock).toHaveBeenCalledWith('git', [
-    'push',
-    'origin',
-    'changepacks/main',
-  ])
+  expect(execMock).toHaveBeenCalledWith('git', ['add', '.'], {
+    silent: !isDebug(),
+  })
+  expect(execMock).toHaveBeenCalledWith(
+    'git',
+    ['commit', '-m', 'Update Versions'],
+    {
+      silent: !isDebug(),
+    },
+  )
+  expect(execMock).toHaveBeenCalledWith(
+    'git',
+    ['push', 'origin', 'changepacks/main'],
+    {
+      silent: !isDebug(),
+    },
+  )
 
   expect(pullsCreateMock).toHaveBeenCalledWith({
     owner: 'acme',
@@ -263,11 +271,37 @@ test('createPr creates branch when dev branch does not exist', async () => {
     sha: 'abc123',
   })
 
-  expect(execMock).toHaveBeenCalledWith('git', [
-    'checkout',
-    '-b',
-    'changepacks/main',
-  ])
+  expect(execMock).toHaveBeenCalledWith(
+    'git',
+    ['checkout', '-b', 'changepacks/main'],
+    {
+      silent: !isDebug(),
+    },
+  )
+  expect(execMock).toHaveBeenCalledWith(
+    './changepacks',
+    ['update', '--format', 'json', '-y'],
+    {
+      silent: !isDebug(),
+    },
+  )
+  expect(execMock).toHaveBeenCalledWith('git', ['add', '.'], {
+    silent: !isDebug(),
+  })
+  expect(execMock).toHaveBeenCalledWith(
+    'git',
+    ['commit', '-m', 'Update Versions'],
+    {
+      silent: !isDebug(),
+    },
+  )
+  expect(execMock).toHaveBeenCalledWith(
+    'git',
+    ['push', 'origin', 'changepacks/main'],
+    {
+      silent: !isDebug(),
+    },
+  )
   expect(pullsCreateMock).toHaveBeenCalledWith({
     owner: 'acme',
     repo: 'widgets',
@@ -336,11 +370,37 @@ test('createPr handles different base branch', async () => {
   const { createPr } = await import('../create-pr')
   await createPr(changepacks)
 
-  expect(execMock).toHaveBeenCalledWith('git', [
-    'checkout',
-    '-b',
-    'changepacks/develop',
-  ])
+  expect(execMock).toHaveBeenCalledWith(
+    'git',
+    ['checkout', '-b', 'changepacks/develop'],
+    {
+      silent: !isDebug(),
+    },
+  )
+  expect(execMock).toHaveBeenCalledWith(
+    './changepacks',
+    ['update', '--format', 'json', '-y'],
+    {
+      silent: !isDebug(),
+    },
+  )
+  expect(execMock).toHaveBeenCalledWith('git', ['add', '.'], {
+    silent: !isDebug(),
+  })
+  expect(execMock).toHaveBeenCalledWith(
+    'git',
+    ['commit', '-m', 'Update Versions'],
+    {
+      silent: !isDebug(),
+    },
+  )
+  expect(execMock).toHaveBeenCalledWith(
+    'git',
+    ['push', 'origin', 'changepacks/develop'],
+    {
+      silent: !isDebug(),
+    },
+  )
   expect(pullsCreateMock).toHaveBeenCalledWith({
     owner: 'acme',
     repo: 'widgets',
