@@ -50,6 +50,17 @@ export async function createPr(changepacks: ChangepackResultMap) {
     await exec('git', ['add', '.'], {
       silent: !isDebug(),
     })
+    debug(`configure git user`)
+    await exec('git', ['config', 'user.name', 'changepacks'], {
+      silent: !isDebug(),
+    })
+    await exec(
+      'git',
+      ['config', 'user.email', 'changepacks@users.noreply.github.com'],
+      {
+        silent: !isDebug(),
+      },
+    )
     debug(`commit changepacks`)
     await exec('git', ['commit', '-m', 'Update Versions'], {
       silent: !isDebug(),

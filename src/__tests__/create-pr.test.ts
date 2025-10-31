@@ -118,6 +118,20 @@ test('createPr runs update and opens PR with formatted body', async () => {
   })
   expect(execMock).toHaveBeenCalledWith(
     'git',
+    ['config', 'user.name', 'changepacks'],
+    {
+      silent: !isDebug(),
+    },
+  )
+  expect(execMock).toHaveBeenCalledWith(
+    'git',
+    ['config', 'user.email', 'changepacks@users.noreply.github.com'],
+    {
+      silent: !isDebug(),
+    },
+  )
+  expect(execMock).toHaveBeenCalledWith(
+    'git',
     ['commit', '-m', 'Update Versions'],
     {
       silent: !isDebug(),
@@ -327,6 +341,20 @@ test('createPr creates branch when head branch does not exist', async () => {
   })
   expect(execMock).toHaveBeenCalledWith(
     'git',
+    ['config', 'user.name', 'changepacks'],
+    {
+      silent: !isDebug(),
+    },
+  )
+  expect(execMock).toHaveBeenCalledWith(
+    'git',
+    ['config', 'user.email', 'changepacks@users.noreply.github.com'],
+    {
+      silent: !isDebug(),
+    },
+  )
+  expect(execMock).toHaveBeenCalledWith(
+    'git',
     ['commit', '-m', 'Update Versions'],
     {
       silent: !isDebug(),
@@ -453,6 +481,20 @@ test('createPr handles different base branch', async () => {
   expect(execMock).toHaveBeenCalledWith('git', ['add', '.'], {
     silent: !isDebug(),
   })
+  expect(execMock).toHaveBeenCalledWith(
+    'git',
+    ['config', 'user.name', 'changepacks'],
+    {
+      silent: !isDebug(),
+    },
+  )
+  expect(execMock).toHaveBeenCalledWith(
+    'git',
+    ['config', 'user.email', 'changepacks@users.noreply.github.com'],
+    {
+      silent: !isDebug(),
+    },
+  )
   expect(execMock).toHaveBeenCalledWith(
     'git',
     ['commit', '-m', 'Update Versions'],
