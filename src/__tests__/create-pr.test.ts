@@ -233,6 +233,16 @@ test('createPr updates existing branch and updates PR comment when PR exists', a
   )
   expect(execMock).toHaveBeenCalledWith(
     'git',
+    ['config', 'user.name', 'changepacks'],
+    { silent: !isDebug() },
+  )
+  expect(execMock).toHaveBeenCalledWith(
+    'git',
+    ['config', 'user.email', 'changepacks@users.noreply.github.com'],
+    { silent: !isDebug() },
+  )
+  expect(execMock).toHaveBeenCalledWith(
+    'git',
     ['merge', 'origin/main', '--no-edit', '--allow-unrelated-histories'],
     { silent: !isDebug() },
   )
@@ -960,6 +970,16 @@ test('createPr merges base into existing head when branch exists', async () => {
   expect(execMock).toHaveBeenCalledWith(
     'git',
     ['checkout', '-f', 'changepacks/main'],
+    { silent: !isDebug() },
+  )
+  expect(execMock).toHaveBeenCalledWith(
+    'git',
+    ['config', 'user.name', 'changepacks'],
+    { silent: !isDebug() },
+  )
+  expect(execMock).toHaveBeenCalledWith(
+    'git',
+    ['config', 'user.email', 'changepacks@users.noreply.github.com'],
     { silent: !isDebug() },
   )
   expect(execMock).toHaveBeenCalledWith(

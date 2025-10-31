@@ -34,6 +34,17 @@ export async function createPr(mainChangepacks: ChangepackResultMap) {
       await exec('git', ['checkout', '-f', head], {
         silent: !isDebug(),
       })
+      debug(`configure git user`)
+      await exec('git', ['config', 'user.name', 'changepacks'], {
+        silent: !isDebug(),
+      })
+      await exec(
+        'git',
+        ['config', 'user.email', 'changepacks@users.noreply.github.com'],
+        {
+          silent: !isDebug(),
+        },
+      )
       debug(`merging ${base} into ${head}`)
       await exec(
         'git',
