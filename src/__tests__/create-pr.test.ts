@@ -70,7 +70,7 @@ test('createPr runs update and opens PR with formatted body', async () => {
     repo: 'widgets',
     title: 'Update Versions',
     body: expectedBody,
-    head: 'changepacks',
+    head: 'widgets:changepacks',
     base: 'refs/heads/main',
   })
 

@@ -22,7 +22,7 @@ export async function createPr(changepacks: ChangepackResultMap) {
       repo: context.repo.repo,
       title: 'Update Versions',
       body: Object.values(changepacks).map(createBody).join('\n'),
-      head: 'changepacks',
+      head: `${context.repo.repo}:changepacks`,
       base: context.ref,
     })
   } catch (err: unknown) {
