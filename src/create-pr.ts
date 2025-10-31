@@ -155,7 +155,7 @@ export async function createPr(mainChangepacks: ChangepackResultMap) {
         owner: context.repo.owner,
         repo: context.repo.repo,
         title: 'Update Versions',
-        body: bodyText,
+        body: `# Changepacks\n${bodyText}`,
         head,
         base,
       })

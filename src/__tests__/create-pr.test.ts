@@ -153,7 +153,7 @@ test('createPr runs update and opens PR with formatted body', async () => {
     owner: 'acme',
     repo: 'widgets',
     title: 'Update Versions',
-    body: expectedBody,
+    body: `# Changepacks\n${expectedBody}`,
     head: 'changepacks/main',
     base: 'main',
   })
@@ -774,7 +774,7 @@ test('createPr creates branch when head branch does not exist', async () => {
     owner: 'acme',
     repo: 'widgets',
     title: 'Update Versions',
-    body: Object.values(changepacks).map(createBody).join('\n'),
+    body: `# Changepacks\n${Object.values(changepacks).map(createBody).join('\n')}`,
     head: 'changepacks/main',
     base: 'main',
   })
@@ -927,7 +927,7 @@ test('createPr handles different base branch', async () => {
     owner: 'acme',
     repo: 'widgets',
     title: 'Update Versions',
-    body: Object.values(changepacks).map(createBody).join('\n'),
+    body: `# Changepacks\n${Object.values(changepacks).map(createBody).join('\n')}`,
     head: 'changepacks/develop',
     base: 'develop',
   })
