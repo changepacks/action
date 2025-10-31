@@ -100,7 +100,7 @@ test('createPr runs update and opens PR with formatted body', async () => {
   )
   expect(execMock).toHaveBeenCalledWith(
     'git',
-    ['checkout', '-b', 'changepacks/main', 'origin/changepacks/main'],
+    ['checkout', '-f', '-b', 'changepacks/main', 'origin/changepacks/main'],
     { silent: !isDebug() },
   )
   expect(execMock).toHaveBeenCalledWith('git', ['add', '.changepacks'], {
@@ -228,7 +228,7 @@ test('createPr updates existing branch and updates PR comment when PR exists', a
   )
   expect(execMock).toHaveBeenCalledWith(
     'git',
-    ['checkout', 'changepacks/main'],
+    ['checkout', '-f', 'changepacks/main'],
     { silent: !isDebug() },
   )
   expect(execMock).toHaveBeenCalledWith(
@@ -465,7 +465,7 @@ test('createPr creates branch and opens PR when none exists', async () => {
   )
   expect(execMock).toHaveBeenCalledWith(
     'git',
-    ['checkout', '-b', 'changepacks/main', 'origin/changepacks/main'],
+    ['checkout', '-f', '-b', 'changepacks/main', 'origin/changepacks/main'],
     { silent: !isDebug() },
   )
 
@@ -691,7 +691,7 @@ test('createPr creates branch when head branch does not exist', async () => {
   )
   expect(execMock).toHaveBeenCalledWith(
     'git',
-    ['checkout', '-b', 'changepacks/main', 'origin/changepacks/main'],
+    ['checkout', '-f', '-b', 'changepacks/main', 'origin/changepacks/main'],
     { silent: !isDebug() },
   )
   expect(execMock).toHaveBeenCalledWith('git', ['add', '.changepacks'], {
@@ -831,7 +831,13 @@ test('createPr handles different base branch', async () => {
   )
   expect(execMock).toHaveBeenCalledWith(
     'git',
-    ['checkout', '-b', 'changepacks/develop', 'origin/changepacks/develop'],
+    [
+      'checkout',
+      '-f',
+      '-b',
+      'changepacks/develop',
+      'origin/changepacks/develop',
+    ],
     { silent: !isDebug() },
   )
   expect(execMock).toHaveBeenCalledWith('git', ['add', '.changepacks'], {
@@ -953,7 +959,7 @@ test('createPr merges base into existing head when branch exists', async () => {
   )
   expect(execMock).toHaveBeenCalledWith(
     'git',
-    ['checkout', 'changepacks/main'],
+    ['checkout', '-f', 'changepacks/main'],
     { silent: !isDebug() },
   )
   expect(execMock).toHaveBeenCalledWith(

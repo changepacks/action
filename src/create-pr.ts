@@ -30,7 +30,7 @@ export async function createPr() {
       await exec('git', ['fetch', 'origin', head], {
         silent: !isDebug(),
       })
-      await exec('git', ['checkout', head], {
+      await exec('git', ['checkout', '-f', head], {
         silent: !isDebug(),
       })
       debug(`merging ${base} into ${head}`)
@@ -55,7 +55,7 @@ export async function createPr() {
       await exec('git', ['fetch', 'origin', head], {
         silent: !isDebug(),
       })
-      await exec('git', ['checkout', '-b', head, `origin/${head}`], {
+      await exec('git', ['checkout', '-f', '-b', head, `origin/${head}`], {
         silent: !isDebug(),
       })
     }
