@@ -1,4 +1,5 @@
 import {
+  debug,
   error,
   getBooleanInput,
   getInput,
@@ -26,10 +27,11 @@ export async function createRelease(changepacks: ChangepackResultMap) {
           ref: `refs/tags/${tagName}`,
           sha: context.sha,
         })
+        debug(`created ref: ${tagName}`)
         const release = await octokit.rest.repos.createRelease({
           owner: context.repo.owner,
           repo: context.repo.repo,
-          title: tagName,
+          name: tagName,
           body: createBody(changepack),
           tag_name: tagName,
           target_commitish: context.ref,

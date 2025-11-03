@@ -85,7 +85,7 @@ test('createRelease sets output and creates releases per project', async () => {
   expect(createReleaseMock).toHaveBeenCalledWith({
     owner: 'acme',
     repo: 'widgets',
-    title: 'a(packages/a/package.json)@1.1.0',
+    name: 'a(packages/a/package.json)@1.1.0',
     body: createBody(changepacks['packages/a/package.json']),
     tag_name: 'a(packages/a/package.json)@1.1.0',
     target_commitish: 'refs/heads/main',
@@ -93,7 +93,7 @@ test('createRelease sets output and creates releases per project', async () => {
   expect(createReleaseMock).toHaveBeenCalledWith({
     owner: 'acme',
     repo: 'widgets',
-    title: 'b(packages/b/package.json)@2.0.1',
+    name: 'b(packages/b/package.json)@2.0.1',
     body: createBody(changepacks['packages/b/package.json']),
     tag_name: 'b(packages/b/package.json)@2.0.1',
     target_commitish: 'refs/heads/main',
