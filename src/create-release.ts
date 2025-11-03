@@ -20,18 +20,18 @@ export async function createRelease(changepacks: ChangepackResultMap) {
     const releasePromises = Object.entries(changepacks)
       .filter(([_, changepack]) => !!changepack.nextVersion)
       .map(async ([projectPath, changepack]) => {
+        const tagName = `${changepack.name}(${changepack.path})@${changepack.nextVersion}`
         await octokit.rest.git.createRef({
           ...context.repo,
-          ref: `refs/tags/${changepack.name}-${changepack.path}@${changepack.nextVersion}`,
+          ref: `refs/tags/${tagName}`,
           sha: context.sha,
         })
         const release = await octokit.rest.repos.createRelease({
           owner: context.repo.owner,
           repo: context.repo.repo,
-          title: `${changepack.name}-${changepack.path}@${changepack.nextVersion}`,
+          title: tagName,
           body: createBody(changepack),
-          // biome-ignore lint/style/noNonNullAssertion: filter
-          tag_name: changepack.nextVersion!,
+          tag_name: tagName,
           target_commitish: context.ref,
         })
         return [projectPath, release.data.assets_url]
