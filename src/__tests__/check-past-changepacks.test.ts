@@ -261,10 +261,8 @@ test('checkPastChangepacks returns {} when git log throws error', async () => {
   const { checkPastChangepacks } = await import('../check-past-changepacks')
   const result = await checkPastChangepacks()
   expect(result).toEqual({})
-  expect(setFailedMock).not.toHaveBeenCalled()
-  expect(debugMock).toHaveBeenCalledWith(
-    'No previous commit found (shallow clone or first commit)',
-  )
+  expect(setFailedMock).toHaveBeenCalled()
+  expect(debugMock).not.toHaveBeenCalled()
   mock.module('@actions/exec', () => originalExec)
   mock.module('@actions/core', () => originalCore)
 })

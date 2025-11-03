@@ -29,8 +29,8 @@ export async function checkPastChangepacks(): Promise<ChangepackResultMap> {
         debug('No previous commit found (shallow clone or first commit)')
         return {}
       }
-    } catch {
-      debug('No previous commit found (shallow clone or first commit)')
+    } catch (error: unknown) {
+      setFailed(error as Error)
       return {}
     }
 
