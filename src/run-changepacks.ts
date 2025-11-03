@@ -32,7 +32,12 @@ export async function runChangepacks(
   debug(`changepacks path: ${bin}`)
   await exec(
     bin,
-    [command, '--format', 'json', ...(command === 'update' ? ['-y'] : [])],
+    [
+      command,
+      '--format',
+      'json',
+      ...(command === 'update' ? ['-y'] : ['--remote']),
+    ],
     {
       listeners: {
         stdout: (data) => {

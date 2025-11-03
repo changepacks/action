@@ -48,7 +48,7 @@ test('runChangepacks executes check command and returns parsed JSON', async () =
   expect(result).toEqual(expectedResult)
   expect(execMock).toHaveBeenCalledWith(
     resolve(process.platform === 'win32' ? 'changepacks.exe' : 'changepacks'),
-    ['check', '--format', 'json'],
+    ['check', '--format', 'json', '--remote'],
     expect.objectContaining({
       listeners: expect.any(Object),
       silent: true,
