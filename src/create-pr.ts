@@ -1,7 +1,7 @@
 import { debug, error, getInput, isDebug, setFailed } from '@actions/core'
 import { exec } from '@actions/exec'
 import { context, getOctokit } from '@actions/github'
-import { createBody } from './create-body'
+import { createContents } from './create-contents'
 import { runChangepacks } from './run-changepacks'
 import type { ChangepackResultMap } from './types'
 
@@ -116,7 +116,7 @@ export async function createPr(mainChangepacks: ChangepackResultMap) {
     })
 
     if (pulls.length > 0) {
-      const bodyText = Object.values(changepacks).map(createBody).join('\n')
+      const body = createContents(changepacks)
       const prNumber = pulls[0].number
       debug(`PR #${prNumber} exists, updating comment`)
       const comments = await octokit.rest.issues.listComments({
@@ -135,7 +135,7 @@ export async function createPr(mainChangepacks: ChangepackResultMap) {
           owner: context.repo.owner,
           repo: context.repo.repo,
           comment_id: existingComment.id,
-          body: `# Changepacks\n${bodyText}`,
+          body,
         })
         debug(`updated comment on PR #${prNumber}`)
       } else {
@@ -143,19 +143,19 @@ export async function createPr(mainChangepacks: ChangepackResultMap) {
           owner: context.repo.owner,
           repo: context.repo.repo,
           issue_number: prNumber,
-          body: `# Changepacks\n${bodyText}`,
+          body,
         })
         debug(`created comment on PR #${prNumber}`)
       }
     } else {
       debug(`creating new PR`)
 
-      const bodyText = Object.values(mainChangepacks).map(createBody).join('\n')
+      const body = createContents(mainChangepacks)
       await octokit.rest.pulls.create({
         owner: context.repo.owner,
         repo: context.repo.repo,
         title: 'Update Versions',
-        body: `# Changepacks\n${bodyText}`,
+        body,
         head,
         base,
       })

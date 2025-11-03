@@ -1,13 +1,13 @@
 import { error, getInput, setFailed } from '@actions/core'
 import { context, getOctokit } from '@actions/github'
-import { createBody } from './create-body'
+import { createContents } from './create-contents'
 import type { ChangepackResultMap } from './types'
 
 export async function createPrComment(
   changepacks: ChangepackResultMap,
 ): Promise<void> {
   const octokit = getOctokit(getInput('token'))
-  const body = `# Changepacks\n${Object.values(changepacks).map(createBody).join('\n')}`
+  const body = createContents(changepacks)
 
   try {
     const comments = await octokit.rest.issues.listComments({

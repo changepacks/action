@@ -13,7 +13,7 @@ test('createBody generates correct header with nextVersion', () => {
   expect(body).toContain('## pkg@1.0.0 → 1.1.0 - packages/pkg/package.json')
 })
 
-test('createBody generates correct header without nextVersion', () => {
+test('createBody does not generate header when there are no logs and changed is false and nextVersion is null', () => {
   const body = createBody({
     logs: [],
     version: '1.0.0',
@@ -22,19 +22,7 @@ test('createBody generates correct header without nextVersion', () => {
     path: 'packages/pkg/package.json',
     changed: false,
   })
-  expect(body).toContain('## pkg@1.0.0 - packages/pkg/package.json')
-})
-
-test('createBody generates correct header with null name and version', () => {
-  const body = createBody({
-    logs: [],
-    version: null,
-    nextVersion: null,
-    name: null,
-    path: 'packages/pkg/package.json',
-    changed: false,
-  })
-  expect(body).toContain('## Unknown@Unknown - packages/pkg/package.json')
+  expect(body).toBe('')
 })
 
 test('createBody includes Major, Minor, and Patch sections', () => {
