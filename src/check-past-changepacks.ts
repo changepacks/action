@@ -21,6 +21,7 @@ export async function checkPastChangepacks(): Promise<ChangepackResultMap> {
         silent: true,
       })
       const commits = logOutput.join('').trim().split('\n').filter(Boolean)
+      debug(`commits: ${commits.join(', ')}`)
 
       if (commits.length >= 2 && commits[1]) {
         const hash = commits[1].trim()
