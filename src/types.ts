@@ -12,3 +12,9 @@ export interface ChangepackResult {
 }
 
 export type ChangepackResultMap = Record<string, ChangepackResult>
+
+export interface ChangepackConfig {
+  ignore: string[]
+  baseBranch: string
+  latestPackage: string | null
+}

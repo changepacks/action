@@ -8,6 +8,7 @@ import {
 } from '@actions/core'
 import { context, getOctokit } from '@actions/github'
 import { createBody } from './create-body'
+import { getChangepacksConfig } from './get-changepacks-config'
 import type { ChangepackResultMap } from './types'
 
 export async function createRelease(changepacks: ChangepackResultMap) {
@@ -16,6 +17,7 @@ export async function createRelease(changepacks: ChangepackResultMap) {
     return
   }
   const octokit = getOctokit(getInput('token'))
+  const config = await getChangepacksConfig()
 
   try {
     const releasePromises = Object.entries(changepacks)
@@ -34,6 +36,7 @@ export async function createRelease(changepacks: ChangepackResultMap) {
           name: tagName,
           body: createBody(changepack),
           tag_name: tagName,
+          make_latest: config.latestPackage === projectPath ? 'true' : 'false',
           target_commitish: context.ref,
         })
         return [projectPath, release.data.assets_url]

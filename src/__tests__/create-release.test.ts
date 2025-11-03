@@ -38,6 +38,18 @@ test('createRelease sets output and creates releases per project', async () => {
     context: contextMock,
   }))
 
+  const originalGetChangepacksConfig = {
+    ...(await import('../get-changepacks-config')),
+  }
+  const getChangepacksConfigMock = mock(async () => ({
+    ignore: [],
+    baseBranch: 'main',
+    latestPackage: null,
+  }))
+  mock.module('../get-changepacks-config', () => ({
+    getChangepacksConfig: getChangepacksConfigMock,
+  }))
+
   const changepacks: ChangepackResultMap = {
     'packages/a/package.json': {
       logs: [{ type: 'Minor', note: 'feat A' }],
@@ -88,6 +100,7 @@ test('createRelease sets output and creates releases per project', async () => {
     name: 'a(packages/a/package.json)@1.1.0',
     body: createBody(changepacks['packages/a/package.json']),
     tag_name: 'a(packages/a/package.json)@1.1.0',
+    make_latest: 'false',
     target_commitish: 'refs/heads/main',
   })
   expect(createReleaseMock).toHaveBeenCalledWith({
@@ -96,9 +109,12 @@ test('createRelease sets output and creates releases per project', async () => {
     name: 'b(packages/b/package.json)@2.0.1',
     body: createBody(changepacks['packages/b/package.json']),
     tag_name: 'b(packages/b/package.json)@2.0.1',
+    make_latest: 'false',
     target_commitish: 'refs/heads/main',
   })
+  expect(getChangepacksConfigMock).toHaveBeenCalled()
 
+  mock.module('../get-changepacks-config', () => originalGetChangepacksConfig)
   mock.module('@actions/core', () => originalCore)
   mock.module('@actions/github', () => originalGithub)
 })
@@ -175,6 +191,18 @@ test('createRelease logs error and sets failed on API failure', async () => {
     context: contextMock,
   }))
 
+  const originalGetChangepacksConfig = {
+    ...(await import('../get-changepacks-config')),
+  }
+  const getChangepacksConfigMock = mock(async () => ({
+    ignore: [],
+    baseBranch: 'main',
+    latestPackage: null,
+  }))
+  mock.module('../get-changepacks-config', () => ({
+    getChangepacksConfig: getChangepacksConfigMock,
+  }))
+
   const changepacks: ChangepackResultMap = {
     'packages/a/package.json': {
       logs: [{ type: 'Minor', note: 'feat A' }],
@@ -199,6 +227,7 @@ test('createRelease logs error and sets failed on API failure', async () => {
   )
   expect(setFailedMock).toHaveBeenCalled()
 
+  mock.module('../get-changepacks-config', () => originalGetChangepacksConfig)
   mock.module('@actions/core', () => originalCore)
   mock.module('@actions/github', () => originalGithub)
 })
