@@ -72,20 +72,20 @@ test('createRelease sets output and creates releases per project', async () => {
   expect(createRefMock).toHaveBeenCalledWith({
     owner: 'acme',
     repo: 'widgets',
-    ref: 'refs/tags/a(packages/a/package.json)@1.1.0',
+    ref: 'refs/tags/a-packages/a/package.json@1.1.0',
     sha: 'abc123def456',
   })
   expect(createRefMock).toHaveBeenCalledWith({
     owner: 'acme',
     repo: 'widgets',
-    ref: 'refs/tags/b(packages/b/package.json)@2.0.1',
+    ref: 'refs/tags/b-packages/b/package.json@2.0.1',
     sha: 'abc123def456',
   })
 
   expect(createReleaseMock).toHaveBeenCalledWith({
     owner: 'acme',
     repo: 'widgets',
-    title: 'a(packages/a/package.json)@1.1.0',
+    title: 'a-packages/a/package.json@1.1.0',
     body: createBody(changepacks['packages/a/package.json']),
     tag_name: '1.1.0',
     target_commitish: 'refs/heads/main',
@@ -93,7 +93,7 @@ test('createRelease sets output and creates releases per project', async () => {
   expect(createReleaseMock).toHaveBeenCalledWith({
     owner: 'acme',
     repo: 'widgets',
-    title: 'b(packages/b/package.json)@2.0.1',
+    title: 'b-packages/b/package.json@2.0.1',
     body: createBody(changepacks['packages/b/package.json']),
     tag_name: '2.0.1',
     target_commitish: 'refs/heads/main',
@@ -153,7 +153,7 @@ test('createRelease logs error and sets failed on API failure', async () => {
   }))
 
   const createRefMock = mock(async (_params: unknown) => ({
-    data: { ref: 'refs/tags/a(packages/a/package.json)@1.1.0' },
+    data: { ref: 'refs/tags/a-packages/a/package.json@1.1.0' },
   }))
   const createReleaseMock = mock(async () => {
     throw new Error('fail release')
