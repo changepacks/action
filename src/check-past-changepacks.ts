@@ -11,6 +11,31 @@ export async function checkPastChangepacks(): Promise<ChangepackResultMap> {
     let prevCommitHash = ''
 
     try {
+      const isShallowOutput: string[] = []
+      try {
+        await exec('git', ['rev-parse', '--is-shallow-repository'], {
+          listeners: {
+            stdout: (data: Buffer) => {
+              isShallowOutput.push(data.toString())
+            },
+          },
+          silent: true,
+        })
+      } catch {}
+
+      const isShallow = isShallowOutput.join('').trim().toLowerCase() === 'true'
+
+      if (isShallow) {
+        debug('Shallow clone detected, fetching previous commit')
+        try {
+          await exec('git', ['fetch', '--deepen=1'], {
+            silent: true,
+          })
+        } catch (fetchError) {
+          debug(`Failed to fetch additional commits: ${fetchError as Error}`)
+        }
+      }
+
       const logOutput: string[] = []
       await exec('git', ['log', '--format=%H', '-n', '2'], {
         listeners: {

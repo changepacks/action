@@ -15,13 +15,22 @@ test('createRelease sets output and creates releases per project', async () => {
     getBooleanInput: getBooleanInputMock,
   }))
 
+  const createRefMock = mock(async (_params: unknown) => ({
+    data: { ref: 'refs/tags/a@1.1.0' },
+  }))
   const createReleaseMock = mock(async (_params: unknown) => ({
     data: { assets_url: 'https://example.com/assets/a.zip' },
   }))
-  const octokit = { rest: { repos: { createRelease: createReleaseMock } } }
+  const octokit = {
+    rest: {
+      git: { createRef: createRefMock },
+      repos: { createRelease: createReleaseMock },
+    },
+  }
   const contextMock = {
     repo: { owner: 'acme', repo: 'widgets' },
     ref: 'refs/heads/main',
+    sha: 'abc123def456',
   }
   const getOctokitMock = mock((_token: string) => octokit)
   mock.module('@actions/github', () => ({
@@ -59,10 +68,24 @@ test('createRelease sets output and creates releases per project', async () => {
     'packages/a/package.json': expect.any(String),
     'packages/b/package.json': expect.any(String),
   })
+
+  expect(createRefMock).toHaveBeenCalledWith({
+    owner: 'acme',
+    repo: 'widgets',
+    ref: 'refs/tags/a(packages/a/package.json)@1.1.0',
+    sha: 'abc123def456',
+  })
+  expect(createRefMock).toHaveBeenCalledWith({
+    owner: 'acme',
+    repo: 'widgets',
+    ref: 'refs/tags/b(packages/b/package.json)@2.0.1',
+    sha: 'abc123def456',
+  })
+
   expect(createReleaseMock).toHaveBeenCalledWith({
     owner: 'acme',
     repo: 'widgets',
-    title: 'a@1.1.0',
+    title: 'a(packages/a/package.json)@1.1.0',
     body: createBody(changepacks['packages/a/package.json']),
     tag_name: '1.1.0',
     target_commitish: 'refs/heads/main',
@@ -70,7 +93,7 @@ test('createRelease sets output and creates releases per project', async () => {
   expect(createReleaseMock).toHaveBeenCalledWith({
     owner: 'acme',
     repo: 'widgets',
-    title: 'b@2.0.1',
+    title: 'b(packages/b/package.json)@2.0.1',
     body: createBody(changepacks['packages/b/package.json']),
     tag_name: '2.0.1',
     target_commitish: 'refs/heads/main',
@@ -129,13 +152,22 @@ test('createRelease logs error and sets failed on API failure', async () => {
     setFailed: setFailedMock,
   }))
 
+  const createRefMock = mock(async (_params: unknown) => ({
+    data: { ref: 'refs/tags/a(packages/a/package.json)@1.1.0' },
+  }))
   const createReleaseMock = mock(async () => {
     throw new Error('fail release')
   })
-  const octokit = { rest: { repos: { createRelease: createReleaseMock } } }
+  const octokit = {
+    rest: {
+      git: { createRef: createRefMock },
+      repos: { createRelease: createReleaseMock },
+    },
+  }
   const contextMock = {
     repo: { owner: 'acme', repo: 'widgets' },
     ref: 'refs/heads/main',
+    sha: 'abc123def456',
   }
   const getOctokitMock = mock((_token: string) => octokit)
   mock.module('@actions/github', () => ({
