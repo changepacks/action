@@ -6,13 +6,19 @@ test('checkPastChangepacks returns empty when no .changepacks diff', async () =>
   const originalCore = { ...(await import('@actions/core')) }
 
   const diffStdout = ''
+  const prevCommitHash = 'abc123def456'
+  const currentCommitHash = 'def456ghi789'
   const execMock = mock(
     async (
       _cmd: string,
       args?: string[],
       options?: { listeners?: { stdout?: (data: Buffer) => void } },
     ) => {
-      if (args?.[0] === 'diff') {
+      if (args?.[0] === 'log') {
+        options?.listeners?.stdout?.(
+          Buffer.from(`${currentCommitHash}\n${prevCommitHash}\n`),
+        )
+      } else if (args?.[0] === 'diff') {
         options?.listeners?.stdout?.(Buffer.from(diffStdout))
       }
       return 0
@@ -39,13 +45,19 @@ test('checkPastChangepacks rollbacks, reads, and restores when diff exists', asy
   const originalRunChangepacks = { ...(await import('../run-changepacks')) }
 
   const diffOutput = '.changepacks/a.md\n.changepacks/b.md\n'
+  const prevCommitHash = 'abc123def456'
+  const currentCommitHash = 'def456ghi789'
   const execMock = mock(
     async (
       _cmd: string,
       args?: string[],
       options?: { listeners?: { stdout?: (data: Buffer) => void } },
     ) => {
-      if (args?.[0] === 'diff') {
+      if (args?.[0] === 'log') {
+        options?.listeners?.stdout?.(
+          Buffer.from(`${currentCommitHash}\n${prevCommitHash}\n`),
+        )
+      } else if (args?.[0] === 'diff') {
         options?.listeners?.stdout?.(Buffer.from(diffOutput))
       }
       return 0
@@ -77,15 +89,20 @@ test('checkPastChangepacks rollbacks, reads, and restores when diff exists', asy
 
   expect(result).toEqual(payload)
 
-  // ensure we diffed and did two checkouts around checkChangepacks
+  // ensure we log first to get previous commit, then diff and did two checkouts around checkChangepacks
   expect(execMock).toHaveBeenCalledWith(
     'git',
-    ['diff', 'HEAD~1', 'HEAD', '--name-only', '--', '.changepacks/'],
+    ['log', '--format=%H', '-n', '2'],
+    expect.any(Object),
+  )
+  expect(execMock).toHaveBeenCalledWith(
+    'git',
+    ['diff', prevCommitHash, 'HEAD', '--name-only', '--', '.changepacks/'],
     expect.any(Object),
   )
   expect(execMock).toHaveBeenCalledWith('git', [
     'checkout',
-    'HEAD~1',
+    prevCommitHash,
     '--',
     '.changepacks/',
   ])
@@ -108,9 +125,23 @@ test('checkPastChangepacks returns {} and setsFailed when git diff errors', asyn
   const originalCore = { ...(await import('@actions/core')) }
   const originalRunChangepacks = { ...(await import('../run-changepacks')) }
 
-  const execMock = mock(async (_cmd: string, _args?: string[]) => {
-    throw new Error('diff failed')
-  })
+  const prevCommitHash = 'abc123def456'
+  const currentCommitHash = 'def456ghi789'
+  const execMock = mock(
+    async (
+      _cmd: string,
+      args?: string[],
+      options?: { listeners?: { stdout?: (data: Buffer) => void } },
+    ) => {
+      if (args?.[0] === 'log') {
+        options?.listeners?.stdout?.(
+          Buffer.from(`${currentCommitHash}\n${prevCommitHash}\n`),
+        )
+        return 0
+      }
+      throw new Error('diff failed')
+    },
+  )
   mock.module('@actions/exec', () => ({ exec: execMock }))
 
   const setFailedMock = mock()
@@ -133,13 +164,19 @@ test('checkPastChangepacks returns {} and setsFailed when later step throws (out
   const originalRunChangepacks = { ...(await import('../run-changepacks')) }
 
   const diffOutput = '.changepacks/a.md\n'
+  const prevCommitHash = 'abc123def456'
+  const currentCommitHash = 'def456ghi789'
   const execMock = mock(
     async (
       _cmd: string,
       args?: string[],
       options?: { listeners?: { stdout?: (buf: Buffer) => void } },
     ) => {
-      if (args?.[0] === 'diff') {
+      if (args?.[0] === 'log') {
+        options?.listeners?.stdout?.(
+          Buffer.from(`${currentCommitHash}\n${prevCommitHash}\n`),
+        )
+      } else if (args?.[0] === 'diff') {
         options?.listeners?.stdout?.(Buffer.from(diffOutput))
       }
       return 0
@@ -168,18 +205,22 @@ test('checkPastChangepacks returns {} and setsFailed when later step throws (out
   mock.module('../run-changepacks', () => originalRunChangepacks)
 })
 
-test('checkPastChangepacks returns {} and does not setFailed when no HEAD~1', async () => {
+test('checkPastChangepacks returns {} when git log returns only one commit', async () => {
   const originalExec = { ...(await import('@actions/exec')) }
   const originalCore = { ...(await import('@actions/core')) }
 
+  const currentCommitHash = 'def456ghi789'
   const execMock = mock(
     async (
       _cmd: string,
-      _args?: string[],
-      options?: { listeners?: { stderr?: (data: Buffer) => void } },
+      args?: string[],
+      options?: { listeners?: { stdout?: (data: Buffer) => void } },
     ) => {
-      options?.listeners?.stderr?.(Buffer.from("fatal: bad revision 'HEAD~1'"))
-      throw new Error("fatal: bad revision 'HEAD~1'")
+      if (args?.[0] === 'log') {
+        // shallow clone: 1개만 반환
+        options?.listeners?.stdout?.(Buffer.from(`${currentCommitHash}\n`))
+      }
+      return 0
     },
   )
   mock.module('@actions/exec', () => ({ exec: execMock }))
@@ -193,7 +234,121 @@ test('checkPastChangepacks returns {} and does not setFailed when no HEAD~1', as
   const result = await checkPastChangepacks()
   expect(result).toEqual({})
   expect(setFailedMock).not.toHaveBeenCalled()
-  expect(debugMock).toHaveBeenCalled()
+  expect(debugMock).toHaveBeenCalledWith(
+    'No previous commit found (shallow clone or first commit)',
+  )
+  mock.module('@actions/exec', () => originalExec)
+  mock.module('@actions/core', () => originalCore)
+})
+
+test('checkPastChangepacks returns {} when git log throws error', async () => {
+  const originalExec = { ...(await import('@actions/exec')) }
+  const originalCore = { ...(await import('@actions/core')) }
+
+  const execMock = mock(async (_cmd: string, args?: string[]) => {
+    if (args?.[0] === 'log') {
+      throw new Error('git log failed')
+    }
+    return 0
+  })
+  mock.module('@actions/exec', () => ({ exec: execMock }))
+  const setFailedMock = mock()
+  const debugMock = mock()
+  mock.module('@actions/core', () => ({
+    setFailed: setFailedMock,
+    debug: debugMock,
+  }))
+  const { checkPastChangepacks } = await import('../check-past-changepacks')
+  const result = await checkPastChangepacks()
+  expect(result).toEqual({})
+  expect(setFailedMock).not.toHaveBeenCalled()
+  expect(debugMock).toHaveBeenCalledWith(
+    'No previous commit found (shallow clone or first commit)',
+  )
+  mock.module('@actions/exec', () => originalExec)
+  mock.module('@actions/core', () => originalCore)
+})
+
+test('checkPastChangepacks returns {} when git log returns empty result', async () => {
+  const originalExec = { ...(await import('@actions/exec')) }
+  const originalCore = { ...(await import('@actions/core')) }
+
+  const execMock = mock(
+    async (
+      _cmd: string,
+      args?: string[],
+      options?: { listeners?: { stdout?: (data: Buffer) => void } },
+    ) => {
+      if (args?.[0] === 'log') {
+        // 빈 결과 반환
+        options?.listeners?.stdout?.(Buffer.from(''))
+      }
+      return 0
+    },
+  )
+  mock.module('@actions/exec', () => ({ exec: execMock }))
+  const setFailedMock = mock()
+  const debugMock = mock()
+  mock.module('@actions/core', () => ({
+    setFailed: setFailedMock,
+    debug: debugMock,
+  }))
+  const { checkPastChangepacks } = await import('../check-past-changepacks')
+  const result = await checkPastChangepacks()
+  expect(result).toEqual({})
+  expect(setFailedMock).not.toHaveBeenCalled()
+  expect(debugMock).toHaveBeenCalledWith(
+    'No previous commit found (shallow clone or first commit)',
+  )
+  mock.module('@actions/exec', () => originalExec)
+  mock.module('@actions/core', () => originalCore)
+})
+
+test('checkPastChangepacks returns {} when git diff outputs bad revision to stderr', async () => {
+  const originalExec = { ...(await import('@actions/exec')) }
+  const originalCore = { ...(await import('@actions/core')) }
+
+  const prevCommitHash = 'abc123def456'
+  const currentCommitHash = 'def456ghi789'
+  const errorMessage = "fatal: bad revision 'abc123def456'"
+  const execMock = mock(
+    async (
+      _cmd: string,
+      args?: string[],
+      options?: {
+        listeners?: {
+          stdout?: (data: Buffer) => void
+          stderr?: (data: Buffer) => void
+        }
+      },
+    ) => {
+      if (args?.[0] === 'log') {
+        options?.listeners?.stdout?.(
+          Buffer.from(`${currentCommitHash}\n${prevCommitHash}\n`),
+        )
+        return 0
+      } else if (args?.[0] === 'diff') {
+        // stderr로 에러 메시지 출력
+        options?.listeners?.stderr?.(Buffer.from(errorMessage))
+        throw new Error(errorMessage)
+      }
+      return 0
+    },
+  )
+  mock.module('@actions/exec', () => ({ exec: execMock }))
+  const setFailedMock = mock()
+  const debugMock = mock()
+  mock.module('@actions/core', () => ({
+    setFailed: setFailedMock,
+    debug: debugMock,
+  }))
+  const { checkPastChangepacks } = await import('../check-past-changepacks')
+  const result = await checkPastChangepacks()
+  expect(result).toEqual({})
+  expect(setFailedMock).not.toHaveBeenCalled()
+  expect(debugMock).toHaveBeenCalledWith(
+    `skip past changepacks: ${errorMessage}`,
+  )
   mock.module('@actions/exec', () => originalExec)
   mock.module('@actions/core', () => originalCore)
 })

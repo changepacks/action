@@ -8,11 +8,36 @@ export async function checkPastChangepacks(): Promise<ChangepackResultMap> {
   try {
     let changedFiles: string[] = []
     let diffOutput = ''
+    let prevCommitHash = ''
+
+    try {
+      const logOutput: string[] = []
+      await exec('git', ['log', '--format=%H', '-n', '2'], {
+        listeners: {
+          stdout: (data: Buffer) => {
+            logOutput.push(data.toString())
+          },
+        },
+        silent: true,
+      })
+      const commits = logOutput.join('').trim().split('\n').filter(Boolean)
+
+      if (commits.length >= 2 && commits[1]) {
+        const hash = commits[1].trim()
+        prevCommitHash = hash || ''
+      } else {
+        debug('No previous commit found (shallow clone or first commit)')
+        return {}
+      }
+    } catch {
+      debug('No previous commit found (shallow clone or first commit)')
+      return {}
+    }
 
     try {
       await exec(
         'git',
-        ['diff', 'HEAD~1', 'HEAD', '--name-only', '--', '.changepacks/'],
+        ['diff', prevCommitHash, 'HEAD', '--name-only', '--', '.changepacks/'],
         {
           listeners: {
             stdout: (data: Buffer) => {
@@ -47,7 +72,7 @@ export async function checkPastChangepacks(): Promise<ChangepackResultMap> {
 
     if (changedFiles.length > 0) {
       // rollback to past commit only .changepacks folder
-      await exec('git', ['checkout', 'HEAD~1', '--', '.changepacks/'])
+      await exec('git', ['checkout', prevCommitHash, '--', '.changepacks/'])
       const changepacks = await runChangepacks('check')
       await exec('git', ['checkout', 'HEAD', '--', '.changepacks/'])
       return changepacks
