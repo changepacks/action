@@ -1,7 +1,7 @@
 import { chmod, writeFile } from 'node:fs/promises'
 import { machine, type } from 'node:os'
 import { resolve } from 'node:path'
-import { debug, getInput, info, setFailed } from '@actions/core'
+import { debug, getInput, setFailed } from '@actions/core'
 import { getOctokit } from '@actions/github'
 import { HttpClient } from '@actions/http-client'
 
@@ -29,7 +29,7 @@ export async function installChangepacks() {
       `changepacks-${os}-${ma}${os === 'windows' ? '.exe' : ''}`,
     ),
   )
-  info(`downloading asset: ${asset?.name}`)
+  debug(`downloading asset: ${asset?.name}`)
   if (!asset) {
     setFailed('changepacks binary not found')
     return

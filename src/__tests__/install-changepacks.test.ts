@@ -19,11 +19,11 @@ test('installChangepacks downloads asset and writes binary (linux/x64)', async (
   mock.module('node:os', () => ({ type: typeMock, machine: machineMock }))
 
   const getInputMock = mock((_name: string) => 'TOKEN')
-  const infoMock = mock()
+  const debugMock = mock()
   const setFailedMock = mock()
   mock.module('@actions/core', () => ({
     getInput: getInputMock,
-    info: infoMock,
+    debug: debugMock,
     setFailed: setFailedMock,
   }))
 
@@ -57,7 +57,7 @@ test('installChangepacks downloads asset and writes binary (linux/x64)', async (
   expect(getInputMock).toHaveBeenCalledWith('token')
   expect(getOctokitMock).toHaveBeenCalledWith('TOKEN')
   expect(pullsGetLatestReleaseMock).toHaveBeenCalled()
-  expect(infoMock).toHaveBeenCalledWith(
+  expect(debugMock).toHaveBeenCalledWith(
     'downloading asset: changepacks-linux-x64',
   )
   expect(httpGetMock).toHaveBeenCalledWith(
@@ -91,11 +91,11 @@ test('installChangepacks sets failed when asset not found', async () => {
   mock.module('node:os', () => ({ type: typeMock, machine: machineMock }))
 
   const getInputMock = mock((_name: string) => 'TOKEN')
-  const infoMock = mock()
+  const debugMock = mock()
   const setFailedMock = mock()
   mock.module('@actions/core', () => ({
     getInput: getInputMock,
-    info: infoMock,
+    debug: debugMock,
     setFailed: setFailedMock,
   }))
 
