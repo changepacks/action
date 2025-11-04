@@ -19,7 +19,7 @@ test('createRelease sets output and creates releases per project', async () => {
     data: { ref: 'refs/tags/a@1.1.0' },
   }))
   const createReleaseMock = mock(async (_params: unknown) => ({
-    data: { assets_url: 'https://example.com/assets/a.zip' },
+    data: { upload_url: 'https://example.com/upload/a.zip' },
   }))
   const octokit = {
     rest: {

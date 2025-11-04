@@ -40,10 +40,11 @@ export async function createRelease(
           make_latest: config.latestPackage === projectPath ? 'true' : 'false',
           target_commitish: context.ref,
         })
-        return [projectPath, release.data.assets_url]
+        return [projectPath, release.data.upload_url]
       })
     const releaseAssetsUrls = await Promise.all(releasePromises)
     await Promise.all(releasePromises)
+    debug(`releaseAssetsUrls: ${JSON.stringify(releaseAssetsUrls, null, 2)}`)
     setOutput('release_assets_urls', Object.fromEntries(releaseAssetsUrls))
   } catch (err: unknown) {
     error('create release failed')
