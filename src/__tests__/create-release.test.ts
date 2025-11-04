@@ -38,18 +38,6 @@ test('createRelease sets output and creates releases per project', async () => {
     context: contextMock,
   }))
 
-  const originalGetChangepacksConfig = {
-    ...(await import('../get-changepacks-config')),
-  }
-  const getChangepacksConfigMock = mock(async () => ({
-    ignore: [],
-    baseBranch: 'main',
-    latestPackage: null,
-  }))
-  mock.module('../get-changepacks-config', () => ({
-    getChangepacksConfig: getChangepacksConfigMock,
-  }))
-
   const changepacks: ChangepackResultMap = {
     'packages/a/package.json': {
       logs: [{ type: 'Minor', note: 'feat A' }],
@@ -70,7 +58,14 @@ test('createRelease sets output and creates releases per project', async () => {
   }
 
   const { createRelease } = await import('../create-release')
-  await createRelease(changepacks)
+  await createRelease(
+    {
+      ignore: [],
+      baseBranch: 'main',
+      latestPackage: null,
+    },
+    changepacks,
+  )
 
   expect(setOutputMock).toHaveBeenCalledWith(
     'changepacks',
@@ -112,9 +107,7 @@ test('createRelease sets output and creates releases per project', async () => {
     make_latest: 'false',
     target_commitish: 'refs/heads/main',
   })
-  expect(getChangepacksConfigMock).toHaveBeenCalled()
 
-  mock.module('../get-changepacks-config', () => originalGetChangepacksConfig)
   mock.module('@actions/core', () => originalCore)
   mock.module('@actions/github', () => originalGithub)
 })
@@ -141,7 +134,14 @@ test('createRelease sets only changepacks output when create_release=false', asy
   }
 
   const { createRelease } = await import('../create-release')
-  await createRelease(changepacks)
+  await createRelease(
+    {
+      ignore: [],
+      baseBranch: 'main',
+      latestPackage: null,
+    },
+    changepacks,
+  )
 
   expect(setOutputMock).toHaveBeenCalledWith(
     'changepacks',
@@ -191,18 +191,6 @@ test('createRelease logs error and sets failed on API failure', async () => {
     context: contextMock,
   }))
 
-  const originalGetChangepacksConfig = {
-    ...(await import('../get-changepacks-config')),
-  }
-  const getChangepacksConfigMock = mock(async () => ({
-    ignore: [],
-    baseBranch: 'main',
-    latestPackage: null,
-  }))
-  mock.module('../get-changepacks-config', () => ({
-    getChangepacksConfig: getChangepacksConfigMock,
-  }))
-
   const changepacks: ChangepackResultMap = {
     'packages/a/package.json': {
       logs: [{ type: 'Minor', note: 'feat A' }],
@@ -215,7 +203,14 @@ test('createRelease logs error and sets failed on API failure', async () => {
   }
 
   const { createRelease } = await import('../create-release')
-  await createRelease(changepacks)
+  await createRelease(
+    {
+      ignore: [],
+      baseBranch: 'main',
+      latestPackage: null,
+    },
+    changepacks,
+  )
 
   expect(setOutputMock).toHaveBeenCalledWith(
     'changepacks',
@@ -227,7 +222,6 @@ test('createRelease logs error and sets failed on API failure', async () => {
   )
   expect(setFailedMock).toHaveBeenCalled()
 
-  mock.module('../get-changepacks-config', () => originalGetChangepacksConfig)
   mock.module('@actions/core', () => originalCore)
   mock.module('@actions/github', () => originalGithub)
 })

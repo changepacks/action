@@ -8,16 +8,17 @@ import {
 } from '@actions/core'
 import { context, getOctokit } from '@actions/github'
 import { createBody } from './create-body'
-import { getChangepacksConfig } from './get-changepacks-config'
-import type { ChangepackResultMap } from './types'
+import type { ChangepackConfig, ChangepackResultMap } from './types'
 
-export async function createRelease(changepacks: ChangepackResultMap) {
+export async function createRelease(
+  config: ChangepackConfig,
+  changepacks: ChangepackResultMap,
+) {
   setOutput('changepacks', Object.keys(changepacks))
   if (!getBooleanInput('create_release')) {
     return
   }
   const octokit = getOctokit(getInput('token'))
-  const config = await getChangepacksConfig()
 
   try {
     const releasePromises = Object.entries(changepacks)

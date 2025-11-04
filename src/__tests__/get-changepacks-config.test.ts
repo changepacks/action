@@ -228,18 +228,6 @@ test('createRelease uses latestPackage from config to set make_latest', async ()
     context: contextMock,
   }))
 
-  const originalGetChangepacksConfig = {
-    ...(await import('../get-changepacks-config')),
-  }
-  const getChangepacksConfigMock = mock(async () => ({
-    ignore: [],
-    baseBranch: 'main',
-    latestPackage: 'packages/a/package.json',
-  }))
-  mock.module('../get-changepacks-config', () => ({
-    getChangepacksConfig: getChangepacksConfigMock,
-  }))
-
   const changepacks: ChangepackResultMap = {
     'packages/a/package.json': {
       logs: [{ type: 'Minor', note: 'feat A' }],
@@ -260,7 +248,14 @@ test('createRelease uses latestPackage from config to set make_latest', async ()
   }
 
   const { createRelease } = await import('../create-release')
-  await createRelease(changepacks)
+  await createRelease(
+    {
+      ignore: [],
+      baseBranch: 'main',
+      latestPackage: 'packages/a/package.json',
+    },
+    changepacks,
+  )
 
   expect(createReleaseMock).toHaveBeenCalledWith({
     owner: 'acme',
@@ -281,7 +276,6 @@ test('createRelease uses latestPackage from config to set make_latest', async ()
     target_commitish: 'refs/heads/main',
   })
 
-  mock.module('../get-changepacks-config', () => originalGetChangepacksConfig)
   mock.module('@actions/core', () => originalCore)
   mock.module('@actions/github', () => originalGithub)
 })

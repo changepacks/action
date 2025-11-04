@@ -3,11 +3,18 @@ import { checkPastChangepacks } from './check-past-changepacks'
 import { createPr } from './create-pr'
 import { createPrComment } from './create-pr-comment'
 import { createRelease } from './create-release'
+import { fetchOrigin } from './fetch-origin'
+import { getChangepacksConfig } from './get-changepacks-config'
 import { installChangepacks } from './install-changepacks'
 import { runChangepacks } from './run-changepacks'
 
 export async function run() {
   await installChangepacks()
+
+  const config = await getChangepacksConfig()
+  if (context.ref !== `refs/heads/${config.baseBranch}`) {
+    await fetchOrigin(config.baseBranch)
+  }
   const changepacks = await runChangepacks('check')
   // add pull request comment
   if (context.payload?.pull_request) {
@@ -21,7 +28,7 @@ export async function run() {
   } else {
     const pastChangepacks = await checkPastChangepacks()
     if (Object.keys(pastChangepacks).length > 0) {
-      await createRelease(pastChangepacks)
+      await createRelease(config, pastChangepacks)
     }
   }
 }
