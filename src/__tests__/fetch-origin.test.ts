@@ -13,9 +13,13 @@ test('fetchOrigin executes git fetch with correct arguments', async () => {
   const { fetchOrigin } = await import('../fetch-origin')
   await fetchOrigin('main')
 
-  expect(execMock).toHaveBeenCalledWith('git', ['fetch', 'origin', 'main'], {
-    silent: true,
-  })
+  expect(execMock).toHaveBeenCalledWith(
+    'git',
+    ['fetch', 'origin', 'refs/heads/main:refs/remotes/origin/main'],
+    {
+      silent: true,
+    },
+  )
 
   mock.module('@actions/exec', () => originalExec)
   mock.module('@actions/core', () => originalCore)
@@ -34,9 +38,13 @@ test('fetchOrigin executes git fetch with silent false when debug mode', async (
   const { fetchOrigin } = await import('../fetch-origin')
   await fetchOrigin('develop')
 
-  expect(execMock).toHaveBeenCalledWith('git', ['fetch', 'origin', 'develop'], {
-    silent: false,
-  })
+  expect(execMock).toHaveBeenCalledWith(
+    'git',
+    ['fetch', 'origin', 'refs/heads/develop:refs/remotes/origin/develop'],
+    {
+      silent: false,
+    },
+  )
 
   mock.module('@actions/exec', () => originalExec)
   mock.module('@actions/core', () => originalCore)
@@ -57,7 +65,11 @@ test('fetchOrigin executes git fetch with different branch names', async () => {
 
   expect(execMock).toHaveBeenCalledWith(
     'git',
-    ['fetch', 'origin', 'feature/new-feature'],
+    [
+      'fetch',
+      'origin',
+      'refs/heads/feature/new-feature:refs/remotes/origin/feature/new-feature',
+    ],
     {
       silent: true,
     },
