@@ -1,6 +1,6 @@
 import { expect, mock, test } from 'bun:test'
 import { isDebug } from '@actions/core'
-import { createBody } from '../create-body'
+import { createContents } from '../create-contents'
 import type { ChangepackResultMap } from '../types'
 
 test('createPr runs update and opens PR with formatted body', async () => {
@@ -78,7 +78,7 @@ test('createPr runs update and opens PR with formatted body', async () => {
     },
   }
 
-  const expectedBody = Object.values(changepacks).map(createBody).join('\n')
+  const expectedBody = createContents(changepacks)
 
   const runChpacksMock = mock(async (_cmd: 'check' | 'update') => changepacks)
   mock.module('../run-changepacks', () => ({ runChangepacks: runChpacksMock }))
@@ -117,7 +117,17 @@ test('createPr runs update and opens PR with formatted body', async () => {
   })
   expect(execMock).toHaveBeenCalledWith(
     'git',
-    ['reset', '--', 'changepacks', 'changepacks.exe'],
+    ['rm', '-f', 'changepacks', 'changepacks.exe'],
+    { silent: !isDebug(), ignoreReturnCode: true },
+  )
+  expect(execMock).toHaveBeenCalledWith(
+    'git',
+    ['rm', '-rf', '.changepacks/*.json'],
+    { silent: !isDebug(), ignoreReturnCode: true },
+  )
+  expect(execMock).toHaveBeenCalledWith(
+    'git',
+    ['checkout', 'HEAD', '--', '.changepacks/config.json'],
     { silent: !isDebug(), ignoreReturnCode: true },
   )
   expect(execMock).toHaveBeenCalledWith('git', ['add', '.'], {
@@ -163,7 +173,7 @@ test('createPr runs update and opens PR with formatted body', async () => {
     owner: 'acme',
     repo: 'widgets',
     title: 'Update Versions',
-    body: `# Changepacks\n${expectedBody}`,
+    body: expectedBody,
     head: 'changepacks/main',
     base: 'main',
   })
@@ -272,7 +282,17 @@ test('createPr updates existing branch and updates PR comment when PR exists', a
   })
   expect(execMock).toHaveBeenCalledWith(
     'git',
-    ['reset', '--', 'changepacks', 'changepacks.exe'],
+    ['rm', '-f', 'changepacks', 'changepacks.exe'],
+    { silent: !isDebug(), ignoreReturnCode: true },
+  )
+  expect(execMock).toHaveBeenCalledWith(
+    'git',
+    ['rm', '-rf', '.changepacks/*.json'],
+    { silent: !isDebug(), ignoreReturnCode: true },
+  )
+  expect(execMock).toHaveBeenCalledWith(
+    'git',
+    ['checkout', 'HEAD', '--', '.changepacks/config.json'],
     { silent: !isDebug(), ignoreReturnCode: true },
   )
   expect(execMock).toHaveBeenCalledWith('git', ['add', '.'], {
@@ -760,7 +780,17 @@ test('createPr creates branch when head branch does not exist', async () => {
   })
   expect(execMock).toHaveBeenCalledWith(
     'git',
-    ['reset', '--', 'changepacks', 'changepacks.exe'],
+    ['rm', '-f', 'changepacks', 'changepacks.exe'],
+    { silent: !isDebug(), ignoreReturnCode: true },
+  )
+  expect(execMock).toHaveBeenCalledWith(
+    'git',
+    ['rm', '-rf', '.changepacks/*.json'],
+    { silent: !isDebug(), ignoreReturnCode: true },
+  )
+  expect(execMock).toHaveBeenCalledWith(
+    'git',
+    ['checkout', 'HEAD', '--', '.changepacks/config.json'],
     { silent: !isDebug(), ignoreReturnCode: true },
   )
   expect(execMock).toHaveBeenCalledWith('git', ['add', '.'], {
@@ -805,7 +835,7 @@ test('createPr creates branch when head branch does not exist', async () => {
     owner: 'acme',
     repo: 'widgets',
     title: 'Update Versions',
-    body: `# Changepacks\n${Object.values(changepacks).map(createBody).join('\n')}`,
+    body: createContents(changepacks),
     head: 'changepacks/main',
     base: 'main',
   })
@@ -923,7 +953,17 @@ test('createPr handles different base branch', async () => {
   })
   expect(execMock).toHaveBeenCalledWith(
     'git',
-    ['reset', '--', 'changepacks', 'changepacks.exe'],
+    ['rm', '-f', 'changepacks', 'changepacks.exe'],
+    { silent: !isDebug(), ignoreReturnCode: true },
+  )
+  expect(execMock).toHaveBeenCalledWith(
+    'git',
+    ['rm', '-rf', '.changepacks/*.json'],
+    { silent: !isDebug(), ignoreReturnCode: true },
+  )
+  expect(execMock).toHaveBeenCalledWith(
+    'git',
+    ['checkout', 'HEAD', '--', '.changepacks/config.json'],
     { silent: !isDebug(), ignoreReturnCode: true },
   )
   expect(execMock).toHaveBeenCalledWith('git', ['add', '.'], {
@@ -968,7 +1008,7 @@ test('createPr handles different base branch', async () => {
     owner: 'acme',
     repo: 'widgets',
     title: 'Update Versions',
-    body: `# Changepacks\n${Object.values(changepacks).map(createBody).join('\n')}`,
+    body: createContents(changepacks),
     head: 'changepacks/develop',
     base: 'develop',
   })
@@ -1065,7 +1105,17 @@ test('createPr merges base into existing head when branch exists', async () => {
   })
   expect(execMock).toHaveBeenCalledWith(
     'git',
-    ['reset', '--', 'changepacks', 'changepacks.exe'],
+    ['rm', '-f', 'changepacks', 'changepacks.exe'],
+    { silent: !isDebug(), ignoreReturnCode: true },
+  )
+  expect(execMock).toHaveBeenCalledWith(
+    'git',
+    ['rm', '-rf', '.changepacks/*.json'],
+    { silent: !isDebug(), ignoreReturnCode: true },
+  )
+  expect(execMock).toHaveBeenCalledWith(
+    'git',
+    ['checkout', 'HEAD', '--', '.changepacks/config.json'],
     { silent: !isDebug(), ignoreReturnCode: true },
   )
   expect(execMock).toHaveBeenCalledWith('git', ['add', '.'], {

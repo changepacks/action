@@ -57,7 +57,7 @@ export async function createPr(mainChangepacks: ChangepackResultMap) {
 
     // if not changed, return
     if (
-      !Object.values(changepacks).every((changepack) => !changepack.nextVersion)
+      Object.values(changepacks).some((changepack) => !!changepack.nextVersion)
     ) {
       await exec('git', ['checkout', '-f', '-b', head, `origin/${head}`], {
         silent: !isDebug(),
@@ -74,8 +74,8 @@ export async function createPr(mainChangepacks: ChangepackResultMap) {
         ignoreReturnCode: true,
       })
       // exclude changepacks binary before adding
-      debug(`exclude changepacks binary before adding`)
-      await exec('git', ['reset', '--', 'changepacks', 'changepacks.exe'], {
+      debug(`remove changepacks binary before adding`)
+      await exec('git', ['rm', '-f', 'changepacks', 'changepacks.exe'], {
         silent: !isDebug(),
         ignoreReturnCode: true,
       })
