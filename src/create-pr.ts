@@ -73,7 +73,7 @@ export async function createPr(mainChangepacks: ChangepackResultMap) {
       await runChangepacks('update')
 
       debug(`remove changepacks binary before adding`)
-      await exec('git', ['rm', '-f', 'changepacks', 'changepacks.exe'], {
+      await exec('git', ['rm', '-f', 'changepacks*'], {
         silent: !isDebug(),
         ignoreReturnCode: true,
       })
