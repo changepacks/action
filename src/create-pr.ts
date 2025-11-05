@@ -2,6 +2,7 @@ import { debug, error, getInput, isDebug, setFailed } from '@actions/core'
 import { exec } from '@actions/exec'
 import { context, getOctokit } from '@actions/github'
 import { createContents } from './create-contents'
+import { installChangepacks } from './install-changepacks'
 import { runChangepacks } from './run-changepacks'
 import type { ChangepackResultMap } from './types'
 import { updatePr } from './update-pr'
@@ -66,6 +67,8 @@ export async function createPr(mainChangepacks: ChangepackResultMap) {
       await exec('git', ['reset', '--hard', `origin/${base}`], {
         silent: !isDebug(),
       })
+
+      await installChangepacks()
 
       await runChangepacks('update')
 

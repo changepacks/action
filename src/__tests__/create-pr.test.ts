@@ -8,6 +8,9 @@ test('createPr runs update and opens PR with formatted body', async () => {
   const originalCore = { ...(await import('@actions/core')) }
   const originalGithub = { ...(await import('@actions/github')) }
   const originalRunChangepacks = { ...(await import('../run-changepacks')) }
+  const originalInstallChangepacks = {
+    ...(await import('../install-changepacks')),
+  }
 
   const execMock = mock(async () => 0)
   mock.module('@actions/exec', () => ({ exec: execMock }))
@@ -82,6 +85,12 @@ test('createPr runs update and opens PR with formatted body', async () => {
 
   const runChpacksMock = mock(async (_cmd: 'check' | 'update') => changepacks)
   mock.module('../run-changepacks', () => ({ runChangepacks: runChpacksMock }))
+
+  const installChangepacksMock = mock(async () => {})
+  mock.module('../install-changepacks', () => ({
+    installChangepacks: installChangepacksMock,
+  }))
+
   const { createPr } = await import('../create-pr')
   await createPr(changepacks)
 
@@ -171,6 +180,7 @@ test('createPr runs update and opens PR with formatted body', async () => {
   mock.module('@actions/core', () => originalCore)
   mock.module('@actions/github', () => originalGithub)
   mock.module('../run-changepacks', () => originalRunChangepacks)
+  mock.module('../install-changepacks', () => originalInstallChangepacks)
 })
 
 test('createPr updates existing branch and updates PR comment when PR exists', async () => {
@@ -178,6 +188,9 @@ test('createPr updates existing branch and updates PR comment when PR exists', a
   const originalCore = { ...(await import('@actions/core')) }
   const originalGithub = { ...(await import('@actions/github')) }
   const originalRunChangepacks = { ...(await import('../run-changepacks')) }
+  const originalInstallChangepacks = {
+    ...(await import('../install-changepacks')),
+  }
 
   const execMock = mock()
   mock.module('@actions/exec', () => ({ exec: execMock }))
@@ -238,6 +251,12 @@ test('createPr updates existing branch and updates PR comment when PR exists', a
 
   const runChpacksMock2 = mock(async (_cmd: 'check' | 'update') => changepacks)
   mock.module('../run-changepacks', () => ({ runChangepacks: runChpacksMock2 }))
+
+  const installChangepacksMock = mock(async () => {})
+  mock.module('../install-changepacks', () => ({
+    installChangepacks: installChangepacksMock,
+  }))
+
   const { createPr } = await import('../create-pr')
   await createPr(changepacks)
 
@@ -312,6 +331,7 @@ test('createPr updates existing branch and updates PR comment when PR exists', a
   mock.module('@actions/core', () => originalCore)
   mock.module('@actions/github', () => originalGithub)
   mock.module('../run-changepacks', () => originalRunChangepacks)
+  mock.module('../install-changepacks', () => originalInstallChangepacks)
 })
 
 test('createPr updates existing PR comment when PR exists with existing comment', async () => {
@@ -319,6 +339,9 @@ test('createPr updates existing PR comment when PR exists with existing comment'
   const originalCore = { ...(await import('@actions/core')) }
   const originalGithub = { ...(await import('@actions/github')) }
   const originalRunChangepacks = { ...(await import('../run-changepacks')) }
+  const originalInstallChangepacks = {
+    ...(await import('../install-changepacks')),
+  }
 
   const execMock = mock(async () => 0)
   mock.module('@actions/exec', () => ({ exec: execMock }))
@@ -389,6 +412,12 @@ test('createPr updates existing PR comment when PR exists with existing comment'
 
   const runChpacksMock3 = mock(async (_cmd: 'check' | 'update') => changepacks)
   mock.module('../run-changepacks', () => ({ runChangepacks: runChpacksMock3 }))
+
+  const installChangepacksMock = mock(async () => {})
+  mock.module('../install-changepacks', () => ({
+    installChangepacks: installChangepacksMock,
+  }))
+
   const { createPr } = await import('../create-pr')
   await createPr(changepacks)
 
@@ -416,6 +445,7 @@ test('createPr updates existing PR comment when PR exists with existing comment'
   mock.module('@actions/core', () => originalCore)
   mock.module('@actions/github', () => originalGithub)
   mock.module('../run-changepacks', () => originalRunChangepacks)
+  mock.module('../install-changepacks', () => originalInstallChangepacks)
 })
 
 test('createPr creates branch and opens PR when none exists', async () => {
@@ -423,6 +453,9 @@ test('createPr creates branch and opens PR when none exists', async () => {
   const originalCore = { ...(await import('@actions/core')) }
   const originalGithub = { ...(await import('@actions/github')) }
   const originalRunChangepacks = { ...(await import('../run-changepacks')) }
+  const originalInstallChangepacks = {
+    ...(await import('../install-changepacks')),
+  }
 
   const execMock = mock()
   mock.module('@actions/exec', () => ({ exec: execMock }))
@@ -482,6 +515,12 @@ test('createPr creates branch and opens PR when none exists', async () => {
 
   const runChpacksMock4 = mock(async (_cmd: 'check' | 'update') => changepacks)
   mock.module('../run-changepacks', () => ({ runChangepacks: runChpacksMock4 }))
+
+  const installChangepacksMock = mock(async () => {})
+  mock.module('../install-changepacks', () => ({
+    installChangepacks: installChangepacksMock,
+  }))
+
   const { createPr } = await import('../create-pr')
   await createPr(changepacks)
 
@@ -548,12 +587,17 @@ test('createPr creates branch and opens PR when none exists', async () => {
   mock.module('@actions/core', () => originalCore)
   mock.module('@actions/github', () => originalGithub)
   mock.module('../run-changepacks', () => originalRunChangepacks)
+  mock.module('../install-changepacks', () => originalInstallChangepacks)
 })
+
 test('createPr logs error and sets failed on API failure', async () => {
   const originalExec = { ...(await import('@actions/exec')) }
   const originalCore = { ...(await import('@actions/core')) }
   const originalGithub = { ...(await import('@actions/github')) }
   const originalRunChangepacks = { ...(await import('../run-changepacks')) }
+  const originalInstallChangepacks = {
+    ...(await import('../install-changepacks')),
+  }
 
   const execMock = mock(async () => 0)
   mock.module('@actions/exec', () => ({ exec: execMock }))
@@ -618,6 +662,12 @@ test('createPr logs error and sets failed on API failure', async () => {
 
   const runChpacksMock5 = mock(async (_cmd: 'check' | 'update') => changepacks)
   mock.module('../run-changepacks', () => ({ runChangepacks: runChpacksMock5 }))
+
+  const installChangepacksMock = mock(async () => {})
+  mock.module('../install-changepacks', () => ({
+    installChangepacks: installChangepacksMock,
+  }))
+
   const { createPr } = await import('../create-pr')
   await createPr(changepacks)
 
@@ -638,6 +688,7 @@ test('createPr logs error and sets failed on API failure', async () => {
   mock.module('@actions/core', () => originalCore)
   mock.module('@actions/github', () => originalGithub)
   mock.module('../run-changepacks', () => originalRunChangepacks)
+  mock.module('../install-changepacks', () => originalInstallChangepacks)
 })
 
 test('createPr creates branch when head branch does not exist', async () => {
@@ -645,6 +696,9 @@ test('createPr creates branch when head branch does not exist', async () => {
   const originalCore = { ...(await import('@actions/core')) }
   const originalGithub = { ...(await import('@actions/github')) }
   const originalRunChangepacks = { ...(await import('../run-changepacks')) }
+  const originalInstallChangepacks = {
+    ...(await import('../install-changepacks')),
+  }
 
   const execMock = mock(async () => 0)
   mock.module('@actions/exec', () => ({ exec: execMock }))
@@ -705,6 +759,12 @@ test('createPr creates branch when head branch does not exist', async () => {
 
   const runChpacksMock6 = mock(async (_cmd: 'check' | 'update') => changepacks)
   mock.module('../run-changepacks', () => ({ runChangepacks: runChpacksMock6 }))
+
+  const installChangepacksMock = mock(async () => {})
+  mock.module('../install-changepacks', () => ({
+    installChangepacks: installChangepacksMock,
+  }))
+
   const { createPr } = await import('../create-pr')
   await createPr(changepacks)
 
@@ -793,6 +853,7 @@ test('createPr creates branch when head branch does not exist', async () => {
   mock.module('@actions/core', () => originalCore)
   mock.module('@actions/github', () => originalGithub)
   mock.module('../run-changepacks', () => originalRunChangepacks)
+  mock.module('../install-changepacks', () => originalInstallChangepacks)
 })
 
 test('createPr handles different base branch', async () => {
@@ -800,6 +861,9 @@ test('createPr handles different base branch', async () => {
   const originalCore = { ...(await import('@actions/core')) }
   const originalGithub = { ...(await import('@actions/github')) }
   const originalRunChangepacks = { ...(await import('../run-changepacks')) }
+  const originalInstallChangepacks = {
+    ...(await import('../install-changepacks')),
+  }
 
   const execMock = mock(async () => 0)
   mock.module('@actions/exec', () => ({ exec: execMock }))
@@ -860,6 +924,12 @@ test('createPr handles different base branch', async () => {
 
   const runChpacksMock7 = mock(async (_cmd: 'check' | 'update') => changepacks)
   mock.module('../run-changepacks', () => ({ runChangepacks: runChpacksMock7 }))
+
+  const installChangepacksMock = mock(async () => {})
+  mock.module('../install-changepacks', () => ({
+    installChangepacks: installChangepacksMock,
+  }))
+
   const { createPr } = await import('../create-pr')
   await createPr(changepacks)
 
@@ -954,6 +1024,7 @@ test('createPr handles different base branch', async () => {
   mock.module('@actions/core', () => originalCore)
   mock.module('@actions/github', () => originalGithub)
   mock.module('../run-changepacks', () => originalRunChangepacks)
+  mock.module('../install-changepacks', () => originalInstallChangepacks)
 })
 
 test('createPr merges base into existing head when branch exists', async () => {
@@ -961,6 +1032,9 @@ test('createPr merges base into existing head when branch exists', async () => {
   const originalCore = { ...(await import('@actions/core')) }
   const originalGithub = { ...(await import('@actions/github')) }
   const originalRunChangepacks = { ...(await import('../run-changepacks')) }
+  const originalInstallChangepacks = {
+    ...(await import('../install-changepacks')),
+  }
 
   const execMock = mock(async () => 0)
   mock.module('@actions/exec', () => ({ exec: execMock }))
@@ -1011,6 +1085,12 @@ test('createPr merges base into existing head when branch exists', async () => {
 
   const runChpacksMock8 = mock(async (_cmd: 'check' | 'update') => changepacks)
   mock.module('../run-changepacks', () => ({ runChangepacks: runChpacksMock8 }))
+
+  const installChangepacksMock = mock(async () => {})
+  mock.module('../install-changepacks', () => ({
+    installChangepacks: installChangepacksMock,
+  }))
+
   const { createPr } = await import('../create-pr')
   await createPr(changepacks)
 
@@ -1067,6 +1147,7 @@ test('createPr merges base into existing head when branch exists', async () => {
   mock.module('@actions/core', () => originalCore)
   mock.module('@actions/github', () => originalGithub)
   mock.module('../run-changepacks', () => originalRunChangepacks)
+  mock.module('../install-changepacks', () => originalInstallChangepacks)
 })
 
 test('createPr returns early when all changepacks have no nextVersion', async () => {
@@ -1074,14 +1155,15 @@ test('createPr returns early when all changepacks have no nextVersion', async ()
   const originalCore = { ...(await import('@actions/core')) }
   const originalGithub = { ...(await import('@actions/github')) }
   const originalRunChangepacks = { ...(await import('../run-changepacks')) }
+  const originalInstallChangepacks = {
+    ...(await import('../install-changepacks')),
+  }
 
   const execMock = mock(async () => 0)
   mock.module('@actions/exec', () => ({ exec: execMock }))
 
   const debugMock = mock()
-  const getInputMock = mock((name: string) =>
-    name === 'token' ? 'TEST_TOKEN' : '',
-  )
+  const getInputMock = mock()
   mock.module('@actions/core', () => ({
     getInput: getInputMock,
     isDebug,
@@ -1095,7 +1177,7 @@ test('createPr returns early when all changepacks have no nextVersion', async ()
     data: { commit: { sha: 'abc123' } },
   }))
   const createRefMock = mock()
-  const pullsListMock = mock(async () => ({ data: [] }))
+  const pullsListMock = mock()
   const pullsCreateMock = mock()
   const octokit = {
     rest: {
@@ -1148,6 +1230,12 @@ test('createPr returns early when all changepacks have no nextVersion', async ()
   mock.module('../run-changepacks', () => ({
     runChangepacks: runChpacksMockSkip,
   }))
+
+  const installChangepacksMock = mock()
+  mock.module('../install-changepacks', () => ({
+    installChangepacks: installChangepacksMock,
+  }))
+
   const { createPr } = await import('../create-pr')
   await createPr(changepacks)
 
@@ -1187,4 +1275,5 @@ test('createPr returns early when all changepacks have no nextVersion', async ()
   mock.module('@actions/core', () => originalCore)
   mock.module('@actions/github', () => originalGithub)
   mock.module('../run-changepacks', () => originalRunChangepacks)
+  mock.module('../install-changepacks', () => originalInstallChangepacks)
 })
