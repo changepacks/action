@@ -79,6 +79,22 @@ export async function createPr(mainChangepacks: ChangepackResultMap) {
         silent: !isDebug(),
         ignoreReturnCode: true,
       })
+      // remove .changepacks json without config.json
+      debug(`remove .changepacks json without config.json`)
+      await exec('git', ['rm', '-rf', '.changepacks/*.json'], {
+        silent: !isDebug(),
+        ignoreReturnCode: true,
+      })
+
+      await exec(
+        'git',
+        ['checkout', 'HEAD', '--', '.changepacks/config.json'],
+        {
+          silent: !isDebug(),
+          ignoreReturnCode: true,
+        },
+      )
+
       // add all files except changepacks binary
       debug(`add all files except changepacks binary`)
       await exec('git', ['add', '.'], {
