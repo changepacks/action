@@ -63,12 +63,13 @@ export async function createPr(mainChangepacks: ChangepackResultMap) {
         silent: !isDebug(),
       })
       // load stashed changes, overwriting any conflicts with stash version
-      await exec('git', ['stash', 'apply'], {
+      // use checkout to directly apply stash contents, overwriting existing files
+      await exec('git', ['checkout', 'stash@{0}', '--', '.'], {
         silent: !isDebug(),
         ignoreReturnCode: true,
       })
-      // resolve any conflicts by taking stash version (theirs in merge context)
-      await exec('git', ['checkout', '--theirs', '.'], {
+      // drop the stash entry after applying
+      await exec('git', ['stash', 'drop'], {
         silent: !isDebug(),
         ignoreReturnCode: true,
       })
@@ -82,11 +83,6 @@ export async function createPr(mainChangepacks: ChangepackResultMap) {
       debug(`add all files except changepacks binary`)
       await exec('git', ['add', '.'], {
         silent: !isDebug(),
-      })
-      // drop the stash entry
-      await exec('git', ['stash', 'drop'], {
-        silent: !isDebug(),
-        ignoreReturnCode: true,
       })
       debug(`configure git user`)
       await exec('git', ['config', 'user.name', 'changepacks'], {
