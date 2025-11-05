@@ -240,11 +240,17 @@ test('createPr updates existing branch and updates PR comment when PR exists', a
     ['fetch', 'origin', 'changepacks/main'],
     { silent: !isDebug() },
   )
+  expect(execMock).toHaveBeenCalledWith('git', ['stash'], {
+    silent: !isDebug(),
+  })
   expect(execMock).toHaveBeenCalledWith(
     'git',
-    ['checkout', '-f', 'changepacks/main'],
+    ['checkout', '-f', '-b', 'changepacks/main', 'origin/changepacks/main'],
     { silent: !isDebug() },
   )
+  expect(execMock).toHaveBeenCalledWith('git', ['stash', 'pop'], {
+    silent: !isDebug(),
+  })
   expect(execMock).toHaveBeenCalledWith(
     'git',
     ['config', 'user.name', 'changepacks'],
@@ -253,11 +259,6 @@ test('createPr updates existing branch and updates PR comment when PR exists', a
   expect(execMock).toHaveBeenCalledWith(
     'git',
     ['config', 'user.email', 'changepacks@users.noreply.github.com'],
-    { silent: !isDebug() },
-  )
-  expect(execMock).toHaveBeenCalledWith(
-    'git',
-    ['checkout', 'origin/main', '--', '.changepacks/'],
     { silent: !isDebug() },
   )
 
@@ -1015,11 +1016,17 @@ test('createPr merges base into existing head when branch exists', async () => {
     ['fetch', 'origin', 'changepacks/main'],
     { silent: !isDebug() },
   )
+  expect(execMock).toHaveBeenCalledWith('git', ['stash'], {
+    silent: !isDebug(),
+  })
   expect(execMock).toHaveBeenCalledWith(
     'git',
-    ['checkout', '-f', 'changepacks/main'],
+    ['checkout', '-f', '-b', 'changepacks/main', 'origin/changepacks/main'],
     { silent: !isDebug() },
   )
+  expect(execMock).toHaveBeenCalledWith('git', ['stash', 'pop'], {
+    silent: !isDebug(),
+  })
   expect(execMock).toHaveBeenCalledWith(
     'git',
     ['config', 'user.name', 'changepacks'],
@@ -1028,11 +1035,6 @@ test('createPr merges base into existing head when branch exists', async () => {
   expect(execMock).toHaveBeenCalledWith(
     'git',
     ['config', 'user.email', 'changepacks@users.noreply.github.com'],
-    { silent: !isDebug() },
-  )
-  expect(execMock).toHaveBeenCalledWith(
-    'git',
-    ['checkout', 'origin/main', '--', '.changepacks/'],
     { silent: !isDebug() },
   )
 

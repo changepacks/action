@@ -5,14 +5,15 @@ import type { ChangepackResultMap } from '../types'
 test('runChangepacks executes check command and returns parsed JSON', async () => {
   const originalExec = { ...(await import('@actions/exec')) }
   const originalCore = { ...(await import('@actions/core')) }
+  const originalRunChangepacks = { ...(await import('../run-changepacks')) }
 
   const expectedResult: ChangepackResultMap = {
-    'package.json': {
-      logs: [{ type: 'Major', note: 'Update to v1.0.0' }],
+    'packages/a/package.json': {
+      logs: [{ type: 'Patch', note: 'fix' }],
       version: '1.0.0',
       nextVersion: '1.0.1',
-      name: 'My Project',
-      path: 'package.json',
+      name: 'pkg-a',
+      path: 'packages/a/package.json',
       changed: false,
     },
   }
@@ -58,20 +59,22 @@ test('runChangepacks executes check command and returns parsed JSON', async () =
 
   mock.module('@actions/exec', () => originalExec)
   mock.module('@actions/core', () => originalCore)
+  mock.module('../run-changepacks', () => originalRunChangepacks)
 })
 
 test('runChangepacks executes update command with -y flag and returns parsed JSON', async () => {
   const originalExec = { ...(await import('@actions/exec')) }
   const originalCore = { ...(await import('@actions/core')) }
+  const originalRunChangepacks = { ...(await import('../run-changepacks')) }
 
   const expectedResult: ChangepackResultMap = {
     'packages/a/package.json': {
-      logs: [{ type: 'Patch', note: 'fix bug' }],
+      logs: [{ type: 'Patch', note: 'fix' }],
       version: '1.0.0',
       nextVersion: '1.0.1',
-      name: 'Package A',
+      name: 'pkg-a',
       path: 'packages/a/package.json',
-      changed: true,
+      changed: false,
     },
   }
 
@@ -116,19 +119,21 @@ test('runChangepacks executes update command with -y flag and returns parsed JSO
 
   mock.module('@actions/exec', () => originalExec)
   mock.module('@actions/core', () => originalCore)
+  mock.module('../run-changepacks', () => originalRunChangepacks)
 })
 
 test('runChangepacks handles output from both stdout and stderr', async () => {
   const originalExec = { ...(await import('@actions/exec')) }
   const originalCore = { ...(await import('@actions/core')) }
+  const originalRunChangepacks = { ...(await import('../run-changepacks')) }
 
   const expectedResult: ChangepackResultMap = {
-    'package.json': {
-      logs: [],
+    'packages/a/package.json': {
+      logs: [{ type: 'Patch', note: 'fix' }],
       version: '1.0.0',
       nextVersion: '1.0.1',
-      name: 'Test',
-      path: 'package.json',
+      name: 'pkg-a',
+      path: 'packages/a/package.json',
       changed: false,
     },
   }
@@ -144,13 +149,11 @@ test('runChangepacks handles output from both stdout and stderr', async () => {
         }
       },
     ) => {
-      options?.listeners?.stdout?.(Buffer.from('{"package.json":'))
-      options?.listeners?.stderr?.(Buffer.from('{"logs":[],'))
-      options?.listeners?.stdout?.(Buffer.from('"version":"1.0.0",'))
-      options?.listeners?.stderr?.(Buffer.from('"nextVersion":"1.0.1",'))
-      options?.listeners?.stdout?.(Buffer.from('"name":"Test",'))
-      options?.listeners?.stdout?.(Buffer.from('"path":"package.json",'))
-      options?.listeners?.stdout?.(Buffer.from('"changed":false}}'))
+      const jsonOutput = JSON.stringify(expectedResult)
+      // Split output between stdout and stderr to test both listeners
+      const half = Math.floor(jsonOutput.length / 2)
+      options?.listeners?.stdout?.(Buffer.from(jsonOutput.substring(0, half)))
+      options?.listeners?.stderr?.(Buffer.from(jsonOutput.substring(half)))
       return 0
     },
   )
@@ -170,11 +173,13 @@ test('runChangepacks handles output from both stdout and stderr', async () => {
 
   mock.module('@actions/exec', () => originalExec)
   mock.module('@actions/core', () => originalCore)
+  mock.module('../run-changepacks', () => originalRunChangepacks)
 })
 
 test('runChangepacks uses .exe extension on Windows', async () => {
   const originalExec = { ...(await import('@actions/exec')) }
   const originalCore = { ...(await import('@actions/core')) }
+  const originalRunChangepacks = { ...(await import('../run-changepacks')) }
   const originalProcess = { ...process }
 
   const execMock = mock(
@@ -225,11 +230,13 @@ test('runChangepacks uses .exe extension on Windows', async () => {
 
   mock.module('@actions/exec', () => originalExec)
   mock.module('@actions/core', () => originalCore)
+  mock.module('../run-changepacks', () => originalRunChangepacks)
 })
 
 test('runChangepacks throws error when JSON parse fails', async () => {
   const originalExec = { ...(await import('@actions/exec')) }
   const originalCore = { ...(await import('@actions/core')) }
+  const originalRunChangepacks = { ...(await import('../run-changepacks')) }
 
   const execMock = mock(
     async (
@@ -260,11 +267,13 @@ test('runChangepacks throws error when JSON parse fails', async () => {
 
   mock.module('@actions/exec', () => originalExec)
   mock.module('@actions/core', () => originalCore)
+  mock.module('../run-changepacks', () => originalRunChangepacks)
 })
 
 test('runChangepacks throws error when exec fails', async () => {
   const originalExec = { ...(await import('@actions/exec')) }
   const originalCore = { ...(await import('@actions/core')) }
+  const originalRunChangepacks = { ...(await import('../run-changepacks')) }
 
   const execMock = mock(async () => {
     throw new Error('exec failed')
@@ -284,11 +293,13 @@ test('runChangepacks throws error when exec fails', async () => {
 
   mock.module('@actions/exec', () => originalExec)
   mock.module('@actions/core', () => originalCore)
+  mock.module('../run-changepacks', () => originalRunChangepacks)
 })
 
 test('runChangepacks sets silent to false when isDebug returns true', async () => {
   const originalExec = { ...(await import('@actions/exec')) }
   const originalCore = { ...(await import('@actions/core')) }
+  const originalRunChangepacks = { ...(await import('../run-changepacks')) }
 
   const execMock = mock(
     async (
@@ -326,15 +337,29 @@ test('runChangepacks sets silent to false when isDebug returns true', async () =
 
   mock.module('@actions/exec', () => originalExec)
   mock.module('@actions/core', () => originalCore)
+  mock.module('../run-changepacks', () => originalRunChangepacks)
 })
 
 test('runChangepacks returns empty object when output is empty', async () => {
   const originalExec = { ...(await import('@actions/exec')) }
   const originalCore = { ...(await import('@actions/core')) }
+  const originalRunChangepacks = { ...(await import('../run-changepacks')) }
 
-  const execMock = mock(async () => {
-    return 0
-  })
+  const execMock = mock(
+    async (
+      _cmd: string,
+      _args?: string[],
+      _options?: {
+        listeners?: {
+          stdout?: (data: Buffer) => void
+          stderr?: (data: Buffer) => void
+        }
+      },
+    ) => {
+      // Return empty output
+      return 0
+    },
+  )
   mock.module('@actions/exec', () => ({ exec: execMock }))
 
   const debugMock = mock()
@@ -350,4 +375,5 @@ test('runChangepacks returns empty object when output is empty', async () => {
 
   mock.module('@actions/exec', () => originalExec)
   mock.module('@actions/core', () => originalCore)
+  mock.module('../run-changepacks', () => originalRunChangepacks)
 })

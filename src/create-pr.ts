@@ -27,30 +27,7 @@ export async function createPr(mainChangepacks: ChangepackResultMap) {
       debug(`branch ${head} does not exist, will create it`)
     }
 
-    if (branchExists) {
-      debug(`checking out existing branch: ${head}`)
-      await exec('git', ['fetch', 'origin', head], {
-        silent: !isDebug(),
-      })
-      await exec('git', ['checkout', '-f', head], {
-        silent: !isDebug(),
-      })
-      debug(`configure git user`)
-      await exec('git', ['config', 'user.name', 'changepacks'], {
-        silent: !isDebug(),
-      })
-      await exec(
-        'git',
-        ['config', 'user.email', 'changepacks@users.noreply.github.com'],
-        {
-          silent: !isDebug(),
-        },
-      )
-      debug(`checking out .changepacks from ${base}`)
-      await exec('git', ['checkout', `origin/${base}`, '--', '.changepacks/'], {
-        silent: !isDebug(),
-      })
-    } else {
+    if (!branchExists) {
       debug(`get base branch: ${base}`)
       const { data } = await octokit.rest.repos.getBranch({
         repo: context.repo.repo,
@@ -65,21 +42,30 @@ export async function createPr(mainChangepacks: ChangepackResultMap) {
         sha: data.commit.sha,
       })
       debug(`create branch: ${head}`)
-      await exec('git', ['fetch', 'origin', head], {
-        silent: !isDebug(),
-      })
-      await exec('git', ['checkout', '-f', '-b', head, `origin/${head}`], {
-        silent: !isDebug(),
-      })
     }
+
+    await exec('git', ['fetch', 'origin', head], {
+      silent: !isDebug(),
+    })
 
     debug(`update changepacks`)
     const changepacks = await runChangepacks('update')
+
+    await exec('git', ['stash'], {
+      silent: !isDebug(),
+    })
 
     // if not changed, return
     if (
       !Object.values(changepacks).every((changepack) => !changepack.nextVersion)
     ) {
+      await exec('git', ['checkout', '-f', '-b', head, `origin/${head}`], {
+        silent: !isDebug(),
+      })
+      // load stashed changes
+      await exec('git', ['stash', 'pop'], {
+        silent: !isDebug(),
+      })
       debug(`add all files except changepacks binary`)
       await exec('git', ['add', '.'], {
         silent: !isDebug(),
