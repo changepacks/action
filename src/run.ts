@@ -18,7 +18,7 @@ export async function run() {
   const changepacks = await runChangepacks('check')
   // add pull request comment
   if (context.payload?.pull_request) {
-    await updatePr(changepacks)
+    await updatePr(changepacks, context.payload.pull_request.number)
     return
   }
   if (

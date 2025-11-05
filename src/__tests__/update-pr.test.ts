@@ -11,12 +11,14 @@ test('updatePr posts combined body to the PR issue', async () => {
 
   const getInputMock = mock((name: string) => (name === 'token' ? 'T' : ''))
   const setFailedMock = mock()
+  const debugMock = mock()
   // simple passthrough
   mock.module('@actions/core', () => ({
     getInput: getInputMock,
     warning: mock(),
     error: mock(),
     setFailed: setFailedMock,
+    debug: debugMock,
   }))
 
   const getMock = mock(async (_params: unknown) => ({
@@ -58,7 +60,7 @@ test('updatePr posts combined body to the PR issue', async () => {
   }
 
   const { updatePr } = await import('../update-pr')
-  await updatePr(changepacks)
+  await updatePr(changepacks, 123)
 
   expect(getOctokitMock).toHaveBeenCalledWith('T')
   expect(createCommentMock).toHaveBeenCalledWith({
@@ -134,7 +136,7 @@ test('updatePr updates existing Changepacks comment by github-actions[bot]', asy
   }
 
   const { updatePr } = await import('../update-pr')
-  await updatePr(changepacks)
+  await updatePr(changepacks, 123)
 
   expect(getOctokitMock).toHaveBeenCalledWith('T')
   expect(listCommentsMock).toHaveBeenCalledWith({
@@ -207,7 +209,7 @@ test('updatePr creates new comment when no existing Changepacks comment', async 
   }
 
   const { updatePr } = await import('../update-pr')
-  await updatePr(changepacks)
+  await updatePr(changepacks, 123)
 
   expect(getOctokitMock).toHaveBeenCalledWith('T')
   expect(listCommentsMock).toHaveBeenCalledWith({
@@ -283,7 +285,7 @@ test('updatePr warns when listComments fails', async () => {
   }
 
   const { updatePr } = await import('../update-pr')
-  await updatePr(changepacks)
+  await updatePr(changepacks, 123)
 
   expect(listCommentsMock).toHaveBeenCalled()
   expect(createCommentMock).not.toHaveBeenCalled()
@@ -351,7 +353,7 @@ test('updatePr updates issue body when issue is created by github-actions[bot]',
   }
 
   const { updatePr } = await import('../update-pr')
-  await updatePr(changepacks)
+  await updatePr(changepacks, 123)
 
   expect(getOctokitMock).toHaveBeenCalledWith('T')
   expect(updateMock).toHaveBeenCalledWith({
@@ -427,7 +429,7 @@ test('updatePr warns when updateComment fails', async () => {
   }
 
   const { updatePr } = await import('../update-pr')
-  await updatePr(changepacks)
+  await updatePr(changepacks, 123)
 
   expect(listCommentsMock).toHaveBeenCalled()
   expect(updateCommentMock).toHaveBeenCalled()

@@ -4,6 +4,7 @@ import { context, getOctokit } from '@actions/github'
 import { createContents } from './create-contents'
 import { runChangepacks } from './run-changepacks'
 import type { ChangepackResultMap } from './types'
+import { updatePr } from './update-pr'
 
 export async function createPr(mainChangepacks: ChangepackResultMap) {
   const base = context.ref.replace(/^refs\/heads\//, '')
@@ -116,37 +117,7 @@ export async function createPr(mainChangepacks: ChangepackResultMap) {
     })
 
     if (pulls.length > 0) {
-      const body = createContents(changepacks)
-      const prNumber = pulls[0].number
-      debug(`PR #${prNumber} exists, updating comment`)
-      const comments = await octokit.rest.issues.listComments({
-        owner: context.repo.owner,
-        repo: context.repo.repo,
-        issue_number: prNumber,
-        per_page: 100,
-      })
-      const existingComment = comments.data.find(
-        (c) =>
-          c.user?.login === 'github-actions[bot]' &&
-          c.body?.startsWith('# Changepacks'),
-      )
-      if (existingComment) {
-        await octokit.rest.issues.updateComment({
-          owner: context.repo.owner,
-          repo: context.repo.repo,
-          comment_id: existingComment.id,
-          body,
-        })
-        debug(`updated comment on PR #${prNumber}`)
-      } else {
-        await octokit.rest.issues.createComment({
-          owner: context.repo.owner,
-          repo: context.repo.repo,
-          issue_number: prNumber,
-          body,
-        })
-        debug(`created comment on PR #${prNumber}`)
-      }
+      await updatePr(changepacks, pulls[0].number)
     } else {
       debug(`creating new PR`)
 

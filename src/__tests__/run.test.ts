@@ -197,7 +197,7 @@ test('run posts PR comment and returns early when payload.pull_request exists', 
   expect(installMock).toHaveBeenCalled()
   expect(getConfigMock).toHaveBeenCalled()
   expect(checkMock).toHaveBeenCalledWith('check')
-  expect(updatePrMock).toHaveBeenCalledWith(currentChangepacks)
+  expect(updatePrMock).toHaveBeenCalledWith(currentChangepacks, 1)
   // early return prevents PR/release paths
   expect(createPrMock).not.toHaveBeenCalled()
   expect(checkPastMock).not.toHaveBeenCalled()

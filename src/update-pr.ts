@@ -5,6 +5,7 @@ import type { ChangepackResultMap } from './types'
 
 export async function updatePr(
   changepacks: ChangepackResultMap,
+  prNumber: number,
 ): Promise<void> {
   const octokit = getOctokit(getInput('token'))
   const body = createContents(changepacks)
@@ -13,7 +14,7 @@ export async function updatePr(
     const issue = await octokit.rest.issues.get({
       owner: context.repo.owner,
       repo: context.repo.repo,
-      issue_number: context.issue.number,
+      issue_number: prNumber,
     })
     debug(`issue: ${JSON.stringify(issue.data, null, 2)}`)
     if (
@@ -24,14 +25,14 @@ export async function updatePr(
       await octokit.rest.issues.update({
         owner: context.repo.owner,
         repo: context.repo.repo,
-        issue_number: context.issue.number,
+        issue_number: prNumber,
         body: body,
       })
     } else {
       const comments = await octokit.rest.issues.listComments({
         owner: context.repo.owner,
         repo: context.repo.repo,
-        issue_number: context.issue.number,
+        issue_number: prNumber,
         per_page: 100,
       })
       if (
@@ -51,7 +52,7 @@ export async function updatePr(
         await octokit.rest.issues.createComment({
           owner: context.repo.owner,
           repo: context.repo.repo,
-          issue_number: context.issue.number,
+          issue_number: prNumber,
           body: body,
         })
       }

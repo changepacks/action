@@ -184,6 +184,12 @@ test('createPr updates existing branch and updates PR comment when PR exists', a
 
   const getBranchHeadMock = mock()
   const pullsListMock = mock(async () => ({ data: [{ number: 123 }] }))
+  const getMock = mock(async () => ({
+    data: {
+      user: { login: 'user' },
+      body: 'Some body',
+    },
+  }))
   const listCommentsMock = mock(async () => ({ data: [] }))
   const createCommentMock = mock()
 
@@ -194,6 +200,7 @@ test('createPr updates existing branch and updates PR comment when PR exists', a
       },
       pulls: { list: pullsListMock },
       issues: {
+        get: getMock,
         listComments: listCommentsMock,
         createComment: createCommentMock,
       },
@@ -329,6 +336,12 @@ test('createPr updates existing PR comment when PR exists with existing comment'
 
   const getBranchHeadMock = mock(async () => ({ data: {} }))
   const pullsListMock = mock(async () => ({ data: [{ number: 123 }] }))
+  const getMock = mock(async () => ({
+    data: {
+      user: { login: 'user' },
+      body: 'Some body',
+    },
+  }))
   const listCommentsMock = mock(async () => ({
     data: [
       {
@@ -347,6 +360,7 @@ test('createPr updates existing PR comment when PR exists with existing comment'
       },
       pulls: { list: pullsListMock },
       issues: {
+        get: getMock,
         listComments: listCommentsMock,
         updateComment: updateCommentMock,
       },
@@ -398,7 +412,6 @@ test('createPr updates existing PR comment when PR exists with existing comment'
     comment_id: 456,
     body: expect.stringContaining('# Changepacks'),
   })
-  expect(debugMock).toHaveBeenCalledWith('updated comment on PR #123')
 
   mock.module('@actions/exec', () => originalExec)
   mock.module('@actions/core', () => originalCore)
