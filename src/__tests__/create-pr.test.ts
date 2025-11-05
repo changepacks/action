@@ -144,7 +144,7 @@ test('createPr runs update and opens PR with formatted body', async () => {
   )
   expect(execMock).toHaveBeenCalledWith(
     'git',
-    ['push', 'origin', 'changepacks/main'],
+    ['push', '--force', 'origin', 'changepacks/main'],
     {
       silent: !isDebug(),
     },
@@ -288,7 +288,7 @@ test('createPr updates existing branch and updates PR comment when PR exists', a
   )
   expect(execMock).toHaveBeenCalledWith(
     'git',
-    ['push', 'origin', 'changepacks/main'],
+    ['push', '--force', 'origin', 'changepacks/main'],
     { silent: !isDebug() },
   )
 
@@ -523,7 +523,7 @@ test('createPr creates branch and opens PR when none exists', async () => {
   )
   expect(execMock).toHaveBeenCalledWith(
     'git',
-    ['push', 'origin', 'changepacks/main'],
+    ['push', '--force', 'origin', 'changepacks/main'],
     { silent: !isDebug() },
   )
 
@@ -768,7 +768,7 @@ test('createPr creates branch when head branch does not exist', async () => {
   )
   expect(execMock).toHaveBeenCalledWith(
     'git',
-    ['push', 'origin', 'changepacks/main'],
+    ['push', '--force', 'origin', 'changepacks/main'],
     {
       silent: !isDebug(),
     },
@@ -929,7 +929,7 @@ test('createPr handles different base branch', async () => {
   )
   expect(execMock).toHaveBeenCalledWith(
     'git',
-    ['push', 'origin', 'changepacks/develop'],
+    ['push', '--force', 'origin', 'changepacks/develop'],
     {
       silent: !isDebug(),
     },

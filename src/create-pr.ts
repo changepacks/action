@@ -96,7 +96,7 @@ export async function createPr(mainChangepacks: ChangepackResultMap) {
         silent: !isDebug(),
       })
       debug(`push branch: ${head}`)
-      await exec('git', ['push', 'origin', head], {
+      await exec('git', ['push', '--force', 'origin', head], {
         silent: !isDebug(),
       })
     }
