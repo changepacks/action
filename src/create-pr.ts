@@ -51,7 +51,7 @@ export async function createPr(mainChangepacks: ChangepackResultMap) {
     debug(`update changepacks`)
     const changepacks = await runChangepacks('update')
 
-    await exec('git', ['stash'], {
+    await exec('git', ['reset', '--hard', `origin/${base}`], {
       silent: !isDebug(),
     })
 
@@ -62,38 +62,18 @@ export async function createPr(mainChangepacks: ChangepackResultMap) {
       await exec('git', ['checkout', '-f', '-b', head, `origin/${head}`], {
         silent: !isDebug(),
       })
-      // load stashed changes, overwriting any conflicts with stash version
-      // use checkout to directly apply stash contents, overwriting existing files
-      await exec('git', ['checkout', 'stash@{0}', '--', '.'], {
+      // rollback to base branch
+      await exec('git', ['reset', '--hard', `origin/${base}`], {
         silent: !isDebug(),
-        ignoreReturnCode: true,
       })
-      // drop the stash entry after applying
-      await exec('git', ['stash', 'drop'], {
-        silent: !isDebug(),
-        ignoreReturnCode: true,
-      })
-      // exclude changepacks binary before adding
+
+      await runChangepacks('update')
+
       debug(`remove changepacks binary before adding`)
       await exec('git', ['rm', '-f', 'changepacks', 'changepacks.exe'], {
         silent: !isDebug(),
         ignoreReturnCode: true,
       })
-      // remove .changepacks json without config.json
-      debug(`remove .changepacks json without config.json`)
-      await exec('git', ['rm', '-rf', '.changepacks/*.json'], {
-        silent: !isDebug(),
-        ignoreReturnCode: true,
-      })
-
-      await exec(
-        'git',
-        ['checkout', 'HEAD', '--', '.changepacks/config.json'],
-        {
-          silent: !isDebug(),
-          ignoreReturnCode: true,
-        },
-      )
 
       // add all files except changepacks binary
       debug(`add all files except changepacks binary`)

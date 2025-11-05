@@ -100,34 +100,22 @@ test('createPr runs update and opens PR with formatted body', async () => {
   )
   expect(execMock).toHaveBeenCalledWith(
     'git',
+    ['reset', '--hard', 'origin/main'],
+    { silent: !isDebug() },
+  )
+  expect(execMock).toHaveBeenCalledWith(
+    'git',
     ['checkout', '-f', '-b', 'changepacks/main', 'origin/changepacks/main'],
     { silent: !isDebug() },
   )
   expect(execMock).toHaveBeenCalledWith(
     'git',
-    ['checkout', 'stash@{0}', '--', '.'],
-    {
-      silent: !isDebug(),
-      ignoreReturnCode: true,
-    },
+    ['reset', '--hard', 'origin/main'],
+    { silent: !isDebug() },
   )
-  expect(execMock).toHaveBeenCalledWith('git', ['stash', 'drop'], {
-    silent: !isDebug(),
-    ignoreReturnCode: true,
-  })
   expect(execMock).toHaveBeenCalledWith(
     'git',
     ['rm', '-f', 'changepacks', 'changepacks.exe'],
-    { silent: !isDebug(), ignoreReturnCode: true },
-  )
-  expect(execMock).toHaveBeenCalledWith(
-    'git',
-    ['rm', '-rf', '.changepacks/*.json'],
-    { silent: !isDebug(), ignoreReturnCode: true },
-  )
-  expect(execMock).toHaveBeenCalledWith(
-    'git',
-    ['checkout', 'HEAD', '--', '.changepacks/config.json'],
     { silent: !isDebug(), ignoreReturnCode: true },
   )
   expect(execMock).toHaveBeenCalledWith('git', ['add', '.'], {
@@ -260,9 +248,11 @@ test('createPr updates existing branch and updates PR comment when PR exists', a
     ['fetch', 'origin', 'changepacks/main'],
     { silent: !isDebug() },
   )
-  expect(execMock).toHaveBeenCalledWith('git', ['stash'], {
-    silent: !isDebug(),
-  })
+  expect(execMock).toHaveBeenCalledWith(
+    'git',
+    ['reset', '--hard', 'origin/main'],
+    { silent: !isDebug() },
+  )
   expect(execMock).toHaveBeenCalledWith(
     'git',
     ['checkout', '-f', '-b', 'changepacks/main', 'origin/changepacks/main'],
@@ -270,46 +260,17 @@ test('createPr updates existing branch and updates PR comment when PR exists', a
   )
   expect(execMock).toHaveBeenCalledWith(
     'git',
-    ['checkout', 'stash@{0}', '--', '.'],
-    {
-      silent: !isDebug(),
-      ignoreReturnCode: true,
-    },
+    ['reset', '--hard', 'origin/main'],
+    { silent: !isDebug() },
   )
-  expect(execMock).toHaveBeenCalledWith('git', ['stash', 'drop'], {
-    silent: !isDebug(),
-    ignoreReturnCode: true,
-  })
   expect(execMock).toHaveBeenCalledWith(
     'git',
     ['rm', '-f', 'changepacks', 'changepacks.exe'],
     { silent: !isDebug(), ignoreReturnCode: true },
   )
-  expect(execMock).toHaveBeenCalledWith(
-    'git',
-    ['rm', '-rf', '.changepacks/*.json'],
-    { silent: !isDebug(), ignoreReturnCode: true },
-  )
-  expect(execMock).toHaveBeenCalledWith(
-    'git',
-    ['checkout', 'HEAD', '--', '.changepacks/config.json'],
-    { silent: !isDebug(), ignoreReturnCode: true },
-  )
   expect(execMock).toHaveBeenCalledWith('git', ['add', '.'], {
     silent: !isDebug(),
   })
-  expect(execMock).toHaveBeenCalledWith(
-    'git',
-    ['config', 'user.name', 'changepacks'],
-    { silent: !isDebug() },
-  )
-  expect(execMock).toHaveBeenCalledWith(
-    'git',
-    ['config', 'user.email', 'changepacks@users.noreply.github.com'],
-    { silent: !isDebug() },
-  )
-
-  // changepacks update and commit
   expect(execMock).toHaveBeenCalledWith(
     'git',
     ['config', 'user.name', 'changepacks'],
@@ -763,34 +724,22 @@ test('createPr creates branch when head branch does not exist', async () => {
   )
   expect(execMock).toHaveBeenCalledWith(
     'git',
+    ['reset', '--hard', 'origin/main'],
+    { silent: !isDebug() },
+  )
+  expect(execMock).toHaveBeenCalledWith(
+    'git',
     ['checkout', '-f', '-b', 'changepacks/main', 'origin/changepacks/main'],
     { silent: !isDebug() },
   )
   expect(execMock).toHaveBeenCalledWith(
     'git',
-    ['checkout', 'stash@{0}', '--', '.'],
-    {
-      silent: !isDebug(),
-      ignoreReturnCode: true,
-    },
+    ['reset', '--hard', 'origin/main'],
+    { silent: !isDebug() },
   )
-  expect(execMock).toHaveBeenCalledWith('git', ['stash', 'drop'], {
-    silent: !isDebug(),
-    ignoreReturnCode: true,
-  })
   expect(execMock).toHaveBeenCalledWith(
     'git',
     ['rm', '-f', 'changepacks', 'changepacks.exe'],
-    { silent: !isDebug(), ignoreReturnCode: true },
-  )
-  expect(execMock).toHaveBeenCalledWith(
-    'git',
-    ['rm', '-rf', '.changepacks/*.json'],
-    { silent: !isDebug(), ignoreReturnCode: true },
-  )
-  expect(execMock).toHaveBeenCalledWith(
-    'git',
-    ['checkout', 'HEAD', '--', '.changepacks/config.json'],
     { silent: !isDebug(), ignoreReturnCode: true },
   )
   expect(execMock).toHaveBeenCalledWith('git', ['add', '.'], {
@@ -930,6 +879,11 @@ test('createPr handles different base branch', async () => {
   )
   expect(execMock).toHaveBeenCalledWith(
     'git',
+    ['reset', '--hard', 'origin/develop'],
+    { silent: !isDebug() },
+  )
+  expect(execMock).toHaveBeenCalledWith(
+    'git',
     [
       'checkout',
       '-f',
@@ -941,29 +895,12 @@ test('createPr handles different base branch', async () => {
   )
   expect(execMock).toHaveBeenCalledWith(
     'git',
-    ['checkout', 'stash@{0}', '--', '.'],
-    {
-      silent: !isDebug(),
-      ignoreReturnCode: true,
-    },
+    ['reset', '--hard', 'origin/develop'],
+    { silent: !isDebug() },
   )
-  expect(execMock).toHaveBeenCalledWith('git', ['stash', 'drop'], {
-    silent: !isDebug(),
-    ignoreReturnCode: true,
-  })
   expect(execMock).toHaveBeenCalledWith(
     'git',
     ['rm', '-f', 'changepacks', 'changepacks.exe'],
-    { silent: !isDebug(), ignoreReturnCode: true },
-  )
-  expect(execMock).toHaveBeenCalledWith(
-    'git',
-    ['rm', '-rf', '.changepacks/*.json'],
-    { silent: !isDebug(), ignoreReturnCode: true },
-  )
-  expect(execMock).toHaveBeenCalledWith(
-    'git',
-    ['checkout', 'HEAD', '--', '.changepacks/config.json'],
     { silent: !isDebug(), ignoreReturnCode: true },
   )
   expect(execMock).toHaveBeenCalledWith('git', ['add', '.'], {
@@ -1083,9 +1020,11 @@ test('createPr merges base into existing head when branch exists', async () => {
     ['fetch', 'origin', 'changepacks/main'],
     { silent: !isDebug() },
   )
-  expect(execMock).toHaveBeenCalledWith('git', ['stash'], {
-    silent: !isDebug(),
-  })
+  expect(execMock).toHaveBeenCalledWith(
+    'git',
+    ['reset', '--hard', 'origin/main'],
+    { silent: !isDebug() },
+  )
   expect(execMock).toHaveBeenCalledWith(
     'git',
     ['checkout', '-f', '-b', 'changepacks/main', 'origin/changepacks/main'],
@@ -1093,29 +1032,12 @@ test('createPr merges base into existing head when branch exists', async () => {
   )
   expect(execMock).toHaveBeenCalledWith(
     'git',
-    ['checkout', 'stash@{0}', '--', '.'],
-    {
-      silent: !isDebug(),
-      ignoreReturnCode: true,
-    },
+    ['reset', '--hard', 'origin/main'],
+    { silent: !isDebug() },
   )
-  expect(execMock).toHaveBeenCalledWith('git', ['stash', 'drop'], {
-    silent: !isDebug(),
-    ignoreReturnCode: true,
-  })
   expect(execMock).toHaveBeenCalledWith(
     'git',
     ['rm', '-f', 'changepacks', 'changepacks.exe'],
-    { silent: !isDebug(), ignoreReturnCode: true },
-  )
-  expect(execMock).toHaveBeenCalledWith(
-    'git',
-    ['rm', '-rf', '.changepacks/*.json'],
-    { silent: !isDebug(), ignoreReturnCode: true },
-  )
-  expect(execMock).toHaveBeenCalledWith(
-    'git',
-    ['checkout', 'HEAD', '--', '.changepacks/config.json'],
     { silent: !isDebug(), ignoreReturnCode: true },
   )
   expect(execMock).toHaveBeenCalledWith('git', ['add', '.'], {
