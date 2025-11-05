@@ -10,7 +10,7 @@ test('run creates PR when current changepacks exist', async () => {
   const originalConfig = { ...(await import('../get-changepacks-config')) }
   const originalFetch = { ...(await import('../fetch-origin')) }
 
-  const installMock = mock(async () => {})
+  const installMock = mock()
   mock.module('../install-changepacks', () => ({
     installChangepacks: installMock,
   }))
@@ -21,7 +21,7 @@ test('run creates PR when current changepacks exist', async () => {
     getChangepacksConfig: getConfigMock,
   }))
 
-  const fetchOriginMock = mock(async () => {})
+  const fetchOriginMock = mock()
   mock.module('../fetch-origin', () => ({
     fetchOrigin: fetchOriginMock,
   }))
@@ -29,7 +29,7 @@ test('run creates PR when current changepacks exist', async () => {
   const currentChangepacks = {
     'pkg/a': { logs: [], version: '1.0.0', nextVersion: '1.0.1', name: 'a' },
   }
-  const checkMock = mock(async () => currentChangepacks)
+  const checkMock = mock(async (_cmd: 'check' | 'update') => currentChangepacks)
   mock.module('../run-changepacks', () => ({ runChangepacks: checkMock }))
 
   const checkPastMock = mock()
@@ -71,7 +71,7 @@ test('run creates releases from past changepacks when current is empty', async (
   const originalConfig = { ...(await import('../get-changepacks-config')) }
   const originalFetch = { ...(await import('../fetch-origin')) }
 
-  const installMock = mock(async () => {})
+  const installMock = mock()
   mock.module('../install-changepacks', () => ({
     installChangepacks: installMock,
   }))
@@ -82,7 +82,7 @@ test('run creates releases from past changepacks when current is empty', async (
     getChangepacksConfig: getConfigMock,
   }))
 
-  const fetchOriginMock = mock(async () => {})
+  const fetchOriginMock = mock()
   mock.module('../fetch-origin', () => ({
     fetchOrigin: fetchOriginMock,
   }))
@@ -129,23 +129,25 @@ test('run posts PR comment and returns early when payload.pull_request exists', 
   const originalPast = { ...(await import('../check-past-changepacks')) }
   const originalPr = { ...(await import('../create-pr')) }
   const originalRel = { ...(await import('../create-release')) }
-  const originalPrComment = { ...(await import('../create-pr-comment')) }
+  const originalUpdatePr = { ...(await import('../update-pr')) }
   const originalGithub = { ...(await import('@actions/github')) }
+  const originalCore = { ...(await import('@actions/core')) }
   const originalConfig = { ...(await import('../get-changepacks-config')) }
   const originalFetch = { ...(await import('../fetch-origin')) }
 
-  const installMock = mock(async () => {})
+  const installMock = mock()
   mock.module('../install-changepacks', () => ({
     installChangepacks: installMock,
   }))
 
   const config = { baseBranch: 'main', ignore: [], latestPackage: null }
+
   const getConfigMock = mock(async () => config)
   mock.module('../get-changepacks-config', () => ({
     getChangepacksConfig: getConfigMock,
   }))
 
-  const fetchOriginMock = mock(async () => {})
+  const fetchOriginMock = mock()
   mock.module('../fetch-origin', () => ({
     fetchOrigin: fetchOriginMock,
   }))
@@ -156,9 +158,28 @@ test('run posts PR comment and returns early when payload.pull_request exists', 
   const checkMock = mock(async () => currentChangepacks)
   mock.module('../run-changepacks', () => ({ runChangepacks: checkMock }))
 
-  const createPrCommentMock = mock()
-  mock.module('../create-pr-comment', () => ({
-    createPrComment: createPrCommentMock,
+  const updatePrMock = mock()
+  mock.module('../update-pr', () => ({
+    updatePr: updatePrMock,
+  }))
+
+  const getInputMock = mock()
+  mock.module('@actions/core', () => ({
+    getInput: getInputMock,
+    error: mock(),
+    setFailed: mock(),
+  }))
+
+  const getOctokitMock = mock()
+  const contextMock = {
+    ...realContext,
+    payload: { pull_request: { number: 1 } },
+    repo: { owner: 'acme', repo: 'widgets' },
+    issue: { number: 1 },
+  }
+  mock.module('@actions/github', () => ({
+    context: contextMock,
+    getOctokit: getOctokitMock,
   }))
 
   const createPrMock = mock()
@@ -170,20 +191,13 @@ test('run posts PR comment and returns early when payload.pull_request exists', 
     checkPastChangepacks: checkPastMock,
   }))
 
-  // inject pull_request in context payload
-  const contextMock = {
-    ...realContext,
-    payload: { pull_request: { number: 1 } },
-  }
-  mock.module('@actions/github', () => ({ context: contextMock }))
-
   const { run } = await import('../run')
   await run()
 
   expect(installMock).toHaveBeenCalled()
   expect(getConfigMock).toHaveBeenCalled()
   expect(checkMock).toHaveBeenCalledWith('check')
-  expect(createPrCommentMock).toHaveBeenCalledWith(currentChangepacks)
+  expect(updatePrMock).toHaveBeenCalledWith(currentChangepacks)
   // early return prevents PR/release paths
   expect(createPrMock).not.toHaveBeenCalled()
   expect(checkPastMock).not.toHaveBeenCalled()
@@ -194,8 +208,9 @@ test('run posts PR comment and returns early when payload.pull_request exists', 
   mock.module('../check-past-changepacks', () => originalPast)
   mock.module('../create-pr', () => originalPr)
   mock.module('../create-release', () => originalRel)
-  mock.module('../create-pr-comment', () => originalPrComment)
+  mock.module('../update-pr', () => originalUpdatePr)
   mock.module('@actions/github', () => originalGithub)
+  mock.module('@actions/core', () => originalCore)
   mock.module('../get-changepacks-config', () => originalConfig)
   mock.module('../fetch-origin', () => originalFetch)
 })
@@ -206,10 +221,13 @@ test('run does not create release when past changepacks is empty', async () => {
   const originalPast = { ...(await import('../check-past-changepacks')) }
   const originalPr = { ...(await import('../create-pr')) }
   const originalRel = { ...(await import('../create-release')) }
+  const originalUpdatePr = { ...(await import('../update-pr')) }
+  const originalCore = { ...(await import('@actions/core')) }
+  const originalGithub = { ...(await import('@actions/github')) }
   const originalConfig = { ...(await import('../get-changepacks-config')) }
   const originalFetch = { ...(await import('../fetch-origin')) }
 
-  const installMock = mock(async () => {})
+  const installMock = mock()
   mock.module('../install-changepacks', () => ({
     installChangepacks: installMock,
   }))
@@ -220,13 +238,37 @@ test('run does not create release when past changepacks is empty', async () => {
     getChangepacksConfig: getConfigMock,
   }))
 
-  const fetchOriginMock = mock(async () => {})
+  const fetchOriginMock = mock()
   mock.module('../fetch-origin', () => ({
     fetchOrigin: fetchOriginMock,
   }))
 
   const checkMock = mock(async () => ({}))
+
   mock.module('../run-changepacks', () => ({ runChangepacks: checkMock }))
+
+  const updatePrMock = mock()
+  mock.module('../update-pr', () => ({
+    updatePr: updatePrMock,
+  }))
+
+  const getInputMock = mock()
+  mock.module('@actions/core', () => ({
+    getInput: getInputMock,
+    error: mock(),
+    setFailed: mock(),
+  }))
+
+  const getOctokitMock = mock()
+  const contextMock = {
+    ...realContext,
+    repo: { owner: 'acme', repo: 'widgets' },
+    issue: { number: 1 },
+  }
+  mock.module('@actions/github', () => ({
+    context: contextMock,
+    getOctokit: getOctokitMock,
+  }))
 
   const checkPastMock = mock(async () => ({}))
   mock.module('../check-past-changepacks', () => ({
@@ -254,6 +296,9 @@ test('run does not create release when past changepacks is empty', async () => {
   mock.module('../check-past-changepacks', () => originalPast)
   mock.module('../create-pr', () => originalPr)
   mock.module('../create-release', () => originalRel)
+  mock.module('../update-pr', () => originalUpdatePr)
+  mock.module('@actions/core', () => originalCore)
+  mock.module('@actions/github', () => originalGithub)
   mock.module('../get-changepacks-config', () => originalConfig)
   mock.module('../fetch-origin', () => originalFetch)
 })
@@ -264,11 +309,13 @@ test('run fetches origin when ref is not base branch', async () => {
   const originalPast = { ...(await import('../check-past-changepacks')) }
   const originalPr = { ...(await import('../create-pr')) }
   const originalRel = { ...(await import('../create-release')) }
+  const originalUpdatePr = { ...(await import('../update-pr')) }
+  const originalCore = { ...(await import('@actions/core')) }
+  const originalGithub = { ...(await import('@actions/github')) }
   const originalConfig = { ...(await import('../get-changepacks-config')) }
   const originalFetch = { ...(await import('../fetch-origin')) }
-  const originalGithub = { ...(await import('@actions/github')) }
 
-  const installMock = mock(async () => {})
+  const installMock = mock()
   mock.module('../install-changepacks', () => ({
     installChangepacks: installMock,
   }))
@@ -279,7 +326,7 @@ test('run fetches origin when ref is not base branch', async () => {
     getChangepacksConfig: getConfigMock,
   }))
 
-  const fetchOriginMock = mock(async () => {})
+  const fetchOriginMock = mock()
   mock.module('../fetch-origin', () => ({
     fetchOrigin: fetchOriginMock,
   }))
@@ -290,6 +337,19 @@ test('run fetches origin when ref is not base branch', async () => {
   const checkMock = mock(async () => currentChangepacks)
   mock.module('../run-changepacks', () => ({ runChangepacks: checkMock }))
 
+  const updatePrMock = mock()
+  mock.module('../update-pr', () => ({
+    updatePr: updatePrMock,
+  }))
+
+  const getInputMock = mock()
+  mock.module('@actions/core', () => ({
+    getInput: getInputMock,
+    error: mock(),
+    setFailed: mock(),
+  }))
+
+  const getOctokitMock = mock()
   const checkPastMock = mock()
   mock.module('../check-past-changepacks', () => ({
     checkPastChangepacks: checkPastMock,
@@ -305,8 +365,13 @@ test('run fetches origin when ref is not base branch', async () => {
   const contextMock = {
     ...realContext,
     ref: 'refs/heads/develop',
+    repo: { owner: 'acme', repo: 'widgets' },
+    issue: { number: 1 },
   }
-  mock.module('@actions/github', () => ({ context: contextMock }))
+  mock.module('@actions/github', () => ({
+    context: contextMock,
+    getOctokit: getOctokitMock,
+  }))
 
   const { run } = await import('../run')
   await run()
@@ -324,7 +389,9 @@ test('run fetches origin when ref is not base branch', async () => {
   mock.module('../check-past-changepacks', () => originalPast)
   mock.module('../create-pr', () => originalPr)
   mock.module('../create-release', () => originalRel)
+  mock.module('../update-pr', () => originalUpdatePr)
+  mock.module('@actions/core', () => originalCore)
+  mock.module('@actions/github', () => originalGithub)
   mock.module('../get-changepacks-config', () => originalConfig)
   mock.module('../fetch-origin', () => originalFetch)
-  mock.module('@actions/github', () => originalGithub)
 })

@@ -1,12 +1,12 @@
 import { context } from '@actions/github'
 import { checkPastChangepacks } from './check-past-changepacks'
 import { createPr } from './create-pr'
-import { createPrComment } from './create-pr-comment'
 import { createRelease } from './create-release'
 import { fetchOrigin } from './fetch-origin'
 import { getChangepacksConfig } from './get-changepacks-config'
 import { installChangepacks } from './install-changepacks'
 import { runChangepacks } from './run-changepacks'
+import { updatePr } from './update-pr'
 
 export async function run() {
   await installChangepacks()
@@ -18,7 +18,7 @@ export async function run() {
   const changepacks = await runChangepacks('check')
   // add pull request comment
   if (context.payload?.pull_request) {
-    await createPrComment(changepacks)
+    await updatePr(changepacks)
     return
   }
   if (
