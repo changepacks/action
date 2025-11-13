@@ -41,12 +41,20 @@ export async function checkPastChangepacks(): Promise<ChangepackResultMap> {
     }
 
     try {
-      await exec('git', ['fetch', '--deepen=1'], {
-        silent: true,
-      })
+      if (pastSha) {
+        // Fetch specific SHA if we have one
+        await exec('git', ['fetch', 'origin', pastSha], {
+          silent: true,
+        })
+      } else {
+        // Otherwise, deepen the shallow clone
+        await exec('git', ['fetch', '--deepen=1'], {
+          silent: true,
+        })
+      }
     } catch (error: unknown) {
-      setFailed(error as Error)
-      return {}
+      debug(`Failed to fetch: ${error}`)
+      // Continue anyway, the diff might still work
     }
 
     const compareSha = pastSha || 'HEAD~1'

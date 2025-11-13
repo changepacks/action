@@ -302,21 +302,40 @@ test('checkPastChangepacks returns {} and setsFailed when later step throws (out
   mock.module('../run-changepacks', () => originalRunChangepacks)
 })
 
-test('checkPastChangepacks returns {} and setsFailed when fetch fails', async () => {
+test('checkPastChangepacks continues when fetch fails', async () => {
   const originalExec = { ...(await import('@actions/exec')) }
   const originalCore = { ...(await import('@actions/core')) }
   const originalGithub = { ...(await import('@actions/github')) }
 
-  const execMock = mock(async (_cmd: string, _args?: string[]) => {
-    throw new Error('fetch failed')
-  })
+  const diffStdout = ''
+  const execMock = mock(
+    async (
+      _cmd: string,
+      args?: string[],
+      options?: {
+        listeners?: {
+          stdout?: (data: Buffer) => void
+          stderr?: (data: Buffer) => void
+        }
+      },
+    ) => {
+      if (args?.[0] === 'fetch') {
+        throw new Error('fetch failed')
+      } else if (args?.[0] === 'diff') {
+        options?.listeners?.stdout?.(Buffer.from(diffStdout))
+      }
+      return 0
+    },
+  )
   mock.module('@actions/exec', () => ({ exec: execMock }))
   const setFailedMock = mock()
+  const debugMock = mock()
   const getInputMock = mock((name: string) =>
     name === 'token' ? 'TEST_TOKEN' : '',
   )
   mock.module('@actions/core', () => ({
     setFailed: setFailedMock,
+    debug: debugMock,
     getInput: getInputMock,
   }))
   const pullsListMock = mock(async () => ({ data: [] }))
@@ -336,7 +355,10 @@ test('checkPastChangepacks returns {} and setsFailed when fetch fails', async ()
   const { checkPastChangepacks } = await import('../check-past-changepacks')
   const result = await checkPastChangepacks()
   expect(result).toEqual({})
-  expect(setFailedMock).toHaveBeenCalled()
+  expect(setFailedMock).not.toHaveBeenCalled()
+  expect(debugMock).toHaveBeenCalledWith(
+    expect.stringContaining('Failed to fetch'),
+  )
   expect(execMock).toHaveBeenCalledWith(
     'git',
     ['fetch', '--deepen=1'],
@@ -713,7 +735,7 @@ test('checkPastChangepacks uses Update Versions PR SHA when found', async () => 
       },
     ) => {
       if (args?.[0] === 'fetch') {
-        // fetch --deepen=1 succeeds
+        // fetch origin <sha> succeeds
       } else if (args?.[0] === 'diff') {
         options?.listeners?.stdout?.(Buffer.from(diffOutput))
       }
@@ -787,6 +809,11 @@ test('checkPastChangepacks uses Update Versions PR SHA when found', async () => 
   )
   expect(execMock).toHaveBeenCalledWith(
     'git',
+    ['fetch', 'origin', pastSha],
+    expect.any(Object),
+  )
+  expect(execMock).toHaveBeenCalledWith(
+    'git',
     ['diff', pastSha, 'HEAD', '--name-only', '--', '.changepacks/'],
     expect.any(Object),
   )
@@ -826,7 +853,7 @@ test('checkPastChangepacks uses head.sha when Update Versions PR has no merge_co
       },
     ) => {
       if (args?.[0] === 'fetch') {
-        // fetch --deepen=1 succeeds
+        // fetch origin <sha> succeeds
       } else if (args?.[0] === 'diff') {
         options?.listeners?.stdout?.(Buffer.from(diffOutput))
       }
@@ -897,6 +924,11 @@ test('checkPastChangepacks uses head.sha when Update Versions PR has no merge_co
   expect(result).toEqual(payload)
   expect(debugMock).toHaveBeenCalledWith(
     `Found closed Update Versions PR #42, SHA: ${headSha}`,
+  )
+  expect(execMock).toHaveBeenCalledWith(
+    'git',
+    ['fetch', 'origin', headSha],
+    expect.any(Object),
   )
   expect(execMock).toHaveBeenCalledWith(
     'git',
