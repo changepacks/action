@@ -527,9 +527,10 @@ test('run filters past changepacks when current changepack version matches past 
   expect(getConfigMock).toHaveBeenCalled()
   expect(checkMock).toHaveBeenCalledWith('check')
   expect(checkPastMock).toHaveBeenCalled()
-  // pkg/a should be filtered out (version matches nextVersion)
+  // pkg/a should be included (version matches nextVersion, so it's ready for release)
   // pkg/b should remain (no current changepack for it)
   expect(createReleaseMock).toHaveBeenCalledWith(config, {
+    'pkg/a': pastChangepacks['pkg/a'],
     'pkg/b': pastChangepacks['pkg/b'],
   })
   expect(createPrMock).not.toHaveBeenCalled()
@@ -760,8 +761,8 @@ test('run filters past changepacks when current changepack version differs from 
   expect(getConfigMock).toHaveBeenCalled()
   expect(checkMock).toHaveBeenCalledWith('check')
   expect(checkPastMock).toHaveBeenCalled()
-  // pkg/a should remain (version differs from nextVersion)
-  expect(createReleaseMock).toHaveBeenCalledWith(config, pastChangepacks)
+  // pkg/a should be filtered out (version differs from nextVersion, so not ready for release)
+  expect(createReleaseMock).not.toHaveBeenCalled()
   expect(createPrMock).not.toHaveBeenCalled()
 
   mock.module('../install-changepacks', () => originalInstall)

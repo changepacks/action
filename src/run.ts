@@ -1,3 +1,4 @@
+import { debug } from '@actions/core'
 import { exec } from '@actions/exec'
 import { context } from '@actions/github'
 import { checkPastChangepacks } from './check-past-changepacks'
@@ -33,10 +34,13 @@ export async function run() {
         const filteredPastChangepacks = Object.fromEntries(
           Object.entries(pastChangepacks).filter(([key, changepack]) => {
             if (changepacks[key]) {
-              return changepacks[key].version !== changepack.nextVersion
+              return changepacks[key].version === changepack.nextVersion
             }
             return changepack.nextVersion !== null
           }),
+        )
+        debug(
+          `filteredPastChangepacks: ${JSON.stringify(filteredPastChangepacks, null, 2)}`,
         )
         if (Object.keys(filteredPastChangepacks).length > 0) {
           await createRelease(config, filteredPastChangepacks)
