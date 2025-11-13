@@ -27,13 +27,13 @@ export async function createRelease(
       .filter(([_, changepack]) => !!changepack.nextVersion)
       .map(async ([projectPath, changepack]) => {
         const tagName = `${changepack.name}(${changepack.path})@${changepack.nextVersion}`
-        await octokit.rest.git.createRef({
-          ...context.repo,
-          ref: `refs/tags/${tagName}`,
-          sha: context.sha,
-        })
-        debug(`created ref: ${tagName}`)
         try {
+          await octokit.rest.git.createRef({
+            ...context.repo,
+            ref: `refs/tags/${tagName}`,
+            sha: context.sha,
+          })
+          debug(`created ref: ${tagName}`)
           const release = await octokit.rest.repos.createRelease({
             owner: context.repo.owner,
             repo: context.repo.repo,
@@ -48,6 +48,7 @@ export async function createRelease(
             target_commitish: context.ref,
           })
           releaseNumbers.add(release.data.id)
+          debug(`created release: ${tagName} ${release.data.id}`)
           return [projectPath, release.data.upload_url]
         } catch (err: unknown) {
           error(`create release failed: ${tagName} ${err}`)
