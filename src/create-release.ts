@@ -37,7 +37,11 @@ export async function createRelease(
           name: tagName,
           body: createBody(changepack),
           tag_name: tagName,
-          make_latest: config.latestPackage === projectPath ? 'true' : 'false',
+          make_latest:
+            config.latestPackage === projectPath ||
+            Object.keys(changepacks).length === 1
+              ? 'true'
+              : 'false',
           target_commitish: context.ref,
         })
         return [projectPath, release.data.upload_url]
