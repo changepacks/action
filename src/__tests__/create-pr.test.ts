@@ -204,13 +204,8 @@ test('createPr updates existing branch and updates PR comment when PR exists', a
 
   const getBranchHeadMock = mock()
   const pullsListMock = mock(async () => ({ data: [{ number: 123 }] }))
-  const getMock = mock(async () => ({
-    data: {
-      user: { login: 'user' },
-      body: 'Some body',
-    },
-  }))
-  const listCommentsMock = mock(async () => ({ data: [] }))
+  const getMock = mock()
+  const listCommentsMock = mock()
   const createCommentMock = mock()
 
   const octokit = {
@@ -251,7 +246,7 @@ test('createPr updates existing branch and updates PR comment when PR exists', a
   const runChpacksMock2 = mock(async (_cmd: 'check' | 'update') => changepacks)
   mock.module('../run-changepacks', () => ({ runChangepacks: runChpacksMock2 }))
 
-  const installChangepacksMock = mock(async () => {})
+  const installChangepacksMock = mock()
   mock.module('../install-changepacks', () => ({
     installChangepacks: installChangepacksMock,
   }))
@@ -309,7 +304,7 @@ test('createPr updates existing branch and updates PR comment when PR exists', a
     { silent: !isDebug() },
   )
 
-  // PR exists -> comment created
+  // PR exists -> body updated if created by github-actions[bot]
   expect(pullsListMock).toHaveBeenCalledWith({
     owner: 'acme',
     repo: 'widgets',
@@ -317,13 +312,9 @@ test('createPr updates existing branch and updates PR comment when PR exists', a
     base: 'main',
     state: 'open',
   })
-  expect(listCommentsMock).toHaveBeenCalledWith({
-    owner: 'acme',
-    repo: 'widgets',
-    issue_number: 123,
-    per_page: 100,
-  })
-  expect(createCommentMock).toHaveBeenCalled()
+  // PR not created by github-actions[bot], so no update
+  expect(listCommentsMock).not.toHaveBeenCalled()
+  expect(createCommentMock).not.toHaveBeenCalled()
 
   mock.module('@actions/exec', () => originalExec)
   mock.module('@actions/core', () => originalCore)
@@ -354,24 +345,11 @@ test('createPr updates existing PR comment when PR exists with existing comment'
     debug: debugMock,
   }))
 
-  const getBranchHeadMock = mock(async () => ({ data: {} }))
-  const pullsListMock = mock(async () => ({ data: [{ number: 123 }] }))
-  const getMock = mock(async () => ({
-    data: {
-      user: { login: 'user' },
-      body: 'Some body',
-    },
-  }))
-  const listCommentsMock = mock(async () => ({
-    data: [
-      {
-        id: 456,
-        user: { login: 'github-actions[bot]' },
-        body: '# Changepacks\nOld content',
-      },
-    ],
-  }))
-  const updateCommentMock = mock(async () => ({ data: {} }))
+  const getBranchHeadMock = mock()
+  const pullsListMock = mock()
+  const getMock = mock()
+  const listCommentsMock = mock()
+  const updateCommentMock = mock()
 
   const octokit = {
     rest: {
@@ -411,7 +389,7 @@ test('createPr updates existing PR comment when PR exists with existing comment'
   const runChpacksMock3 = mock(async (_cmd: 'check' | 'update') => changepacks)
   mock.module('../run-changepacks', () => ({ runChangepacks: runChpacksMock3 }))
 
-  const installChangepacksMock = mock(async () => {})
+  const installChangepacksMock = mock()
   mock.module('../install-changepacks', () => ({
     installChangepacks: installChangepacksMock,
   }))
@@ -426,18 +404,9 @@ test('createPr updates existing PR comment when PR exists with existing comment'
     base: 'main',
     state: 'open',
   })
-  expect(listCommentsMock).toHaveBeenCalledWith({
-    owner: 'acme',
-    repo: 'widgets',
-    issue_number: 123,
-    per_page: 100,
-  })
-  expect(updateCommentMock).toHaveBeenCalledWith({
-    owner: 'acme',
-    repo: 'widgets',
-    comment_id: 456,
-    body: expect.stringContaining('# Changepacks'),
-  })
+  // PR not created by github-actions[bot], so no update
+  expect(listCommentsMock).not.toHaveBeenCalled()
+  expect(updateCommentMock).not.toHaveBeenCalled()
 
   mock.module('@actions/exec', () => originalExec)
   mock.module('@actions/core', () => originalCore)
@@ -514,7 +483,7 @@ test('createPr creates branch and opens PR when none exists', async () => {
   const runChpacksMock4 = mock(async (_cmd: 'check' | 'update') => changepacks)
   mock.module('../run-changepacks', () => ({ runChangepacks: runChpacksMock4 }))
 
-  const installChangepacksMock = mock(async () => {})
+  const installChangepacksMock = mock()
   mock.module('../install-changepacks', () => ({
     installChangepacks: installChangepacksMock,
   }))
@@ -661,7 +630,7 @@ test('createPr logs error and sets failed on API failure', async () => {
   const runChpacksMock5 = mock(async (_cmd: 'check' | 'update') => changepacks)
   mock.module('../run-changepacks', () => ({ runChangepacks: runChpacksMock5 }))
 
-  const installChangepacksMock = mock(async () => {})
+  const installChangepacksMock = mock()
   mock.module('../install-changepacks', () => ({
     installChangepacks: installChangepacksMock,
   }))
@@ -758,7 +727,7 @@ test('createPr creates branch when head branch does not exist', async () => {
   const runChpacksMock6 = mock(async (_cmd: 'check' | 'update') => changepacks)
   mock.module('../run-changepacks', () => ({ runChangepacks: runChpacksMock6 }))
 
-  const installChangepacksMock = mock(async () => {})
+  const installChangepacksMock = mock()
   mock.module('../install-changepacks', () => ({
     installChangepacks: installChangepacksMock,
   }))
@@ -922,7 +891,7 @@ test('createPr handles different base branch', async () => {
   const runChpacksMock7 = mock(async (_cmd: 'check' | 'update') => changepacks)
   mock.module('../run-changepacks', () => ({ runChangepacks: runChpacksMock7 }))
 
-  const installChangepacksMock = mock(async () => {})
+  const installChangepacksMock = mock()
   mock.module('../install-changepacks', () => ({
     installChangepacks: installChangepacksMock,
   }))
@@ -1045,9 +1014,10 @@ test('createPr merges base into existing head when branch exists', async () => {
     debug: debugMock,
   }))
 
-  const getBranchHeadMock = mock(async () => ({ data: {} }))
+  const getBranchHeadMock = mock()
   const pullsListMock = mock(async () => ({ data: [] }))
-  const pullsCreateMock = mock(async (_params: unknown) => ({ data: {} }))
+  const pullsCreateMock = mock()
+
   const octokit = {
     rest: {
       pulls: { list: pullsListMock, create: pullsCreateMock },
@@ -1265,6 +1235,136 @@ test('createPr returns early when all changepacks have no nextVersion', async ()
     base: 'main',
     state: 'open',
   })
+
+  mock.module('@actions/exec', () => originalExec)
+  mock.module('@actions/core', () => originalCore)
+  mock.module('@actions/github', () => originalGithub)
+  mock.module('../run-changepacks', () => originalRunChangepacks)
+  mock.module('../install-changepacks', () => originalInstallChangepacks)
+})
+
+test('createPr updates existing PR body when PR exists and created by github-actions[bot]', async () => {
+  const originalExec = { ...(await import('@actions/exec')) }
+  const originalCore = { ...(await import('@actions/core')) }
+  const originalGithub = { ...(await import('@actions/github')) }
+  const originalRunChangepacks = { ...(await import('../run-changepacks')) }
+  const originalInstallChangepacks = {
+    ...(await import('../install-changepacks')),
+  }
+
+  const execMock = mock(async () => 0)
+  mock.module('@actions/exec', () => ({ exec: execMock }))
+
+  const debugMock = mock()
+  const getInputMock = mock((name: string) =>
+    name === 'token' ? 'TEST_TOKEN' : '',
+  )
+  mock.module('@actions/core', () => ({
+    getInput: getInputMock,
+    isDebug,
+    debug: debugMock,
+  }))
+
+  const getBranchHeadMock = mock()
+  const getBranchBaseMock = mock()
+  const createRefMock = mock()
+  const pullsListMock = mock(async () => ({
+    data: [
+      {
+        number: 123,
+        user: { login: 'github-actions[bot]' },
+        body: '# Changepacks\nold content',
+      },
+    ],
+  }))
+  const issuesUpdateMock = mock()
+  const pullsCreateMock = mock()
+  const octokit = {
+    rest: {
+      repos: {
+        getBranch: (params: { branch: string }) =>
+          params.branch.startsWith('changepacks/')
+            ? getBranchHeadMock()
+            : getBranchBaseMock(),
+      },
+      git: { createRef: createRefMock },
+      pulls: { list: pullsListMock, create: pullsCreateMock },
+      issues: { update: issuesUpdateMock, listComments: mock() },
+    },
+  }
+
+  const contextMock = {
+    repo: { owner: 'acme', repo: 'widgets' },
+    ref: 'refs/heads/main',
+  }
+
+  const getOctokitMock = mock((_token: string) => octokit)
+  mock.module('@actions/github', () => ({
+    getOctokit: getOctokitMock,
+    context: contextMock,
+  }))
+
+  const changepacks: ChangepackResultMap = {
+    'packages/a/package.json': {
+      logs: [{ type: 'Patch', note: 'fix' }],
+      version: '1.0.0',
+      nextVersion: '1.0.1',
+      name: 'pkg-a',
+      path: 'packages/a/package.json',
+      changed: false,
+    },
+  }
+
+  const runChpacksMock = mock(async (_cmd: 'check' | 'update') => changepacks)
+  mock.module('../run-changepacks', () => ({ runChangepacks: runChpacksMock }))
+
+  const installChangepacksMock = mock()
+  mock.module('../install-changepacks', () => ({
+    installChangepacks: installChangepacksMock,
+  }))
+
+  const { createPr } = await import('../create-pr')
+  await createPr(changepacks)
+
+  // branch exists path
+  expect(getBranchHeadMock).toHaveBeenCalled()
+  expect(execMock).toHaveBeenCalledWith(
+    'git',
+    ['fetch', 'origin', 'changepacks/main'],
+    { silent: !isDebug() },
+  )
+  expect(execMock).toHaveBeenCalledWith(
+    'git',
+    ['reset', '--hard', 'origin/main'],
+    { silent: !isDebug() },
+  )
+  expect(execMock).toHaveBeenCalledWith(
+    'git',
+    ['checkout', '-f', '-b', 'changepacks/main', 'origin/changepacks/main'],
+    { silent: !isDebug() },
+  )
+  expect(execMock).toHaveBeenCalledWith(
+    'git',
+    ['reset', '--hard', 'origin/main'],
+    { silent: !isDebug() },
+  )
+  expect(runChpacksMock).toHaveBeenCalledWith('update')
+
+  // PR exists -> body updated
+  expect(pullsListMock).toHaveBeenCalledWith({
+    owner: 'acme',
+    repo: 'widgets',
+    head: 'acme:changepacks/main',
+    base: 'main',
+    state: 'open',
+  })
+  expect(issuesUpdateMock).toHaveBeenCalledWith({
+    owner: 'acme',
+    repo: 'widgets',
+    issue_number: 123,
+    body: createContents(changepacks),
+  })
+  expect(pullsCreateMock).not.toHaveBeenCalled()
 
   mock.module('@actions/exec', () => originalExec)
   mock.module('@actions/core', () => originalCore)

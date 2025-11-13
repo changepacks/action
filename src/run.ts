@@ -6,7 +6,7 @@ import { fetchOrigin } from './fetch-origin'
 import { getChangepacksConfig } from './get-changepacks-config'
 import { installChangepacks } from './install-changepacks'
 import { runChangepacks } from './run-changepacks'
-import { updatePr } from './update-pr'
+import { updatePrComment } from './update-pr-comment'
 
 export async function run() {
   await installChangepacks()
@@ -18,7 +18,7 @@ export async function run() {
   const changepacks = await runChangepacks('check')
   // add pull request comment
   if (context.payload?.pull_request) {
-    await updatePr(changepacks, context.payload.pull_request.number)
+    await updatePrComment(changepacks, context.payload.pull_request.number)
     return
   }
   if (

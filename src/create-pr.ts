@@ -5,7 +5,6 @@ import { createContents } from './create-contents'
 import { installChangepacks } from './install-changepacks'
 import { runChangepacks } from './run-changepacks'
 import type { ChangepackResultMap } from './types'
-import { updatePr } from './update-pr'
 
 export async function createPr(mainChangepacks: ChangepackResultMap) {
   const base = context.ref.replace(/^refs\/heads\//, '')
@@ -112,12 +111,25 @@ export async function createPr(mainChangepacks: ChangepackResultMap) {
       state: 'open',
     })
 
+    const body = createContents(mainChangepacks)
     if (pulls.length > 0) {
-      await updatePr(changepacks, pulls[0].number)
+      debug('find existing PR')
+      if (
+        pulls[0].body?.startsWith('# Changepacks') &&
+        pulls[0].body?.trim() !== body.trim() &&
+        pulls[0].user?.login === 'github-actions[bot]'
+      ) {
+        debug(`update existing PR`)
+        await octokit.rest.issues.update({
+          owner: context.repo.owner,
+          repo: context.repo.repo,
+          issue_number: pulls[0].number,
+          body,
+        })
+      }
     } else {
       debug(`creating new PR`)
 
-      const body = createContents(mainChangepacks)
       await octokit.rest.pulls.create({
         owner: context.repo.owner,
         repo: context.repo.repo,

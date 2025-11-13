@@ -21,12 +21,7 @@ test('updatePr posts combined body to the PR issue', async () => {
     debug: debugMock,
   }))
 
-  const getMock = mock(async (_params: unknown) => ({
-    data: {
-      user: { login: 'user' },
-      body: 'Some body',
-    },
-  }))
+  const getMock = mock()
   const listCommentsMock = mock(async (_params: unknown) => ({ data: [] }))
   const createCommentMock = mock(async (_params: unknown) => ({}))
   const octokit = {
@@ -59,7 +54,7 @@ test('updatePr posts combined body to the PR issue', async () => {
     },
   }
 
-  const { updatePr } = await import('../update-pr')
+  const { updatePrComment: updatePr } = await import('../update-pr-comment')
   await updatePr(changepacks, 123)
 
   expect(getOctokitMock).toHaveBeenCalledWith('T')
@@ -87,12 +82,7 @@ test('updatePr updates existing Changepacks comment by github-actions[bot]', asy
     setFailed: setFailedMock,
   }))
 
-  const getMock = mock(async (_params: unknown) => ({
-    data: {
-      user: { login: 'user' },
-      body: 'Some body',
-    },
-  }))
+  const getMock = mock()
   const listCommentsMock = mock(async (_params: unknown) => ({
     data: [
       {
@@ -135,7 +125,7 @@ test('updatePr updates existing Changepacks comment by github-actions[bot]', asy
     },
   }
 
-  const { updatePr } = await import('../update-pr')
+  const { updatePrComment: updatePr } = await import('../update-pr-comment')
   await updatePr(changepacks, 123)
 
   expect(getOctokitMock).toHaveBeenCalledWith('T')
@@ -170,12 +160,7 @@ test('updatePr creates new comment when no existing Changepacks comment', async 
     setFailed: setFailedMock,
   }))
 
-  const getMock = mock(async (_params: unknown) => ({
-    data: {
-      user: { login: 'user' },
-      body: 'Some body',
-    },
-  }))
+  const getMock = mock()
   const listCommentsMock = mock(async (_params: unknown) => ({ data: [] }))
   const createCommentMock = mock()
   const octokit = {
@@ -208,7 +193,7 @@ test('updatePr creates new comment when no existing Changepacks comment', async 
     },
   }
 
-  const { updatePr } = await import('../update-pr')
+  const { updatePrComment: updatePr } = await import('../update-pr-comment')
   await updatePr(changepacks, 123)
 
   expect(getOctokitMock).toHaveBeenCalledWith('T')
@@ -242,12 +227,7 @@ test('updatePr warns when listComments fails', async () => {
     setFailed: setFailedMock,
   }))
 
-  const getMock = mock(async (_params: unknown) => ({
-    data: {
-      user: { login: 'user' },
-      body: 'Some body',
-    },
-  }))
+  const getMock = mock()
   const listCommentsMock = mock(async () => {
     throw new Error('boom')
   })
@@ -284,86 +264,15 @@ test('updatePr warns when listComments fails', async () => {
     },
   }
 
-  const { updatePr } = await import('../update-pr')
+  const { updatePrComment: updatePr } = await import('../update-pr-comment')
   await updatePr(changepacks, 123)
 
   expect(listCommentsMock).toHaveBeenCalled()
   expect(createCommentMock).not.toHaveBeenCalled()
   expect(updateCommentMock).not.toHaveBeenCalled()
   expect(errorMock).toHaveBeenCalledWith(
-    expect.stringContaining('create pr comment failed'),
+    expect.stringContaining('update pr comment failed'),
   )
-
-  mock.module('@actions/core', () => originalCore)
-  mock.module('@actions/github', () => originalGithub)
-})
-
-test('updatePr updates issue body when issue is created by github-actions[bot]', async () => {
-  const originalCore = { ...(await import('@actions/core')) }
-  const originalGithub = { ...(await import('@actions/github')) }
-
-  const getInputMock = mock((name: string) => (name === 'token' ? 'T' : ''))
-  const setFailedMock = mock()
-  mock.module('@actions/core', () => ({
-    getInput: getInputMock,
-    warning: mock(),
-    error: mock(),
-    setFailed: setFailedMock,
-  }))
-
-  const getMock = mock(async (_params: unknown) => ({
-    data: {
-      user: { login: 'github-actions[bot]' },
-      title: 'Update Versions',
-      body: '# Changepacks\nold',
-    },
-  }))
-  const updateMock = mock()
-  const listCommentsMock = mock()
-  const createCommentMock = mock()
-  const octokit = {
-    rest: {
-      issues: {
-        get: getMock,
-        update: updateMock,
-        listComments: listCommentsMock,
-        createComment: createCommentMock,
-      },
-    },
-  }
-  const getOctokitMock = mock((_token: string) => octokit)
-  const contextMock = {
-    repo: { owner: 'acme', repo: 'widgets' },
-    issue: { number: 123 },
-  }
-  mock.module('@actions/github', () => ({
-    getOctokit: getOctokitMock,
-    context: contextMock,
-  }))
-
-  const changepacks: ChangepackResultMap = {
-    'packages/a/package.json': {
-      logs: [{ type: 'Patch', note: 'fix' }],
-      version: '1.0.0',
-      nextVersion: '1.0.1',
-      name: 'a',
-      path: 'packages/a/package.json',
-      changed: false,
-    },
-  }
-
-  const { updatePr } = await import('../update-pr')
-  await updatePr(changepacks, 123)
-
-  expect(getOctokitMock).toHaveBeenCalledWith('T')
-  expect(updateMock).toHaveBeenCalledWith({
-    owner: 'acme',
-    repo: 'widgets',
-    issue_number: 123,
-    body: expect.stringContaining('# Changepacks'),
-  })
-  expect(listCommentsMock).not.toHaveBeenCalled()
-  expect(createCommentMock).not.toHaveBeenCalled()
 
   mock.module('@actions/core', () => originalCore)
   mock.module('@actions/github', () => originalGithub)
@@ -382,12 +291,7 @@ test('updatePr warns when updateComment fails', async () => {
     setFailed: setFailedMock,
   }))
 
-  const getMock = mock(async (_params: unknown) => ({
-    data: {
-      user: { login: 'user' },
-      body: 'Some body',
-    },
-  }))
+  const getMock = mock()
   const listCommentsMock = mock(async () => ({
     data: [
       { id: 1, user: { login: 'github-actions[bot]' }, body: '# Changepacks' },
@@ -428,13 +332,13 @@ test('updatePr warns when updateComment fails', async () => {
     },
   }
 
-  const { updatePr } = await import('../update-pr')
+  const { updatePrComment: updatePr } = await import('../update-pr-comment')
   await updatePr(changepacks, 123)
 
   expect(listCommentsMock).toHaveBeenCalled()
   expect(updateCommentMock).toHaveBeenCalled()
   expect(errorMock).toHaveBeenCalledWith(
-    expect.stringContaining('create pr comment failed'),
+    expect.stringContaining('update pr comment failed'),
   )
 
   mock.module('@actions/core', () => originalCore)

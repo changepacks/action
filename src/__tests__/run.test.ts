@@ -129,7 +129,7 @@ test('run posts PR comment and returns early when payload.pull_request exists', 
   const originalPast = { ...(await import('../check-past-changepacks')) }
   const originalPr = { ...(await import('../create-pr')) }
   const originalRel = { ...(await import('../create-release')) }
-  const originalUpdatePr = { ...(await import('../update-pr')) }
+  const originalUpdatePr = { ...(await import('../update-pr-comment')) }
   const originalGithub = { ...(await import('@actions/github')) }
   const originalCore = { ...(await import('@actions/core')) }
   const originalConfig = { ...(await import('../get-changepacks-config')) }
@@ -159,8 +159,8 @@ test('run posts PR comment and returns early when payload.pull_request exists', 
   mock.module('../run-changepacks', () => ({ runChangepacks: checkMock }))
 
   const updatePrMock = mock()
-  mock.module('../update-pr', () => ({
-    updatePr: updatePrMock,
+  mock.module('../update-pr-comment', () => ({
+    updatePrComment: updatePrMock,
   }))
 
   const getInputMock = mock()
@@ -208,7 +208,7 @@ test('run posts PR comment and returns early when payload.pull_request exists', 
   mock.module('../check-past-changepacks', () => originalPast)
   mock.module('../create-pr', () => originalPr)
   mock.module('../create-release', () => originalRel)
-  mock.module('../update-pr', () => originalUpdatePr)
+  mock.module('../update-pr-comment', () => originalUpdatePr)
   mock.module('@actions/github', () => originalGithub)
   mock.module('@actions/core', () => originalCore)
   mock.module('../get-changepacks-config', () => originalConfig)
@@ -221,7 +221,7 @@ test('run does not create release when past changepacks is empty', async () => {
   const originalPast = { ...(await import('../check-past-changepacks')) }
   const originalPr = { ...(await import('../create-pr')) }
   const originalRel = { ...(await import('../create-release')) }
-  const originalUpdatePr = { ...(await import('../update-pr')) }
+  const originalUpdatePr = { ...(await import('../update-pr-comment')) }
   const originalCore = { ...(await import('@actions/core')) }
   const originalGithub = { ...(await import('@actions/github')) }
   const originalConfig = { ...(await import('../get-changepacks-config')) }
@@ -248,8 +248,8 @@ test('run does not create release when past changepacks is empty', async () => {
   mock.module('../run-changepacks', () => ({ runChangepacks: checkMock }))
 
   const updatePrMock = mock()
-  mock.module('../update-pr', () => ({
-    updatePr: updatePrMock,
+  mock.module('../update-pr-comment', () => ({
+    updatePrComment: updatePrMock,
   }))
 
   const getInputMock = mock()
@@ -296,7 +296,7 @@ test('run does not create release when past changepacks is empty', async () => {
   mock.module('../check-past-changepacks', () => originalPast)
   mock.module('../create-pr', () => originalPr)
   mock.module('../create-release', () => originalRel)
-  mock.module('../update-pr', () => originalUpdatePr)
+  mock.module('../update-pr-comment', () => originalUpdatePr)
   mock.module('@actions/core', () => originalCore)
   mock.module('@actions/github', () => originalGithub)
   mock.module('../get-changepacks-config', () => originalConfig)
@@ -309,7 +309,7 @@ test('run fetches origin when ref is not base branch', async () => {
   const originalPast = { ...(await import('../check-past-changepacks')) }
   const originalPr = { ...(await import('../create-pr')) }
   const originalRel = { ...(await import('../create-release')) }
-  const originalUpdatePr = { ...(await import('../update-pr')) }
+  const originalUpdatePr = { ...(await import('../update-pr-comment')) }
   const originalCore = { ...(await import('@actions/core')) }
   const originalGithub = { ...(await import('@actions/github')) }
   const originalConfig = { ...(await import('../get-changepacks-config')) }
@@ -338,8 +338,8 @@ test('run fetches origin when ref is not base branch', async () => {
   mock.module('../run-changepacks', () => ({ runChangepacks: checkMock }))
 
   const updatePrMock = mock()
-  mock.module('../update-pr', () => ({
-    updatePr: updatePrMock,
+  mock.module('../update-pr-comment', () => ({
+    updatePrComment: updatePrMock,
   }))
 
   const getInputMock = mock()
@@ -389,7 +389,7 @@ test('run fetches origin when ref is not base branch', async () => {
   mock.module('../check-past-changepacks', () => originalPast)
   mock.module('../create-pr', () => originalPr)
   mock.module('../create-release', () => originalRel)
-  mock.module('../update-pr', () => originalUpdatePr)
+  mock.module('../update-pr-comment', () => originalUpdatePr)
   mock.module('@actions/core', () => originalCore)
   mock.module('@actions/github', () => originalGithub)
   mock.module('../get-changepacks-config', () => originalConfig)
