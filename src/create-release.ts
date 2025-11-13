@@ -14,6 +14,7 @@ export async function createRelease(
   config: ChangepackConfig,
   changepacks: ChangepackResultMap,
 ) {
+  debug(`createRelease`)
   setOutput('changepacks', Object.keys(changepacks))
   if (!getBooleanInput('create_release')) {
     return

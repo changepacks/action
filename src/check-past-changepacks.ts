@@ -1,5 +1,6 @@
 import { debug, setFailed } from '@actions/core'
 import { exec } from '@actions/exec'
+import { installChangepacks } from './install-changepacks'
 import { runChangepacks } from './run-changepacks'
 import type { ChangepackResultMap } from './types'
 
@@ -56,9 +57,10 @@ export async function checkPastChangepacks(): Promise<ChangepackResultMap> {
 
     if (changedFiles.length > 0) {
       // rollback to past commit only .changepacks folder
-      await exec('git', ['checkout', 'HEAD~1', '--', '.changepacks/'])
+      await exec('git', ['checkout', 'HEAD~1'])
+      await installChangepacks()
       const changepacks = await runChangepacks('check')
-      await exec('git', ['checkout', 'HEAD', '--', '.changepacks/'])
+      await exec('git', ['checkout', 'HEAD'])
       return changepacks
     }
     return {}
