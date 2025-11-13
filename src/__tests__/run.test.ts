@@ -9,6 +9,10 @@ test('run creates PR when current changepacks exist', async () => {
   const originalRel = { ...(await import('../create-release')) }
   const originalConfig = { ...(await import('../get-changepacks-config')) }
   const originalFetch = { ...(await import('../fetch-origin')) }
+  const originalExec = { ...(await import('@actions/exec')) }
+
+  const execMock = mock(async () => 0)
+  mock.module('@actions/exec', () => ({ exec: execMock }))
 
   const installMock = mock()
   mock.module('../install-changepacks', () => ({
@@ -60,6 +64,7 @@ test('run creates PR when current changepacks exist', async () => {
   mock.module('../create-release', () => originalRel)
   mock.module('../get-changepacks-config', () => originalConfig)
   mock.module('../fetch-origin', () => originalFetch)
+  mock.module('@actions/exec', () => originalExec)
 })
 
 test('run creates releases from past changepacks when current is empty', async () => {
@@ -70,6 +75,10 @@ test('run creates releases from past changepacks when current is empty', async (
   const originalRel = { ...(await import('../create-release')) }
   const originalConfig = { ...(await import('../get-changepacks-config')) }
   const originalFetch = { ...(await import('../fetch-origin')) }
+  const originalExec = { ...(await import('@actions/exec')) }
+
+  const execMock = mock(async () => 0)
+  mock.module('@actions/exec', () => ({ exec: execMock }))
 
   const installMock = mock()
   mock.module('../install-changepacks', () => ({
@@ -121,6 +130,7 @@ test('run creates releases from past changepacks when current is empty', async (
   mock.module('../create-release', () => originalRel)
   mock.module('../get-changepacks-config', () => originalConfig)
   mock.module('../fetch-origin', () => originalFetch)
+  mock.module('@actions/exec', () => originalExec)
 })
 
 test('run posts PR comment and returns early when payload.pull_request exists', async () => {
@@ -134,6 +144,10 @@ test('run posts PR comment and returns early when payload.pull_request exists', 
   const originalCore = { ...(await import('@actions/core')) }
   const originalConfig = { ...(await import('../get-changepacks-config')) }
   const originalFetch = { ...(await import('../fetch-origin')) }
+  const originalExec = { ...(await import('@actions/exec')) }
+
+  const execMock = mock(async () => 0)
+  mock.module('@actions/exec', () => ({ exec: execMock }))
 
   const installMock = mock()
   mock.module('../install-changepacks', () => ({
@@ -213,6 +227,7 @@ test('run posts PR comment and returns early when payload.pull_request exists', 
   mock.module('@actions/core', () => originalCore)
   mock.module('../get-changepacks-config', () => originalConfig)
   mock.module('../fetch-origin', () => originalFetch)
+  mock.module('@actions/exec', () => originalExec)
 })
 
 test('run does not create release when past changepacks is empty', async () => {
@@ -226,6 +241,10 @@ test('run does not create release when past changepacks is empty', async () => {
   const originalGithub = { ...(await import('@actions/github')) }
   const originalConfig = { ...(await import('../get-changepacks-config')) }
   const originalFetch = { ...(await import('../fetch-origin')) }
+  const originalExec = { ...(await import('@actions/exec')) }
+
+  const execMock = mock(async () => 0)
+  mock.module('@actions/exec', () => ({ exec: execMock }))
 
   const installMock = mock()
   mock.module('../install-changepacks', () => ({
@@ -301,6 +320,7 @@ test('run does not create release when past changepacks is empty', async () => {
   mock.module('@actions/github', () => originalGithub)
   mock.module('../get-changepacks-config', () => originalConfig)
   mock.module('../fetch-origin', () => originalFetch)
+  mock.module('@actions/exec', () => originalExec)
 })
 
 test('run fetches origin when ref is not base branch', async () => {
@@ -314,6 +334,10 @@ test('run fetches origin when ref is not base branch', async () => {
   const originalGithub = { ...(await import('@actions/github')) }
   const originalConfig = { ...(await import('../get-changepacks-config')) }
   const originalFetch = { ...(await import('../fetch-origin')) }
+  const originalExec = { ...(await import('@actions/exec')) }
+
+  const execMock = mock(async () => 0)
+  mock.module('@actions/exec', () => ({ exec: execMock }))
 
   const installMock = mock()
   mock.module('../install-changepacks', () => ({
@@ -394,4 +418,5 @@ test('run fetches origin when ref is not base branch', async () => {
   mock.module('@actions/github', () => originalGithub)
   mock.module('../get-changepacks-config', () => originalConfig)
   mock.module('../fetch-origin', () => originalFetch)
+  mock.module('@actions/exec', () => originalExec)
 })

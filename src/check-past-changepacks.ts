@@ -1,5 +1,6 @@
-import { debug, setFailed } from '@actions/core'
+import { debug, getInput, setFailed } from '@actions/core'
 import { exec } from '@actions/exec'
+import { context, getOctokit } from '@actions/github'
 import { installChangepacks } from './install-changepacks'
 import { runChangepacks } from './run-changepacks'
 import type { ChangepackResultMap } from './types'
@@ -9,6 +10,35 @@ export async function checkPastChangepacks(): Promise<ChangepackResultMap> {
   try {
     let changedFiles: string[] = []
     let diffOutput = ''
+    let pastSha: string | null = null
+
+    const octokit = getOctokit(getInput('token'))
+
+    try {
+      const { data: pulls } = await octokit.rest.pulls.list({
+        owner: context.repo.owner,
+        repo: context.repo.repo,
+        state: 'closed',
+        sort: 'updated',
+        direction: 'desc',
+        per_page: 30,
+      })
+
+      const updateVersionsPr = pulls.find(
+        (pr) => pr.title === 'Update Versions' && pr.merged_at !== null,
+      )
+
+      if (updateVersionsPr) {
+        pastSha = updateVersionsPr.merge_commit_sha || updateVersionsPr.head.sha
+        debug(
+          `Found closed Update Versions PR #${updateVersionsPr.number}, SHA: ${pastSha}`,
+        )
+      } else {
+        debug('No closed Update Versions PR found, using HEAD~1')
+      }
+    } catch (error: unknown) {
+      debug(`Failed to fetch closed PRs: ${error}`)
+    }
 
     try {
       await exec('git', ['fetch', '--deepen=1'], {
@@ -19,10 +49,12 @@ export async function checkPastChangepacks(): Promise<ChangepackResultMap> {
       return {}
     }
 
+    const compareSha = pastSha || 'HEAD~1'
+
     try {
       await exec(
         'git',
-        ['diff', 'HEAD~1', 'HEAD', '--name-only', '--', '.changepacks/'],
+        ['diff', compareSha, 'HEAD', '--name-only', '--', '.changepacks/'],
         {
           listeners: {
             stdout: (data: Buffer) => {
@@ -57,7 +89,7 @@ export async function checkPastChangepacks(): Promise<ChangepackResultMap> {
 
     if (changedFiles.length > 0) {
       // rollback to past commit only .changepacks folder
-      await exec('git', ['checkout', 'HEAD~1'])
+      await exec('git', ['checkout', compareSha])
       await installChangepacks()
       const changepacks = await runChangepacks('check')
       await exec('git', ['checkout', 'HEAD'])
