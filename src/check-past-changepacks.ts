@@ -106,13 +106,18 @@ export async function checkPastChangepacks(): Promise<ChangepackResultMap> {
     }
 
     if (changedFiles.length > 0) {
+      // Save original branch/ref before checking out past commit
+      const originalRef = context.ref
+      const originalBranch = originalRef.replace(/^refs\/heads\//, '') || 'main'
+
       // rollback to past commit only .changepacks folder
       await exec('git', ['checkout', compareSha], {
         silent: !isDebug(),
       })
       await installChangepacks()
       const changepacks = await runChangepacks('check')
-      await exec('git', ['checkout', 'HEAD'], {
+      // Checkout back to original branch to fix detached HEAD
+      await exec('git', ['checkout', originalBranch], {
         silent: !isDebug(),
       })
       return changepacks
