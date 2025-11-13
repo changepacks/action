@@ -29,11 +29,15 @@ test('checkPastChangepacks returns empty when no .changepacks diff', async () =>
   mock.module('@actions/exec', () => ({ exec: execMock }))
 
   const setFailedMock = mock()
+  const debugMock = mock()
+  const isDebugMock = mock(() => false)
   const getInputMock = mock((name: string) =>
     name === 'token' ? 'TEST_TOKEN' : '',
   )
   mock.module('@actions/core', () => ({
     setFailed: setFailedMock,
+    debug: debugMock,
+    isDebug: isDebugMock,
     getInput: getInputMock,
   }))
 
@@ -60,7 +64,7 @@ test('checkPastChangepacks returns empty when no .changepacks diff', async () =>
   expect(execMock).toHaveBeenCalledWith(
     'git',
     ['fetch', '--deepen=1'],
-    expect.any(Object),
+    expect.objectContaining({ silent: true }),
   )
 
   mock.module('@actions/exec', () => originalExec)
@@ -100,11 +104,15 @@ test('checkPastChangepacks rollbacks, reads, and restores when diff exists', asy
   mock.module('@actions/exec', () => ({ exec: execMock }))
 
   const setFailedMock = mock()
+  const debugMock = mock()
+  const isDebugMock = mock(() => false)
   const getInputMock = mock((name: string) =>
     name === 'token' ? 'TEST_TOKEN' : '',
   )
   mock.module('@actions/core', () => ({
     setFailed: setFailedMock,
+    debug: debugMock,
+    isDebug: isDebugMock,
     getInput: getInputMock,
   }))
 
@@ -152,17 +160,25 @@ test('checkPastChangepacks rollbacks, reads, and restores when diff exists', asy
   expect(execMock).toHaveBeenCalledWith(
     'git',
     ['fetch', '--deepen=1'],
-    expect.any(Object),
+    expect.objectContaining({ silent: true }),
   )
   expect(execMock).toHaveBeenCalledWith(
     'git',
     ['diff', 'HEAD~1', 'HEAD', '--name-only', '--', '.changepacks/'],
-    expect.any(Object),
+    expect.objectContaining({ silent: true }),
   )
-  expect(execMock).toHaveBeenCalledWith('git', ['checkout', 'HEAD~1'])
+  expect(execMock).toHaveBeenCalledWith(
+    'git',
+    ['checkout', 'HEAD~1'],
+    expect.objectContaining({ silent: true }),
+  )
   expect(installChangepacksMock).toHaveBeenCalled()
   expect(checkChangepacksMock).toHaveBeenCalledWith('check')
-  expect(execMock).toHaveBeenCalledWith('git', ['checkout', 'HEAD'])
+  expect(execMock).toHaveBeenCalledWith(
+    'git',
+    ['checkout', 'HEAD'],
+    expect.objectContaining({ silent: true }),
+  )
   expect(setFailedMock).not.toHaveBeenCalled()
 
   mock.module('../install-changepacks', () => originalInstallChangepacks)
@@ -187,11 +203,15 @@ test('checkPastChangepacks returns {} and setsFailed when git diff errors', asyn
   mock.module('@actions/exec', () => ({ exec: execMock }))
 
   const setFailedMock = mock()
+  const debugMock = mock()
+  const isDebugMock = mock(() => false)
   const getInputMock = mock((name: string) =>
     name === 'token' ? 'TEST_TOKEN' : '',
   )
   mock.module('@actions/core', () => ({
     setFailed: setFailedMock,
+    debug: debugMock,
+    isDebug: isDebugMock,
     getInput: getInputMock,
   }))
 
@@ -254,11 +274,15 @@ test('checkPastChangepacks returns {} and setsFailed when later step throws (out
   mock.module('@actions/exec', () => ({ exec: execMock }))
 
   const setFailedMock = mock()
+  const debugMock = mock()
+  const isDebugMock = mock(() => false)
   const getInputMock = mock((name: string) =>
     name === 'token' ? 'TEST_TOKEN' : '',
   )
   mock.module('@actions/core', () => ({
     setFailed: setFailedMock,
+    debug: debugMock,
+    isDebug: isDebugMock,
     getInput: getInputMock,
   }))
 
@@ -330,12 +354,14 @@ test('checkPastChangepacks continues when fetch fails', async () => {
   mock.module('@actions/exec', () => ({ exec: execMock }))
   const setFailedMock = mock()
   const debugMock = mock()
+  const isDebugMock = mock(() => false)
   const getInputMock = mock((name: string) =>
     name === 'token' ? 'TEST_TOKEN' : '',
   )
   mock.module('@actions/core', () => ({
     setFailed: setFailedMock,
     debug: debugMock,
+    isDebug: isDebugMock,
     getInput: getInputMock,
   }))
   const pullsListMock = mock(async () => ({ data: [] }))
@@ -362,7 +388,7 @@ test('checkPastChangepacks continues when fetch fails', async () => {
   expect(execMock).toHaveBeenCalledWith(
     'git',
     ['fetch', '--deepen=1'],
-    expect.any(Object),
+    expect.objectContaining({ silent: true }),
   )
   mock.module('@actions/exec', () => originalExec)
   mock.module('@actions/core', () => originalCore)
@@ -398,12 +424,14 @@ test('checkPastChangepacks returns {} when git diff outputs bad revision to stde
   mock.module('@actions/exec', () => ({ exec: execMock }))
   const setFailedMock = mock()
   const debugMock = mock()
+  const isDebugMock = mock(() => false)
   const getInputMock = mock((name: string) =>
     name === 'token' ? 'TEST_TOKEN' : '',
   )
   mock.module('@actions/core', () => ({
     setFailed: setFailedMock,
     debug: debugMock,
+    isDebug: isDebugMock,
     getInput: getInputMock,
   }))
   const pullsListMock = mock(async () => ({ data: [] }))
@@ -461,12 +489,14 @@ test('checkPastChangepacks returns {} when git diff outputs unknown revision to 
   mock.module('@actions/exec', () => ({ exec: execMock }))
   const setFailedMock = mock()
   const debugMock = mock()
+  const isDebugMock = mock(() => false)
   const getInputMock = mock((name: string) =>
     name === 'token' ? 'TEST_TOKEN' : '',
   )
   mock.module('@actions/core', () => ({
     setFailed: setFailedMock,
     debug: debugMock,
+    isDebug: isDebugMock,
     getInput: getInputMock,
   }))
   const pullsListMock = mock(async () => ({ data: [] }))
@@ -524,12 +554,14 @@ test('checkPastChangepacks returns {} when git diff outputs ambiguous argument',
   mock.module('@actions/exec', () => ({ exec: execMock }))
   const setFailedMock = mock()
   const debugMock = mock()
+  const isDebugMock = mock(() => false)
   const getInputMock = mock((name: string) =>
     name === 'token' ? 'TEST_TOKEN' : '',
   )
   mock.module('@actions/core', () => ({
     setFailed: setFailedMock,
     debug: debugMock,
+    isDebug: isDebugMock,
     getInput: getInputMock,
   }))
   const pullsListMock = mock(async () => ({ data: [] }))
@@ -587,12 +619,14 @@ test('checkPastChangepacks returns {} when git diff outputs bad object', async (
   mock.module('@actions/exec', () => ({ exec: execMock }))
   const setFailedMock = mock()
   const debugMock = mock()
+  const isDebugMock = mock(() => false)
   const getInputMock = mock((name: string) =>
     name === 'token' ? 'TEST_TOKEN' : '',
   )
   mock.module('@actions/core', () => ({
     setFailed: setFailedMock,
     debug: debugMock,
+    isDebug: isDebugMock,
     getInput: getInputMock,
   }))
   const pullsListMock = mock(async () => ({ data: [] }))
@@ -654,11 +688,15 @@ test('checkPastChangepacks filters empty lines from diff output', async () => {
   mock.module('@actions/exec', () => ({ exec: execMock }))
 
   const setFailedMock = mock()
+  const debugMock = mock()
+  const isDebugMock = mock(() => false)
   const getInputMock = mock((name: string) =>
     name === 'token' ? 'TEST_TOKEN' : '',
   )
   mock.module('@actions/core', () => ({
     setFailed: setFailedMock,
+    debug: debugMock,
+    isDebug: isDebugMock,
     getInput: getInputMock,
   }))
 
@@ -746,12 +784,14 @@ test('checkPastChangepacks uses Update Versions PR SHA when found', async () => 
 
   const setFailedMock = mock()
   const debugMock = mock()
+  const isDebugMock = mock(() => false)
   const getInputMock = mock((name: string) =>
     name === 'token' ? 'TEST_TOKEN' : '',
   )
   mock.module('@actions/core', () => ({
     setFailed: setFailedMock,
     debug: debugMock,
+    isDebug: isDebugMock,
     getInput: getInputMock,
   }))
 
@@ -805,22 +845,30 @@ test('checkPastChangepacks uses Update Versions PR SHA when found', async () => 
 
   expect(result).toEqual(payload)
   expect(debugMock).toHaveBeenCalledWith(
-    `Found closed Update Versions PR #42, SHA: ${pastSha}`,
+    `Found closed Update Versions PR #42, SHA: ${pastSha}~1`,
   )
   expect(execMock).toHaveBeenCalledWith(
     'git',
-    ['fetch', 'origin', pastSha],
-    expect.any(Object),
+    ['fetch', 'origin', `${pastSha}~1`],
+    expect.objectContaining({ silent: true }),
   )
   expect(execMock).toHaveBeenCalledWith(
     'git',
-    ['diff', pastSha, 'HEAD', '--name-only', '--', '.changepacks/'],
-    expect.any(Object),
+    ['diff', `${pastSha}~1`, 'HEAD', '--name-only', '--', '.changepacks/'],
+    expect.objectContaining({ silent: true }),
   )
-  expect(execMock).toHaveBeenCalledWith('git', ['checkout', pastSha])
+  expect(execMock).toHaveBeenCalledWith(
+    'git',
+    ['checkout', `${pastSha}~1`],
+    expect.objectContaining({ silent: true }),
+  )
   expect(installChangepacksMock).toHaveBeenCalled()
   expect(checkChangepacksMock).toHaveBeenCalledWith('check')
-  expect(execMock).toHaveBeenCalledWith('git', ['checkout', 'HEAD'])
+  expect(execMock).toHaveBeenCalledWith(
+    'git',
+    ['checkout', 'HEAD'],
+    expect.objectContaining({ silent: true }),
+  )
   expect(setFailedMock).not.toHaveBeenCalled()
 
   mock.module('../install-changepacks', () => originalInstallChangepacks)
@@ -864,12 +912,14 @@ test('checkPastChangepacks uses head.sha when Update Versions PR has no merge_co
 
   const setFailedMock = mock()
   const debugMock = mock()
+  const isDebugMock = mock(() => false)
   const getInputMock = mock((name: string) =>
     name === 'token' ? 'TEST_TOKEN' : '',
   )
   mock.module('@actions/core', () => ({
     setFailed: setFailedMock,
     debug: debugMock,
+    isDebug: isDebugMock,
     getInput: getInputMock,
   }))
 
@@ -928,14 +978,23 @@ test('checkPastChangepacks uses head.sha when Update Versions PR has no merge_co
   expect(execMock).toHaveBeenCalledWith(
     'git',
     ['fetch', 'origin', headSha],
-    expect.any(Object),
+    expect.objectContaining({ silent: true }),
   )
   expect(execMock).toHaveBeenCalledWith(
     'git',
     ['diff', headSha, 'HEAD', '--name-only', '--', '.changepacks/'],
-    expect.any(Object),
+    expect.objectContaining({ silent: true }),
   )
-  expect(execMock).toHaveBeenCalledWith('git', ['checkout', headSha])
+  expect(execMock).toHaveBeenCalledWith(
+    'git',
+    ['checkout', headSha],
+    expect.objectContaining({ silent: true }),
+  )
+  expect(execMock).toHaveBeenCalledWith(
+    'git',
+    ['checkout', 'HEAD'],
+    expect.objectContaining({ silent: true }),
+  )
   expect(setFailedMock).not.toHaveBeenCalled()
 
   mock.module('../install-changepacks', () => originalInstallChangepacks)
@@ -974,12 +1033,14 @@ test('checkPastChangepacks handles GitHub API failure gracefully', async () => {
 
   const setFailedMock = mock()
   const debugMock = mock()
+  const isDebugMock = mock(() => false)
   const getInputMock = mock((name: string) =>
     name === 'token' ? 'TEST_TOKEN' : '',
   )
   mock.module('@actions/core', () => ({
     setFailed: setFailedMock,
     debug: debugMock,
+    isDebug: isDebugMock,
     getInput: getInputMock,
   }))
 
@@ -1036,7 +1097,7 @@ test('checkPastChangepacks handles GitHub API failure gracefully', async () => {
   expect(execMock).toHaveBeenCalledWith(
     'git',
     ['diff', 'HEAD~1', 'HEAD', '--name-only', '--', '.changepacks/'],
-    expect.any(Object),
+    expect.objectContaining({ silent: true }),
   )
   expect(setFailedMock).not.toHaveBeenCalled()
 

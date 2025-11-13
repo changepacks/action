@@ -1,4 +1,4 @@
-import { debug, getInput, setFailed } from '@actions/core'
+import { debug, getInput, isDebug, setFailed } from '@actions/core'
 import { exec } from '@actions/exec'
 import { context, getOctokit } from '@actions/github'
 import { installChangepacks } from './install-changepacks'
@@ -29,7 +29,9 @@ export async function checkPastChangepacks(): Promise<ChangepackResultMap> {
       )
 
       if (updateVersionsPr) {
-        pastSha = updateVersionsPr.merge_commit_sha || updateVersionsPr.head.sha
+        pastSha = updateVersionsPr.merge_commit_sha
+          ? `${updateVersionsPr.merge_commit_sha}~1`
+          : updateVersionsPr.head.sha
         debug(
           `Found closed Update Versions PR #${updateVersionsPr.number}, SHA: ${pastSha}`,
         )
@@ -44,12 +46,12 @@ export async function checkPastChangepacks(): Promise<ChangepackResultMap> {
       if (pastSha) {
         // Fetch specific SHA if we have one
         await exec('git', ['fetch', 'origin', pastSha], {
-          silent: true,
+          silent: !isDebug(),
         })
       } else {
         // Otherwise, deepen the shallow clone
         await exec('git', ['fetch', '--deepen=1'], {
-          silent: true,
+          silent: !isDebug(),
         })
       }
     } catch (error: unknown) {
@@ -64,6 +66,7 @@ export async function checkPastChangepacks(): Promise<ChangepackResultMap> {
         'git',
         ['diff', compareSha, 'HEAD', '--name-only', '--', '.changepacks/'],
         {
+          silent: !isDebug(),
           listeners: {
             stdout: (data: Buffer) => {
               diffOutput += data.toString()
@@ -97,10 +100,14 @@ export async function checkPastChangepacks(): Promise<ChangepackResultMap> {
 
     if (changedFiles.length > 0) {
       // rollback to past commit only .changepacks folder
-      await exec('git', ['checkout', compareSha])
+      await exec('git', ['checkout', compareSha], {
+        silent: !isDebug(),
+      })
       await installChangepacks()
       const changepacks = await runChangepacks('check')
-      await exec('git', ['checkout', 'HEAD'])
+      await exec('git', ['checkout', 'HEAD'], {
+        silent: !isDebug(),
+      })
       return changepacks
     }
     return {}
