@@ -103,6 +103,7 @@ export async function createPr(mainChangepacks: ChangepackResultMap) {
       })
     }
 
+    debug(`list pulls`)
     const { data: pulls } = await octokit.rest.pulls.list({
       owner: context.repo.owner,
       repo: context.repo.repo,

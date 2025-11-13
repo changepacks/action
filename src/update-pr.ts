@@ -7,6 +7,7 @@ export async function updatePr(
   changepacks: ChangepackResultMap,
   prNumber: number,
 ): Promise<void> {
+  debug(`update pr: ${prNumber}`)
   const octokit = getOctokit(getInput('token'))
   const body = createContents(changepacks)
 
