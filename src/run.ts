@@ -30,8 +30,16 @@ export async function run() {
         await createPr(changepacks)
       } else {
         const pastChangepacks = await checkPastChangepacks()
-        if (Object.keys(pastChangepacks).length > 0) {
-          await createRelease(config, pastChangepacks)
+        const filteredPastChangepacks = Object.fromEntries(
+          Object.entries(pastChangepacks).filter(([key, changepack]) => {
+            if (changepacks[key]) {
+              return changepacks[key].version !== changepack.nextVersion
+            }
+            return changepack.nextVersion !== null
+          }),
+        )
+        if (Object.keys(filteredPastChangepacks).length > 0) {
+          await createRelease(config, filteredPastChangepacks)
         }
       }
     }
