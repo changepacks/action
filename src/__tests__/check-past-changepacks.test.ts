@@ -849,7 +849,7 @@ test('checkPastChangepacks uses Update Versions PR SHA when found', async () => 
   )
   expect(execMock).toHaveBeenCalledWith(
     'git',
-    ['fetch', 'origin', `${pastSha}~1`],
+    ['fetch', 'origin', pastSha],
     expect.objectContaining({ silent: true }),
   )
   expect(execMock).toHaveBeenCalledWith(
@@ -1103,6 +1103,191 @@ test('checkPastChangepacks handles GitHub API failure gracefully', async () => {
 
   mock.module('../install-changepacks', () => originalInstallChangepacks)
   mock.module('../run-changepacks', () => originalRunChangepacks)
+  mock.module('@actions/exec', () => originalExec)
+  mock.module('@actions/core', () => originalCore)
+  mock.module('@actions/github', () => originalGithub)
+})
+
+test('checkPastChangepacks continues when fetch original SHA fails', async () => {
+  const originalExec = { ...(await import('@actions/exec')) }
+  const originalCore = { ...(await import('@actions/core')) }
+  const originalGithub = { ...(await import('@actions/github')) }
+  const originalRunChangepacks = { ...(await import('../run-changepacks')) }
+  const originalInstallChangepacks = {
+    ...(await import('../install-changepacks')),
+  }
+
+  const diffOutput = '.changepacks/a.md\n'
+  const pastSha = 'abc123def456'
+  const execMock = mock(
+    async (
+      _cmd: string,
+      args?: string[],
+      options?: {
+        listeners?: {
+          stdout?: (data: Buffer) => void
+          stderr?: (data: Buffer) => void
+        }
+      },
+    ) => {
+      if (args?.[0] === 'fetch' && args?.[2] === pastSha) {
+        // fetch origin <sha> fails
+        throw new Error('fetch failed')
+      } else if (args?.[0] === 'diff') {
+        options?.listeners?.stdout?.(Buffer.from(diffOutput))
+      }
+      return 0
+    },
+  )
+  mock.module('@actions/exec', () => ({ exec: execMock }))
+
+  const setFailedMock = mock()
+  const debugMock = mock()
+  const isDebugMock = mock(() => false)
+  const getInputMock = mock((name: string) =>
+    name === 'token' ? 'TEST_TOKEN' : '',
+  )
+  mock.module('@actions/core', () => ({
+    setFailed: setFailedMock,
+    debug: debugMock,
+    isDebug: isDebugMock,
+    getInput: getInputMock,
+  }))
+
+  const updateVersionsPr = {
+    number: 42,
+    title: 'Update Versions',
+    merged_at: '2024-01-01T00:00:00Z',
+    merge_commit_sha: pastSha,
+    head: { sha: 'head123' },
+  }
+  const pullsListMock = mock(async () => ({
+    data: [updateVersionsPr],
+  }))
+  const octokit = {
+    rest: {
+      pulls: { list: pullsListMock },
+    },
+  }
+  const contextMock = {
+    repo: { owner: 'acme', repo: 'widgets' },
+  }
+  const getOctokitMock = mock((_token: string) => octokit)
+  mock.module('@actions/github', () => ({
+    getOctokit: getOctokitMock,
+    context: contextMock,
+  }))
+
+  const installChangepacksMock = mock()
+  mock.module('../install-changepacks', () => ({
+    installChangepacks: installChangepacksMock,
+  }))
+
+  const payload: ChangepackResultMap = {
+    'packages/a/package.json': {
+      logs: [{ type: 'Patch', note: 'fix' }],
+      path: 'packages/a/package.json',
+      changed: false,
+      version: '1.0.0',
+      nextVersion: '1.0.1',
+      name: 'a',
+    },
+  }
+
+  const checkChangepacksMock = mock(async () => payload)
+  mock.module('../run-changepacks', () => ({
+    runChangepacks: checkChangepacksMock,
+  }))
+
+  const { checkPastChangepacks } = await import('../check-past-changepacks')
+  const result = await checkPastChangepacks()
+
+  expect(result).toEqual(payload)
+  expect(debugMock).toHaveBeenCalledWith(
+    `Found closed Update Versions PR #42, SHA: ${pastSha}~1`,
+  )
+  expect(debugMock).toHaveBeenCalledWith(
+    expect.stringContaining('Failed to fetch original SHA'),
+  )
+  expect(execMock).toHaveBeenCalledWith(
+    'git',
+    ['fetch', 'origin', pastSha],
+    expect.objectContaining({ silent: true }),
+  )
+  expect(execMock).toHaveBeenCalledWith(
+    'git',
+    ['diff', `${pastSha}~1`, 'HEAD', '--name-only', '--', '.changepacks/'],
+    expect.objectContaining({ silent: true }),
+  )
+  expect(setFailedMock).not.toHaveBeenCalled()
+
+  mock.module('../install-changepacks', () => originalInstallChangepacks)
+  mock.module('../run-changepacks', () => originalRunChangepacks)
+  mock.module('@actions/exec', () => originalExec)
+  mock.module('@actions/core', () => originalCore)
+  mock.module('@actions/github', () => originalGithub)
+})
+
+test('checkPastChangepacks setsFailed when git diff throws non-revision error', async () => {
+  const originalExec = { ...(await import('@actions/exec')) }
+  const originalCore = { ...(await import('@actions/core')) }
+  const originalGithub = { ...(await import('@actions/github')) }
+
+  const errorMessage = 'Permission denied'
+  const execMock = mock(
+    async (
+      _cmd: string,
+      args?: string[],
+      options?: {
+        listeners?: {
+          stdout?: (data: Buffer) => void
+          stderr?: (data: Buffer) => void
+        }
+      },
+    ) => {
+      if (args?.[0] === 'fetch') {
+        // fetch --deepen=1 succeeds
+      } else if (args?.[0] === 'diff') {
+        options?.listeners?.stderr?.(Buffer.from(errorMessage))
+        throw new Error(errorMessage)
+      }
+      return 0
+    },
+  )
+  mock.module('@actions/exec', () => ({ exec: execMock }))
+  const setFailedMock = mock()
+  const debugMock = mock()
+  const isDebugMock = mock(() => false)
+  const getInputMock = mock((name: string) =>
+    name === 'token' ? 'TEST_TOKEN' : '',
+  )
+  mock.module('@actions/core', () => ({
+    setFailed: setFailedMock,
+    debug: debugMock,
+    isDebug: isDebugMock,
+    getInput: getInputMock,
+  }))
+  const pullsListMock = mock(async () => ({ data: [] }))
+  const octokit = {
+    rest: {
+      pulls: { list: pullsListMock },
+    },
+  }
+  const contextMock = {
+    repo: { owner: 'acme', repo: 'widgets' },
+  }
+  const getOctokitMock = mock((_token: string) => octokit)
+  mock.module('@actions/github', () => ({
+    getOctokit: getOctokitMock,
+    context: contextMock,
+  }))
+  const { checkPastChangepacks } = await import('../check-past-changepacks')
+  const result = await checkPastChangepacks()
+  expect(result).toEqual({})
+  expect(setFailedMock).toHaveBeenCalledWith(expect.any(Error))
+  expect(debugMock).not.toHaveBeenCalledWith(
+    expect.stringContaining('skip past changepacks'),
+  )
   mock.module('@actions/exec', () => originalExec)
   mock.module('@actions/core', () => originalCore)
   mock.module('@actions/github', () => originalGithub)

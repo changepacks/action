@@ -29,12 +29,24 @@ export async function checkPastChangepacks(): Promise<ChangepackResultMap> {
       )
 
       if (updateVersionsPr) {
+        const originalSha =
+          updateVersionsPr.merge_commit_sha || updateVersionsPr.head.sha
         pastSha = updateVersionsPr.merge_commit_sha
           ? `${updateVersionsPr.merge_commit_sha}~1`
           : updateVersionsPr.head.sha
         debug(
           `Found closed Update Versions PR #${updateVersionsPr.number}, SHA: ${pastSha}`,
         )
+
+        try {
+          // Fetch original SHA first (can't fetch SHA with ~1 modifier)
+          await exec('git', ['fetch', 'origin', originalSha], {
+            silent: !isDebug(),
+          })
+        } catch (error: unknown) {
+          debug(`Failed to fetch original SHA: ${error}`)
+          // Continue anyway, the diff might still work
+        }
       } else {
         debug('No closed Update Versions PR found, using HEAD~1')
       }
@@ -42,21 +54,16 @@ export async function checkPastChangepacks(): Promise<ChangepackResultMap> {
       debug(`Failed to fetch closed PRs: ${error}`)
     }
 
-    try {
-      if (pastSha) {
-        // Fetch specific SHA if we have one
-        await exec('git', ['fetch', 'origin', pastSha], {
-          silent: !isDebug(),
-        })
-      } else {
+    if (!pastSha) {
+      try {
         // Otherwise, deepen the shallow clone
         await exec('git', ['fetch', '--deepen=1'], {
           silent: !isDebug(),
         })
+      } catch (error: unknown) {
+        debug(`Failed to fetch: ${error}`)
+        // Continue anyway, the diff might still work
       }
-    } catch (error: unknown) {
-      debug(`Failed to fetch: ${error}`)
-      // Continue anyway, the diff might still work
     }
 
     const compareSha = pastSha || 'HEAD~1'
