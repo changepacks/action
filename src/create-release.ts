@@ -22,6 +22,7 @@ export async function createRelease(
   const octokit = getOctokit(getInput('token'))
 
   const releaseNumbers = new Set<number>()
+  const tagNames = new Set<string>()
   try {
     const releasePromises = Object.entries(changepacks)
       .filter(([_, changepack]) => !!changepack.nextVersion)
@@ -33,6 +34,7 @@ export async function createRelease(
             ref: `refs/tags/${tagName}`,
             sha: context.sha,
           })
+          tagNames.add(tagName)
           debug(`created ref: ${tagName}`)
           const release = await octokit.rest.repos.createRelease({
             owner: context.repo.owner,
@@ -68,6 +70,16 @@ export async function createRelease(
             owner: context.repo.owner,
             repo: context.repo.repo,
             release_id: releaseNumber,
+          })
+        }),
+      )
+    }
+    if (tagNames.size > 0) {
+      await Promise.all(
+        Array.from(tagNames).map(async (tagName) => {
+          await octokit.rest.git.deleteRef({
+            ...context.repo,
+            ref: `refs/tags/${tagName}`,
           })
         }),
       )

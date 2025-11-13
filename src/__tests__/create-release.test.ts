@@ -19,7 +19,7 @@ test('createRelease sets output and creates releases per project', async () => {
     data: { ref: 'refs/tags/a@1.1.0' },
   }))
   const createReleaseMock = mock(async (_params: unknown) => ({
-    data: { upload_url: 'https://example.com/upload/a.zip' },
+    data: { id: 1, upload_url: 'https://example.com/upload/a.zip' },
   }))
   const octokit = {
     rest: {
@@ -174,9 +174,12 @@ test('createRelease logs error and sets failed on API failure', async () => {
   const createReleaseMock = mock(async () => {
     throw new Error('fail release')
   })
+  const deleteRefMock = mock(async (_params: unknown) => ({
+    data: {},
+  }))
   const octokit = {
     rest: {
-      git: { createRef: createRefMock },
+      git: { createRef: createRefMock, deleteRef: deleteRefMock },
       repos: { createRelease: createReleaseMock },
     },
   }
@@ -259,9 +262,12 @@ test('createRelease deletes created releases when error occurs after some releas
   const deleteReleaseMock = mock(async (_params: unknown) => ({
     data: {},
   }))
+  const deleteRefMock = mock(async (_params: unknown) => ({
+    data: {},
+  }))
   const octokit = {
     rest: {
-      git: { createRef: createRefMock },
+      git: { createRef: createRefMock, deleteRef: deleteRefMock },
       repos: {
         createRelease: createReleaseMock,
         deleteRelease: deleteReleaseMock,
@@ -344,7 +350,7 @@ test('createRelease sets make_latest to true when changepacks has only 1 item ev
     data: { ref: 'refs/tags/a@1.1.0' },
   }))
   const createReleaseMock = mock(async (_params: unknown) => ({
-    data: { upload_url: 'https://example.com/upload/a.zip' },
+    data: { id: 1, upload_url: 'https://example.com/upload/a.zip' },
   }))
   const octokit = {
     rest: {
