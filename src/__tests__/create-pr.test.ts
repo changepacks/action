@@ -1265,7 +1265,9 @@ test('createPr updates existing PR body when PR exists and created by github-act
     debug: debugMock,
   }))
 
-  const getBranchHeadMock = mock()
+  const getBranchHeadMock = mock(async () => ({
+    data: { commit: { sha: 'head-sha' } },
+  }))
   const getBranchBaseMock = mock()
   const createRefMock = mock()
   const pullsListMock = mock(async () => ({

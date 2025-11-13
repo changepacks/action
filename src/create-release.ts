@@ -21,6 +21,7 @@ export async function createRelease(
   }
   const octokit = getOctokit(getInput('token'))
 
+  const releaseNumbers = new Set<number>()
   try {
     const releasePromises = Object.entries(changepacks)
       .filter(([_, changepack]) => !!changepack.nextVersion)
@@ -32,27 +33,43 @@ export async function createRelease(
           sha: context.sha,
         })
         debug(`created ref: ${tagName}`)
-        const release = await octokit.rest.repos.createRelease({
-          owner: context.repo.owner,
-          repo: context.repo.repo,
-          name: tagName,
-          body: createBody(changepack),
-          tag_name: tagName,
-          make_latest:
-            config.latestPackage === projectPath ||
-            Object.keys(changepacks).length === 1
-              ? 'true'
-              : 'false',
-          target_commitish: context.ref,
-        })
-        return [projectPath, release.data.upload_url]
+        try {
+          const release = await octokit.rest.repos.createRelease({
+            owner: context.repo.owner,
+            repo: context.repo.repo,
+            name: tagName,
+            body: createBody(changepack),
+            tag_name: tagName,
+            make_latest:
+              config.latestPackage === projectPath ||
+              Object.keys(changepacks).length === 1
+                ? 'true'
+                : 'false',
+            target_commitish: context.ref,
+          })
+          releaseNumbers.add(release.data.id)
+          return [projectPath, release.data.upload_url]
+        } catch (err: unknown) {
+          error(`create release failed: ${tagName} ${err}`)
+          throw err
+        }
       })
     const releaseAssetsUrls = await Promise.all(releasePromises)
-    await Promise.all(releasePromises)
     debug(`releaseAssetsUrls: ${JSON.stringify(releaseAssetsUrls, null, 2)}`)
     setOutput('release_assets_urls', Object.fromEntries(releaseAssetsUrls))
   } catch (err: unknown) {
     error('create release failed')
     setFailed(err as Error)
+    if (releaseNumbers.size > 0) {
+      await Promise.all(
+        Array.from(releaseNumbers).map(async (releaseNumber) => {
+          await octokit.rest.repos.deleteRelease({
+            owner: context.repo.owner,
+            repo: context.repo.repo,
+            release_id: releaseNumber,
+          })
+        }),
+      )
+    }
   }
 }

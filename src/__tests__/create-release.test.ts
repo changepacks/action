@@ -226,6 +226,107 @@ test('createRelease logs error and sets failed on API failure', async () => {
   mock.module('@actions/github', () => originalGithub)
 })
 
+test('createRelease deletes created releases when error occurs after some releases are created', async () => {
+  const originalCore = { ...(await import('@actions/core')) }
+  const originalGithub = { ...(await import('@actions/github')) }
+
+  const setOutputMock = mock()
+  const errorMock = mock()
+  const setFailedMock = mock()
+  const debugMock = mock()
+  const getInputMock = mock((name: string) => (name === 'token' ? 'T' : ''))
+  const getBooleanInputMock = mock((name: string) => name === 'create_release')
+  mock.module('@actions/core', () => ({
+    setOutput: setOutputMock,
+    getInput: getInputMock,
+    getBooleanInput: getBooleanInputMock,
+    error: errorMock,
+    setFailed: setFailedMock,
+    debug: debugMock,
+  }))
+
+  let callCount = 0
+  const createRefMock = mock(async (_params: unknown) => ({
+    data: { ref: 'refs/tags/test' },
+  }))
+  const createReleaseMock = mock(async (_params: unknown) => {
+    callCount++
+    if (callCount === 1) {
+      return { data: { id: 123, upload_url: 'https://example.com/upload' } }
+    }
+    throw new Error('fail release')
+  })
+  const deleteReleaseMock = mock(async (_params: unknown) => ({
+    data: {},
+  }))
+  const octokit = {
+    rest: {
+      git: { createRef: createRefMock },
+      repos: {
+        createRelease: createReleaseMock,
+        deleteRelease: deleteReleaseMock,
+      },
+    },
+  }
+  const contextMock = {
+    repo: { owner: 'acme', repo: 'widgets' },
+    ref: 'refs/heads/main',
+    sha: 'abc123def456',
+  }
+  const getOctokitMock = mock((_token: string) => octokit)
+  mock.module('@actions/github', () => ({
+    getOctokit: getOctokitMock,
+    context: contextMock,
+  }))
+
+  const changepacks: ChangepackResultMap = {
+    'packages/a/package.json': {
+      logs: [{ type: 'Minor', note: 'feat A' }],
+      version: '1.0.0',
+      nextVersion: '1.1.0',
+      name: 'a',
+      path: 'packages/a/package.json',
+      changed: false,
+    },
+    'packages/b/package.json': {
+      logs: [{ type: 'Patch', note: 'fix B' }],
+      version: '2.0.0',
+      nextVersion: '2.0.1',
+      name: 'b',
+      path: 'packages/b/package.json',
+      changed: false,
+    },
+  }
+
+  const { createRelease } = await import('../create-release')
+  await createRelease(
+    {
+      ignore: [],
+      baseBranch: 'main',
+      latestPackage: null,
+    },
+    changepacks,
+  )
+
+  expect(setOutputMock).toHaveBeenCalledWith(
+    'changepacks',
+    Object.keys(changepacks),
+  )
+  expect(createReleaseMock).toHaveBeenCalledTimes(2)
+  expect(deleteReleaseMock).toHaveBeenCalledWith({
+    owner: 'acme',
+    repo: 'widgets',
+    release_id: 123,
+  })
+  expect(errorMock).toHaveBeenCalledWith(
+    expect.stringContaining('create release failed'),
+  )
+  expect(setFailedMock).toHaveBeenCalled()
+
+  mock.module('@actions/core', () => originalCore)
+  mock.module('@actions/github', () => originalGithub)
+})
+
 test('createRelease sets make_latest to true when changepacks has only 1 item even if latestPackage does not match', async () => {
   const originalCore = { ...(await import('@actions/core')) }
   const originalGithub = { ...(await import('@actions/github')) }
