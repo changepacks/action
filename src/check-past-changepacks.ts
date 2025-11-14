@@ -40,7 +40,7 @@ export async function checkPastChangepacks(): Promise<ChangepackResultMap> {
 
         try {
           // Fetch original SHA first (can't fetch SHA with ~1 modifier)
-          await exec('git', ['fetch', 'origin', originalSha], {
+          await exec('git', ['fetch', '--deepen=1', 'origin', originalSha], {
             silent: !isDebug(),
           })
         } catch (error: unknown) {
