@@ -147,6 +147,89 @@ test('updatePr updates existing Changepacks comment by github-actions[bot]', asy
   mock.module('@actions/github', () => originalGithub)
 })
 
+test('updatePr updates existing Changepacks comment by github-actions[bot] 2', async () => {
+  const originalCore = { ...(await import('@actions/core')) }
+  const originalGithub = { ...(await import('@actions/github')) }
+
+  const getInputMock = mock((name: string) => (name === 'token' ? 'T' : ''))
+  const setFailedMock = mock()
+  mock.module('@actions/core', () => ({
+    getInput: getInputMock,
+    warning: mock(),
+    error: mock(),
+    setFailed: setFailedMock,
+  }))
+
+  const getMock = mock()
+  const listCommentsMock = mock(async (_params: unknown) => ({
+    data: [
+      {
+        id: 1000,
+        user: { login: 'github-actions[bot]' },
+        body: 'other comment',
+      },
+      {
+        id: 999,
+        user: { login: 'github-actions[bot]' },
+        body: '# Changepacks\nold',
+      },
+    ],
+  }))
+  const updateCommentMock = mock()
+  const createCommentMock = mock()
+  const octokit = {
+    rest: {
+      issues: {
+        get: getMock,
+        listComments: listCommentsMock,
+        updateComment: updateCommentMock,
+        createComment: createCommentMock,
+      },
+    },
+  }
+  const getOctokitMock = mock((_token: string) => octokit)
+  const contextMock = {
+    repo: { owner: 'acme', repo: 'widgets' },
+    issue: { number: 123 },
+  }
+  mock.module('@actions/github', () => ({
+    getOctokit: getOctokitMock,
+    context: contextMock,
+  }))
+
+  const changepacks: ChangepackResultMap = {
+    'packages/a/package.json': {
+      logs: [{ type: 'Patch', note: 'fix' }],
+      version: '1.0.0',
+      nextVersion: '1.0.1',
+      name: 'a',
+      path: 'packages/a/package.json',
+      changed: false,
+    },
+  }
+
+  const { updatePrComment: updatePr } = await import('../update-pr-comment')
+  await updatePr(changepacks, 123)
+
+  expect(getOctokitMock).toHaveBeenCalledWith('T')
+  expect(listCommentsMock).toHaveBeenCalledWith({
+    owner: 'acme',
+    repo: 'widgets',
+    issue_number: 123,
+    per_page: 100,
+  })
+  expect(updateCommentMock).toHaveBeenCalledWith({
+    owner: 'acme',
+    repo: 'widgets',
+    comment_id: 999,
+    body: expect.stringContaining('# Changepacks'),
+  })
+  expect(createCommentMock).not.toHaveBeenCalled()
+
+  mock.module('@actions/core', () => originalCore)
+  mock.module('@actions/github', () => originalGithub)
+})
+
 test('updatePr creates new comment when no existing Changepacks comment', async () => {
   const originalCore = { ...(await import('@actions/core')) }
   const originalGithub = { ...(await import('@actions/github')) }

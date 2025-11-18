@@ -15,7 +15,12 @@ test('fetchOrigin executes git fetch with correct arguments', async () => {
 
   expect(execMock).toHaveBeenCalledWith(
     'git',
-    ['fetch', 'origin', 'refs/heads/main:refs/remotes/origin/main'],
+    [
+      'fetch',
+      '--no-tags',
+      'origin',
+      'refs/heads/main:refs/remotes/origin/main',
+    ],
     {
       silent: true,
     },
@@ -40,7 +45,12 @@ test('fetchOrigin executes git fetch with silent false when debug mode', async (
 
   expect(execMock).toHaveBeenCalledWith(
     'git',
-    ['fetch', 'origin', 'refs/heads/develop:refs/remotes/origin/develop'],
+    [
+      'fetch',
+      '--no-tags',
+      'origin',
+      'refs/heads/develop:refs/remotes/origin/develop',
+    ],
     {
       silent: false,
     },
@@ -67,6 +77,7 @@ test('fetchOrigin executes git fetch with different branch names', async () => {
     'git',
     [
       'fetch',
+      '--no-tags',
       'origin',
       'refs/heads/feature/new-feature:refs/remotes/origin/feature/new-feature',
     ],

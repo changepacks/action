@@ -12,23 +12,23 @@ export async function updatePrComment(
   const body = createContents(changepacks)
 
   try {
+    debug(`get list comments`)
     const comments = await octokit.rest.issues.listComments({
       owner: context.repo.owner,
       repo: context.repo.repo,
       issue_number: prNumber,
       per_page: 100,
     })
-    if (
-      comments.data.some(
-        (c) =>
-          c.user?.login === 'github-actions[bot]' &&
-          c.body?.startsWith('# Changepacks'),
-      )
-    ) {
+    const comment = comments.data.find(
+      (c) =>
+        c.user?.login === 'github-actions[bot]' &&
+        c.body?.startsWith('# Changepacks'),
+    )
+    if (comment) {
       await octokit.rest.issues.updateComment({
         owner: context.repo.owner,
         repo: context.repo.repo,
-        comment_id: comments.data[0].id,
+        comment_id: comment.id,
         body: body,
       })
     } else {
