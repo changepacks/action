@@ -19,11 +19,13 @@ export async function updatePrComment(
       issue_number: prNumber,
       per_page: 100,
     })
+    debug(`comments length: ${comments.data.length}`)
     const comment = comments.data.find(
       (c) =>
         c.user?.login === 'github-actions[bot]' &&
         c.body?.startsWith('# Changepacks'),
     )
+    debug(`comment: ${comment?.id}`)
     if (comment) {
       await octokit.rest.issues.updateComment({
         owner: context.repo.owner,
