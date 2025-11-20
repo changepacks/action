@@ -1,4 +1,4 @@
-import { debug, getInput, isDebug, setFailed } from '@actions/core'
+import { debug, getInput, info, isDebug, setFailed } from '@actions/core'
 import { exec } from '@actions/exec'
 import { context, getOctokit } from '@actions/github'
 import { installChangepacks } from './install-changepacks'
@@ -104,6 +104,8 @@ export async function checkPastChangepacks(): Promise<ChangepackResultMap> {
       setFailed(error as Error)
       return {}
     }
+
+    info(`changedFiles: ${changedFiles.join(', ')}`)
 
     if (changedFiles.length > 0) {
       // Save original branch/ref before checking out past commit
