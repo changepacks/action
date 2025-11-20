@@ -1,4 +1,4 @@
-import { debug } from '@actions/core'
+import { debug, info } from '@actions/core'
 import { exec } from '@actions/exec'
 import { context } from '@actions/github'
 import { checkPastChangepacks } from './check-past-changepacks'
@@ -21,6 +21,7 @@ export async function run() {
     const changepacks = await runChangepacks('check')
     // add pull request comment
     if (context.payload?.pull_request) {
+      info('Update PR Comment')
       await updatePrComment(changepacks, context.payload.pull_request.number)
     } else {
       if (
@@ -28,8 +29,10 @@ export async function run() {
           (changepack) => !!changepack.nextVersion,
         )
       ) {
+        info('Create PR')
         await createPr(changepacks)
       } else {
+        info('Check Past Changepacks')
         const pastChangepacks = await checkPastChangepacks()
         const filteredPastChangepacks = Object.fromEntries(
           Object.entries(pastChangepacks).filter(([key, changepack]) => {
@@ -43,6 +46,7 @@ export async function run() {
           `filteredPastChangepacks: ${JSON.stringify(filteredPastChangepacks, null, 2)}`,
         )
         if (Object.keys(filteredPastChangepacks).length > 0) {
+          info('Create Release')
           await createRelease(config, filteredPastChangepacks)
         }
       }
