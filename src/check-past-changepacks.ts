@@ -15,6 +15,7 @@ export async function checkPastChangepacks(): Promise<ChangepackResultMap> {
     const octokit = getOctokit(getInput('token'))
 
     try {
+      info('Fetch closed PRs')
       const { data: pulls } = await octokit.rest.pulls.list({
         owner: context.repo.owner,
         repo: context.repo.repo,
@@ -23,10 +24,12 @@ export async function checkPastChangepacks(): Promise<ChangepackResultMap> {
         direction: 'desc',
         per_page: 30,
       })
+      info(`closed PRs: ${pulls.length}`)
 
       const updateVersionsPr = pulls.find(
         (pr) => pr.title === 'Update Versions' && pr.merged_at !== null,
       )
+      info(`updateVersionsPr: ${updateVersionsPr?.number}`)
 
       if (updateVersionsPr) {
         const originalSha =
@@ -67,7 +70,7 @@ export async function checkPastChangepacks(): Promise<ChangepackResultMap> {
     }
 
     const compareSha = pastSha || 'HEAD~1'
-
+    info(`compareSha: ${compareSha}`)
     try {
       await exec(
         'git',
@@ -84,7 +87,7 @@ export async function checkPastChangepacks(): Promise<ChangepackResultMap> {
           },
         },
       )
-
+      info(`diffOutput: ${diffOutput}`)
       if (diffOutput.trim()) {
         changedFiles = diffOutput
           .trim()
