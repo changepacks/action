@@ -110,7 +110,7 @@ export async function createRelease(
         Array.from(tagNames).map(async (tagName) => {
           await octokit.rest.git.deleteRef({
             ...context.repo,
-            ref: `refs/tags/${tagName}`,
+            ref: `tags/${tagName}`,
           })
         }),
       )
