@@ -48,6 +48,25 @@ export async function createRelease(
             tagNames.add(tagName)
             debug(`created ref: ${tagName}`)
           }
+          debug(
+            `create release: ${tagName} ${JSON.stringify(
+              {
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                name: tagName,
+                body: createBody(changepack),
+                tag_name: tagName,
+                make_latest:
+                  config.latestPackage === projectPath ||
+                  Object.keys(changepacks).length === 1
+                    ? 'true'
+                    : 'false',
+                target_commitish: context.ref,
+              },
+              null,
+              2,
+            )}`,
+          )
           const release = await octokit.rest.repos.createRelease({
             owner: context.repo.owner,
             repo: context.repo.repo,
