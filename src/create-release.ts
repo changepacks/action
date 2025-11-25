@@ -38,8 +38,8 @@ export async function createRelease(
             })
             debug(`ref already exists: ${tagName}`)
             tagNames.add(tagName)
-          } catch {
-            debug(`create ref: ${refPath}`)
+          } catch (err: unknown) {
+            debug(`create ref: ${refPath} ${err}`)
             await octokit.rest.git.createRef({
               ...context.repo,
               ref: refPath,
