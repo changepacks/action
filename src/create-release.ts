@@ -34,7 +34,7 @@ export async function createRelease(
             debug(`get ref: ${refPath}`)
             await octokit.rest.git.getRef({
               ...context.repo,
-              ref: refPath,
+              ref: `tags/${tagName}`,
             })
             debug(`ref already exists: ${tagName}`)
             tagNames.add(tagName)
