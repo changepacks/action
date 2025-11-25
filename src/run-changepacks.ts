@@ -33,7 +33,7 @@ export async function runChangepacks(
   await exec(
     bin,
     command === 'publish'
-      ? ['publish']
+      ? ['publish', '-y']
       : [
           command,
           '--format',

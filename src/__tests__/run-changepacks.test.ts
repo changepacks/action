@@ -377,3 +377,63 @@ test('runChangepacks returns empty object when output is empty', async () => {
   mock.module('@actions/core', () => originalCore)
   mock.module('../run-changepacks', () => originalRunChangepacks)
 })
+
+test('runChangepacks executes publish command with -y flag and returns parsed JSON', async () => {
+  const originalExec = { ...(await import('@actions/exec')) }
+  const originalCore = { ...(await import('@actions/core')) }
+  const originalRunChangepacks = { ...(await import('../run-changepacks')) }
+
+  const expectedResult: ChangepackResultMap = {
+    'packages/a/package.json': {
+      logs: [{ type: 'Patch', note: 'fix' }],
+      version: '1.0.0',
+      nextVersion: '1.0.1',
+      name: 'pkg-a',
+      path: 'packages/a/package.json',
+      changed: false,
+    },
+  }
+
+  const execMock = mock(
+    async (
+      _cmd: string,
+      _args?: string[],
+      options?: {
+        listeners?: {
+          stdout?: (data: Buffer) => void
+          stderr?: (data: Buffer) => void
+        }
+      },
+    ) => {
+      const jsonOutput = JSON.stringify(expectedResult)
+      options?.listeners?.stdout?.(Buffer.from(jsonOutput))
+      return 0
+    },
+  )
+  mock.module('@actions/exec', () => ({ exec: execMock }))
+
+  const debugMock = mock()
+  const isDebugMock = mock(() => false)
+  mock.module('@actions/core', () => ({
+    debug: debugMock,
+    isDebug: isDebugMock,
+  }))
+
+  const { runChangepacks } = await import('../run-changepacks')
+  const result = await runChangepacks('publish')
+
+  expect(result).toEqual(expectedResult)
+  expect(execMock).toHaveBeenCalledWith(
+    resolve(process.platform === 'win32' ? 'changepacks.exe' : 'changepacks'),
+    ['publish', '-y'],
+    expect.objectContaining({
+      listeners: expect.any(Object),
+      silent: true,
+    }),
+  )
+  expect(debugMock).toHaveBeenCalledWith('running changepacks publish')
+
+  mock.module('@actions/exec', () => originalExec)
+  mock.module('@actions/core', () => originalCore)
+  mock.module('../run-changepacks', () => originalRunChangepacks)
+})
