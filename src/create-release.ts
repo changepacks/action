@@ -29,13 +29,23 @@ export async function createRelease(
       .map(async ([projectPath, changepack]) => {
         const tagName = `${changepack.name}(${changepack.path})@${changepack.nextVersion}`
         try {
-          await octokit.rest.git.createRef({
-            ...context.repo,
-            ref: `refs/tags/${tagName}`,
-            sha: context.sha,
-          })
-          tagNames.add(tagName)
-          debug(`created ref: ${tagName}`)
+          const refPath = `refs/tags/${tagName}`
+          try {
+            await octokit.rest.git.getRef({
+              ...context.repo,
+              ref: refPath,
+            })
+            debug(`ref already exists: ${tagName}`)
+            tagNames.add(tagName)
+          } catch {
+            await octokit.rest.git.createRef({
+              ...context.repo,
+              ref: refPath,
+              sha: context.sha,
+            })
+            tagNames.add(tagName)
+            debug(`created ref: ${tagName}`)
+          }
           const release = await octokit.rest.repos.createRelease({
             owner: context.repo.owner,
             repo: context.repo.repo,
