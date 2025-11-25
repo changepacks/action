@@ -1,4 +1,4 @@
-import { debug } from '@actions/core'
+import { debug, getBooleanInput } from '@actions/core'
 import { exec } from '@actions/exec'
 import { context } from '@actions/github'
 import { checkPastChangepacks } from './check-past-changepacks'
@@ -44,6 +44,10 @@ export async function run() {
         )
         if (Object.keys(filteredPastChangepacks).length > 0) {
           await createRelease(config, filteredPastChangepacks)
+
+          if (getBooleanInput('publish')) {
+            await runChangepacks('publish')
+          }
         }
       }
     }

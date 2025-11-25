@@ -17,6 +17,11 @@ inputs:
     required: false
     default: true
     type: boolean
+  publish:
+    description: Whether to publish the package
+    required: false
+    default: false
+    type: boolean
 
 outputs:
   changepacks:
