@@ -324,6 +324,11 @@ test('createRelease deletes created releases when error occurs after some releas
     repo: 'widgets',
     release_id: 123,
   })
+  expect(deleteRefMock).toHaveBeenCalledWith({
+    owner: 'acme',
+    repo: 'widgets',
+    ref: 'tags/a(packages/a/package.json)@1.1.0',
+  })
   expect(errorMock).toHaveBeenCalledWith(
     expect.stringContaining('create release failed'),
   )
@@ -397,6 +402,88 @@ test('createRelease sets make_latest to true when changepacks has only 1 item ev
     body: createBody(changepacks['packages/a/package.json']),
     tag_name: 'a(packages/a/package.json)@1.1.0',
     make_latest: 'true', // should be true because changepacks.length === 1
+    target_commitish: 'refs/heads/main',
+  })
+
+  mock.module('@actions/core', () => originalCore)
+  mock.module('@actions/github', () => originalGithub)
+})
+
+test('createRelease skips creating ref when tag already exists', async () => {
+  const originalCore = { ...(await import('@actions/core')) }
+  const originalGithub = { ...(await import('@actions/github')) }
+
+  const setOutputMock = mock(() => {})
+  const debugMock = mock()
+  const getInputMock = mock((name: string) => (name === 'token' ? 'T' : ''))
+  const getBooleanInputMock = mock((name: string) => name === 'create_release')
+  mock.module('@actions/core', () => ({
+    setOutput: setOutputMock,
+    getInput: getInputMock,
+    getBooleanInput: getBooleanInputMock,
+    debug: debugMock,
+  }))
+
+  const getRefMock = mock()
+  const createRefMock = mock()
+  const createReleaseMock = mock(async (_params: unknown) => ({
+    data: { id: 1, upload_url: 'https://example.com/upload/a.zip' },
+  }))
+  const octokit = {
+    rest: {
+      git: { getRef: getRefMock, createRef: createRefMock },
+      repos: { createRelease: createReleaseMock },
+    },
+  }
+  const contextMock = {
+    repo: { owner: 'acme', repo: 'widgets' },
+    ref: 'refs/heads/main',
+    sha: 'abc123def456',
+  }
+  const getOctokitMock = mock((_token: string) => octokit)
+  mock.module('@actions/github', () => ({
+    getOctokit: getOctokitMock,
+    context: contextMock,
+  }))
+
+  const changepacks: ChangepackResultMap = {
+    'packages/a/package.json': {
+      logs: [{ type: 'Minor', note: 'feat A' }],
+      version: '1.0.0',
+      nextVersion: '1.1.0',
+      name: 'a',
+      path: 'packages/a/package.json',
+      changed: false,
+    },
+  }
+
+  const { createRelease } = await import('../create-release')
+  await createRelease(
+    {
+      ignore: [],
+      baseBranch: 'main',
+      latestPackage: null,
+    },
+    changepacks,
+  )
+
+  expect(setOutputMock).toHaveBeenCalledWith(
+    'changepacks',
+    Object.keys(changepacks),
+  )
+  expect(getRefMock).toHaveBeenCalledWith({
+    owner: 'acme',
+    repo: 'widgets',
+    ref: 'tags/a(packages/a/package.json)@1.1.0',
+  })
+  expect(createRefMock).not.toHaveBeenCalled()
+  expect(createReleaseMock).toHaveBeenCalledWith({
+    owner: 'acme',
+    repo: 'widgets',
+    name: 'a(packages/a/package.json)@1.1.0',
+    body: createBody(changepacks['packages/a/package.json']),
+    tag_name: 'a(packages/a/package.json)@1.1.0',
+    make_latest: 'true',
     target_commitish: 'refs/heads/main',
   })
 

@@ -13,11 +13,11 @@ import type { ChangepackConfig, ChangepackResultMap } from './types'
 export async function createRelease(
   config: ChangepackConfig,
   changepacks: ChangepackResultMap,
-) {
+): Promise<boolean> {
   debug(`createRelease`)
   setOutput('changepacks', Object.keys(changepacks))
   if (!getBooleanInput('create_release')) {
-    return
+    return true
   }
   const octokit = getOctokit(getInput('token'))
 
@@ -91,6 +91,7 @@ export async function createRelease(
     const releaseAssetsUrls = await Promise.all(releasePromises)
     debug(`releaseAssetsUrls: ${JSON.stringify(releaseAssetsUrls, null, 2)}`)
     setOutput('release_assets_urls', Object.fromEntries(releaseAssetsUrls))
+    return true
   } catch (err: unknown) {
     error('create release failed')
     setFailed(err as Error)
@@ -115,5 +116,6 @@ export async function createRelease(
         }),
       )
     }
+    return false
   }
 }

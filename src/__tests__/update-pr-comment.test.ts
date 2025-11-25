@@ -12,11 +12,12 @@ test('updatePr posts combined body to the PR issue', async () => {
   const getInputMock = mock((name: string) => (name === 'token' ? 'T' : ''))
   const setFailedMock = mock()
   const debugMock = mock()
+  const errorMock = mock()
   // simple passthrough
   mock.module('@actions/core', () => ({
     getInput: getInputMock,
     warning: mock(),
-    error: mock(),
+    error: errorMock,
     setFailed: setFailedMock,
     debug: debugMock,
   }))
@@ -75,11 +76,14 @@ test('updatePr updates existing Changepacks comment by github-actions[bot]', asy
 
   const getInputMock = mock((name: string) => (name === 'token' ? 'T' : ''))
   const setFailedMock = mock()
+  const debugMock = mock()
+  const errorMock = mock()
   mock.module('@actions/core', () => ({
     getInput: getInputMock,
     warning: mock(),
-    error: mock(),
+    error: errorMock,
     setFailed: setFailedMock,
+    debug: debugMock,
   }))
 
   const getMock = mock()
@@ -153,11 +157,14 @@ test('updatePr updates existing Changepacks comment by github-actions[bot] 2', a
 
   const getInputMock = mock((name: string) => (name === 'token' ? 'T' : ''))
   const setFailedMock = mock()
+  const debugMock = mock()
+  const errorMock = mock()
   mock.module('@actions/core', () => ({
     getInput: getInputMock,
     warning: mock(),
-    error: mock(),
+    error: errorMock,
     setFailed: setFailedMock,
+    debug: debugMock,
   }))
 
   const getMock = mock()
@@ -236,11 +243,14 @@ test('updatePr creates new comment when no existing Changepacks comment', async 
 
   const getInputMock = mock((name: string) => (name === 'token' ? 'T' : ''))
   const setFailedMock = mock()
+  const debugMock = mock()
+  const errorMock = mock()
   mock.module('@actions/core', () => ({
     getInput: getInputMock,
     warning: mock(),
-    error: mock(),
+    error: errorMock,
     setFailed: setFailedMock,
+    debug: debugMock,
   }))
 
   const getMock = mock()
@@ -303,11 +313,13 @@ test('updatePr warns when listComments fails', async () => {
 
   const errorMock = mock()
   const setFailedMock = mock()
+  const debugMock = mock()
   const getInputMock = mock((name: string) => (name === 'token' ? 'T' : ''))
   mock.module('@actions/core', () => ({
     getInput: getInputMock,
     error: errorMock,
     setFailed: setFailedMock,
+    debug: debugMock,
   }))
 
   const getMock = mock()
@@ -367,11 +379,13 @@ test('updatePr warns when updateComment fails', async () => {
 
   const errorMock = mock()
   const setFailedMock = mock()
+  const debugMock = mock()
   const getInputMock = mock((name: string) => (name === 'token' ? 'T' : ''))
   mock.module('@actions/core', () => ({
     getInput: getInputMock,
     error: errorMock,
     setFailed: setFailedMock,
+    debug: debugMock,
   }))
 
   const getMock = mock()
@@ -420,6 +434,72 @@ test('updatePr warns when updateComment fails', async () => {
 
   expect(listCommentsMock).toHaveBeenCalled()
   expect(updateCommentMock).toHaveBeenCalled()
+  expect(errorMock).toHaveBeenCalledWith(
+    expect.stringContaining('update pr comment failed'),
+  )
+
+  mock.module('@actions/core', () => originalCore)
+  mock.module('@actions/github', () => originalGithub)
+})
+
+test('updatePr warns when createComment fails', async () => {
+  const originalCore = { ...(await import('@actions/core')) }
+  const originalGithub = { ...(await import('@actions/github')) }
+
+  const errorMock = mock()
+  const setFailedMock = mock()
+  const debugMock = mock()
+  const getInputMock = mock((name: string) => (name === 'token' ? 'T' : ''))
+  mock.module('@actions/core', () => ({
+    getInput: getInputMock,
+    error: errorMock,
+    setFailed: setFailedMock,
+    debug: debugMock,
+  }))
+
+  const getMock = mock()
+  const listCommentsMock = mock(async () => ({ data: [] }))
+  const createCommentMock = mock(async () => {
+    throw new Error('fail create')
+  })
+  const updateCommentMock = mock()
+  const octokit = {
+    rest: {
+      issues: {
+        get: getMock,
+        listComments: listCommentsMock,
+        createComment: createCommentMock,
+        updateComment: updateCommentMock,
+      },
+    },
+  }
+  const getOctokitMock = mock((_token: string) => octokit)
+  const contextMock = {
+    repo: { owner: 'acme', repo: 'widgets' },
+    issue: { number: 123 },
+  }
+  mock.module('@actions/github', () => ({
+    getOctokit: getOctokitMock,
+    context: contextMock,
+  }))
+
+  const changepacks: ChangepackResultMap = {
+    'packages/a/package.json': {
+      logs: [{ type: 'Patch', note: 'fix' }],
+      version: '1.0.0',
+      nextVersion: '1.0.1',
+      name: 'a',
+      path: 'packages/a/package.json',
+      changed: false,
+    },
+  }
+
+  const { updatePrComment: updatePr } = await import('../update-pr-comment')
+  await updatePr(changepacks, 123)
+
+  expect(listCommentsMock).toHaveBeenCalled()
+  expect(createCommentMock).toHaveBeenCalled()
+  expect(updateCommentMock).not.toHaveBeenCalled()
   expect(errorMock).toHaveBeenCalledWith(
     expect.stringContaining('update pr comment failed'),
   )

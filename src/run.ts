@@ -42,12 +42,12 @@ export async function run() {
         debug(
           `filteredPastChangepacks: ${JSON.stringify(filteredPastChangepacks, null, 2)}`,
         )
-        if (Object.keys(filteredPastChangepacks).length > 0) {
-          await createRelease(config, filteredPastChangepacks)
-
-          if (getBooleanInput('publish')) {
-            await runChangepacks('publish')
-          }
+        if (
+          Object.keys(filteredPastChangepacks).length > 0 &&
+          (await createRelease(config, filteredPastChangepacks)) &&
+          getBooleanInput('publish')
+        ) {
+          await runChangepacks('publish')
         }
       }
     }
