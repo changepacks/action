@@ -425,7 +425,7 @@ test('runChangepacks executes publish command with -y flag and returns parsed JS
   expect(result).toEqual(expectedResult)
   expect(execMock).toHaveBeenCalledWith(
     resolve(process.platform === 'win32' ? 'changepacks.exe' : 'changepacks'),
-    ['publish', '-y'],
+    ['publish', '-y', '--format', 'json'],
     expect.objectContaining({
       listeners: expect.any(Object),
       silent: true,
