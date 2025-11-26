@@ -79,6 +79,7 @@ export async function createRelease(
                 ? 'true'
                 : 'false',
             target_commitish: context.ref,
+            draft: false,
           })
           releaseNumbers.add(release.data.id)
           debug(`created release: ${tagName} ${release.data.id}`)

@@ -265,6 +265,7 @@ test('createRelease uses latestPackage from config to set make_latest', async ()
     tag_name: 'a(packages/a/package.json)@1.1.0',
     make_latest: 'true',
     target_commitish: 'refs/heads/main',
+    draft: false,
   })
   expect(createReleaseMock).toHaveBeenCalledWith({
     owner: 'acme',
@@ -274,6 +275,7 @@ test('createRelease uses latestPackage from config to set make_latest', async ()
     tag_name: 'b(packages/b/package.json)@2.0.1',
     make_latest: 'false',
     target_commitish: 'refs/heads/main',
+    draft: false,
   })
 
   mock.module('@actions/core', () => originalCore)

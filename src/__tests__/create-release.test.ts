@@ -97,6 +97,7 @@ test('createRelease sets output and creates releases per project', async () => {
     tag_name: 'a(packages/a/package.json)@1.1.0',
     make_latest: 'false',
     target_commitish: 'refs/heads/main',
+    draft: false,
   })
   expect(createReleaseMock).toHaveBeenCalledWith({
     owner: 'acme',
@@ -106,6 +107,7 @@ test('createRelease sets output and creates releases per project', async () => {
     tag_name: 'b(packages/b/package.json)@2.0.1',
     make_latest: 'false',
     target_commitish: 'refs/heads/main',
+    draft: false,
   })
 
   mock.module('@actions/core', () => originalCore)
@@ -403,6 +405,7 @@ test('createRelease sets make_latest to true when changepacks has only 1 item ev
     tag_name: 'a(packages/a/package.json)@1.1.0',
     make_latest: 'true', // should be true because changepacks.length === 1
     target_commitish: 'refs/heads/main',
+    draft: false,
   })
 
   mock.module('@actions/core', () => originalCore)
@@ -485,6 +488,7 @@ test('createRelease skips creating ref when tag already exists', async () => {
     tag_name: 'a(packages/a/package.json)@1.1.0',
     make_latest: 'true',
     target_commitish: 'refs/heads/main',
+    draft: false,
   })
 
   mock.module('@actions/core', () => originalCore)
