@@ -1,4 +1,4 @@
-import { debug, getBooleanInput } from '@actions/core'
+import { debug, error, getBooleanInput, info, setFailed } from '@actions/core'
 import { exec } from '@actions/exec'
 import { context } from '@actions/github'
 import { checkPastChangepacks } from './check-past-changepacks'
@@ -47,7 +47,15 @@ export async function run() {
           (await createRelease(config, filteredPastChangepacks)) &&
           getBooleanInput('publish')
         ) {
-          await runChangepacks('publish')
+          const result = await runChangepacks('publish')
+          for (const [path, res] of Object.entries(result)) {
+            if (res.result) {
+              info(`${path} published successfully`)
+            } else {
+              error(`${path} published failed: ${res.error}`)
+              setFailed(`${path} published failed: ${res.error}`)
+            }
+          }
         }
       }
     }

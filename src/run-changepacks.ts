@@ -1,7 +1,7 @@
 import { resolve } from 'node:path'
 import { debug, isDebug } from '@actions/core'
 import { exec } from '@actions/exec'
-import type { ChangepackResultMap } from './types'
+import type { ChangepackPublishResult, ChangepackResultMap } from './types'
 
 /**
  *
@@ -22,8 +22,14 @@ import type { ChangepackResultMap } from './types'
  * }
  */
 export async function runChangepacks(
+  command: 'publish',
+): Promise<Record<string, ChangepackPublishResult>>
+export async function runChangepacks(
+  command: 'check' | 'update',
+): Promise<ChangepackResultMap>
+export async function runChangepacks(
   command: 'check' | 'update' | 'publish',
-): Promise<ChangepackResultMap> {
+): Promise<ChangepackResultMap | Record<string, ChangepackPublishResult>> {
   let output = ''
   debug(`running changepacks ${command}`)
   const bin = resolve(

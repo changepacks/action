@@ -1,6 +1,6 @@
 import { expect, mock, test } from 'bun:test'
 import { resolve } from 'node:path'
-import type { ChangepackResultMap } from '../types'
+import type { ChangepackPublishResult, ChangepackResultMap } from '../types'
 
 test('runChangepacks executes check command and returns parsed JSON', async () => {
   const originalExec = { ...(await import('@actions/exec')) }
@@ -383,14 +383,10 @@ test('runChangepacks executes publish command with -y flag and returns parsed JS
   const originalCore = { ...(await import('@actions/core')) }
   const originalRunChangepacks = { ...(await import('../run-changepacks')) }
 
-  const expectedResult: ChangepackResultMap = {
+  const expectedResult: Record<string, ChangepackPublishResult> = {
     'packages/a/package.json': {
-      logs: [{ type: 'Patch', note: 'fix' }],
-      version: '1.0.0',
-      nextVersion: '1.0.1',
-      name: 'pkg-a',
-      path: 'packages/a/package.json',
-      changed: false,
+      result: true,
+      error: null,
     },
   }
 
@@ -432,6 +428,171 @@ test('runChangepacks executes publish command with -y flag and returns parsed JS
     }),
   )
   expect(debugMock).toHaveBeenCalledWith('running changepacks publish')
+
+  mock.module('@actions/exec', () => originalExec)
+  mock.module('@actions/core', () => originalCore)
+  mock.module('../run-changepacks', () => originalRunChangepacks)
+})
+
+test('runChangepacks calls debug with changepacks path', async () => {
+  const originalExec = { ...(await import('@actions/exec')) }
+  const originalCore = { ...(await import('@actions/core')) }
+  const originalRunChangepacks = { ...(await import('../run-changepacks')) }
+
+  const expectedResult: ChangepackResultMap = {
+    'packages/a/package.json': {
+      logs: [{ type: 'Patch', note: 'fix' }],
+      version: '1.0.0',
+      nextVersion: '1.0.1',
+      name: 'pkg-a',
+      path: 'packages/a/package.json',
+      changed: false,
+    },
+  }
+
+  const execMock = mock(
+    async (
+      _cmd: string,
+      _args?: string[],
+      options?: {
+        listeners?: {
+          stdout?: (data: Buffer) => void
+          stderr?: (data: Buffer) => void
+        }
+      },
+    ) => {
+      const jsonOutput = JSON.stringify(expectedResult)
+      options?.listeners?.stdout?.(Buffer.from(jsonOutput))
+      return 0
+    },
+  )
+  mock.module('@actions/exec', () => ({ exec: execMock }))
+
+  const debugMock = mock()
+  const isDebugMock = mock(() => false)
+  mock.module('@actions/core', () => ({
+    debug: debugMock,
+    isDebug: isDebugMock,
+  }))
+
+  const { runChangepacks } = await import('../run-changepacks')
+  await runChangepacks('check')
+
+  expect(debugMock).toHaveBeenCalledWith('running changepacks check')
+  expect(debugMock).toHaveBeenCalledWith(
+    expect.stringContaining('changepacks path:'),
+  )
+
+  mock.module('@actions/exec', () => originalExec)
+  mock.module('@actions/core', () => originalCore)
+  mock.module('../run-changepacks', () => originalRunChangepacks)
+})
+
+test('runChangepacks calls debug with changepacks output', async () => {
+  const originalExec = { ...(await import('@actions/exec')) }
+  const originalCore = { ...(await import('@actions/core')) }
+  const originalRunChangepacks = { ...(await import('../run-changepacks')) }
+
+  const expectedResult: ChangepackResultMap = {
+    'packages/a/package.json': {
+      logs: [{ type: 'Patch', note: 'fix' }],
+      version: '1.0.0',
+      nextVersion: '1.0.1',
+      name: 'pkg-a',
+      path: 'packages/a/package.json',
+      changed: false,
+    },
+  }
+
+  const execMock = mock(
+    async (
+      _cmd: string,
+      _args?: string[],
+      options?: {
+        listeners?: {
+          stdout?: (data: Buffer) => void
+          stderr?: (data: Buffer) => void
+        }
+      },
+    ) => {
+      const jsonOutput = JSON.stringify(expectedResult)
+      options?.listeners?.stdout?.(Buffer.from(jsonOutput))
+      return 0
+    },
+  )
+  mock.module('@actions/exec', () => ({ exec: execMock }))
+
+  const debugMock = mock()
+  const isDebugMock = mock(() => false)
+  mock.module('@actions/core', () => ({
+    debug: debugMock,
+    isDebug: isDebugMock,
+  }))
+
+  const { runChangepacks } = await import('../run-changepacks')
+  await runChangepacks('check')
+
+  expect(debugMock).toHaveBeenCalledWith('running changepacks check')
+  expect(debugMock).toHaveBeenCalledWith(
+    expect.stringContaining('changepacks output:'),
+  )
+
+  mock.module('@actions/exec', () => originalExec)
+  mock.module('@actions/core', () => originalCore)
+  mock.module('../run-changepacks', () => originalRunChangepacks)
+})
+
+test('runChangepacks uses non-exe extension on non-Windows platforms', async () => {
+  const originalExec = { ...(await import('@actions/exec')) }
+  const originalCore = { ...(await import('@actions/core')) }
+  const originalRunChangepacks = { ...(await import('../run-changepacks')) }
+  const originalProcess = { ...process }
+
+  const execMock = mock(
+    async (
+      _cmd: string,
+      _args?: string[],
+      options?: {
+        listeners?: {
+          stdout?: (data: Buffer) => void
+        }
+      },
+    ) => {
+      options?.listeners?.stdout?.(Buffer.from('{}'))
+      return 0
+    },
+  )
+  mock.module('@actions/exec', () => ({ exec: execMock }))
+
+  const debugMock = mock()
+  const isDebugMock = mock(() => false)
+  mock.module('@actions/core', () => ({
+    debug: debugMock,
+    isDebug: isDebugMock,
+  }))
+
+  // Mock non-Windows platform
+  Object.defineProperty(process, 'platform', {
+    value: 'linux',
+    writable: true,
+    configurable: true,
+  })
+
+  const { runChangepacks } = await import('../run-changepacks')
+  await runChangepacks('check')
+
+  expect(execMock).toHaveBeenCalledWith(
+    resolve('changepacks'),
+    expect.any(Array),
+    expect.any(Object),
+  )
+
+  // Restore original process
+  Object.defineProperty(process, 'platform', {
+    value: originalProcess.platform,
+    writable: true,
+    configurable: true,
+  })
 
   mock.module('@actions/exec', () => originalExec)
   mock.module('@actions/core', () => originalCore)

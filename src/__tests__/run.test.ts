@@ -1186,3 +1186,511 @@ test('run does not call runChangepacks publish when publish option is false', as
   mock.module('../fetch-origin', () => originalFetch)
   mock.module('@actions/exec', () => originalExec)
 })
+
+test('run calls info when publish succeeds', async () => {
+  const originalInstall = { ...(await import('../install-changepacks')) }
+  const originalCheck = { ...(await import('../run-changepacks')) }
+  const originalPast = { ...(await import('../check-past-changepacks')) }
+  const originalPr = { ...(await import('../create-pr')) }
+  const originalRel = { ...(await import('../create-release')) }
+  const originalUpdatePr = { ...(await import('../update-pr-comment')) }
+  const originalCore = { ...(await import('@actions/core')) }
+  const originalGithub = { ...(await import('@actions/github')) }
+  const originalConfig = { ...(await import('../get-changepacks-config')) }
+  const originalFetch = { ...(await import('../fetch-origin')) }
+  const originalExec = { ...(await import('@actions/exec')) }
+
+  const execMock = mock(async () => 0)
+  mock.module('@actions/exec', () => ({ exec: execMock }))
+
+  const installMock = mock()
+  mock.module('../install-changepacks', () => ({
+    installChangepacks: installMock,
+  }))
+
+  const config = { baseBranch: 'main', ignore: [], latestPackage: null }
+  const getConfigMock = mock(async () => config)
+  mock.module('../get-changepacks-config', () => ({
+    getChangepacksConfig: getConfigMock,
+  }))
+
+  const fetchOriginMock = mock()
+  mock.module('../fetch-origin', () => ({
+    fetchOrigin: fetchOriginMock,
+  }))
+
+  const checkMock = mock(async () => ({}))
+  const publishResult = {
+    'pkg/a/package.json': {
+      result: true,
+      error: null,
+    },
+  }
+  const runChangepacksMock = mock(async (cmd: 'check' | 'publish') => {
+    if (cmd === 'check') {
+      return checkMock()
+    }
+    return publishResult
+  })
+  mock.module('../run-changepacks', () => ({
+    runChangepacks: runChangepacksMock,
+  }))
+
+  const pastChangepacks = {
+    'pkg/b': {
+      logs: [],
+      version: '2.0.0',
+      nextVersion: '2.1.0',
+      name: 'b',
+      path: 'pkg/b',
+      changed: false,
+    },
+  }
+  const checkPastMock = mock(async () => pastChangepacks)
+  mock.module('../check-past-changepacks', () => ({
+    checkPastChangepacks: checkPastMock,
+  }))
+
+  const createPrMock = mock()
+  mock.module('../create-pr', () => ({ createPr: createPrMock }))
+
+  const createReleaseMock = mock(async () => true)
+  mock.module('../create-release', () => ({ createRelease: createReleaseMock }))
+
+  const updatePrMock = mock()
+  mock.module('../update-pr-comment', () => ({
+    updatePrComment: updatePrMock,
+  }))
+
+  const getInputMock = mock()
+  const getBooleanInputMock = mock(() => true)
+  const infoMock = mock()
+  const errorMock = mock()
+  const setFailedMock = mock()
+  mock.module('@actions/core', () => ({
+    getInput: getInputMock,
+    getBooleanInput: getBooleanInputMock,
+    debug: mock(),
+    info: infoMock,
+    error: errorMock,
+    setFailed: setFailedMock,
+  }))
+
+  const getOctokitMock = mock()
+  const contextMock = {
+    ...realContext,
+    repo: { owner: 'acme', repo: 'widgets' },
+    issue: { number: 1 },
+  }
+  mock.module('@actions/github', () => ({
+    context: contextMock,
+    getOctokit: getOctokitMock,
+  }))
+
+  const { run } = await import('../run')
+  await run()
+
+  expect(installMock).toHaveBeenCalled()
+  expect(getConfigMock).toHaveBeenCalled()
+  expect(runChangepacksMock).toHaveBeenCalledWith('check')
+  expect(checkPastMock).toHaveBeenCalled()
+  expect(createReleaseMock).toHaveBeenCalledWith(config, pastChangepacks)
+  expect(runChangepacksMock).toHaveBeenCalledWith('publish')
+  expect(infoMock).toHaveBeenCalledWith(
+    'pkg/a/package.json published successfully',
+  )
+  expect(errorMock).not.toHaveBeenCalled()
+  expect(setFailedMock).not.toHaveBeenCalled()
+  expect(createPrMock).not.toHaveBeenCalled()
+
+  mock.module('../install-changepacks', () => originalInstall)
+  mock.module('../run-changepacks', () => originalCheck)
+  mock.module('../check-past-changepacks', () => originalPast)
+  mock.module('../create-pr', () => originalPr)
+  mock.module('../create-release', () => originalRel)
+  mock.module('../update-pr-comment', () => originalUpdatePr)
+  mock.module('@actions/core', () => originalCore)
+  mock.module('@actions/github', () => originalGithub)
+  mock.module('../get-changepacks-config', () => originalConfig)
+  mock.module('../fetch-origin', () => originalFetch)
+  mock.module('@actions/exec', () => originalExec)
+})
+
+test('run calls error and setFailed when publish fails', async () => {
+  const originalInstall = { ...(await import('../install-changepacks')) }
+  const originalCheck = { ...(await import('../run-changepacks')) }
+  const originalPast = { ...(await import('../check-past-changepacks')) }
+  const originalPr = { ...(await import('../create-pr')) }
+  const originalRel = { ...(await import('../create-release')) }
+  const originalUpdatePr = { ...(await import('../update-pr-comment')) }
+  const originalCore = { ...(await import('@actions/core')) }
+  const originalGithub = { ...(await import('@actions/github')) }
+  const originalConfig = { ...(await import('../get-changepacks-config')) }
+  const originalFetch = { ...(await import('../fetch-origin')) }
+  const originalExec = { ...(await import('@actions/exec')) }
+
+  const execMock = mock(async () => 0)
+  mock.module('@actions/exec', () => ({ exec: execMock }))
+
+  const installMock = mock()
+  mock.module('../install-changepacks', () => ({
+    installChangepacks: installMock,
+  }))
+
+  const config = { baseBranch: 'main', ignore: [], latestPackage: null }
+  const getConfigMock = mock(async () => config)
+  mock.module('../get-changepacks-config', () => ({
+    getChangepacksConfig: getConfigMock,
+  }))
+
+  const fetchOriginMock = mock()
+  mock.module('../fetch-origin', () => ({
+    fetchOrigin: fetchOriginMock,
+  }))
+
+  const checkMock = mock(async () => ({}))
+  const publishResult = {
+    'pkg/a/package.json': {
+      result: false,
+      error: 'Publish failed: network error',
+    },
+  }
+  const runChangepacksMock = mock(async (cmd: 'check' | 'publish') => {
+    if (cmd === 'check') {
+      return checkMock()
+    }
+    return publishResult
+  })
+  mock.module('../run-changepacks', () => ({
+    runChangepacks: runChangepacksMock,
+  }))
+
+  const pastChangepacks = {
+    'pkg/b': {
+      logs: [],
+      version: '2.0.0',
+      nextVersion: '2.1.0',
+      name: 'b',
+      path: 'pkg/b',
+      changed: false,
+    },
+  }
+  const checkPastMock = mock(async () => pastChangepacks)
+  mock.module('../check-past-changepacks', () => ({
+    checkPastChangepacks: checkPastMock,
+  }))
+
+  const createPrMock = mock()
+  mock.module('../create-pr', () => ({ createPr: createPrMock }))
+
+  const createReleaseMock = mock(async () => true)
+  mock.module('../create-release', () => ({ createRelease: createReleaseMock }))
+
+  const updatePrMock = mock()
+  mock.module('../update-pr-comment', () => ({
+    updatePrComment: updatePrMock,
+  }))
+
+  const getInputMock = mock()
+  const getBooleanInputMock = mock(() => true)
+  const infoMock = mock()
+  const errorMock = mock()
+  const setFailedMock = mock()
+  mock.module('@actions/core', () => ({
+    getInput: getInputMock,
+    getBooleanInput: getBooleanInputMock,
+    debug: mock(),
+    info: infoMock,
+    error: errorMock,
+    setFailed: setFailedMock,
+  }))
+
+  const getOctokitMock = mock()
+  const contextMock = {
+    ...realContext,
+    repo: { owner: 'acme', repo: 'widgets' },
+    issue: { number: 1 },
+  }
+  mock.module('@actions/github', () => ({
+    context: contextMock,
+    getOctokit: getOctokitMock,
+  }))
+
+  const { run } = await import('../run')
+  await run()
+
+  expect(installMock).toHaveBeenCalled()
+  expect(getConfigMock).toHaveBeenCalled()
+  expect(runChangepacksMock).toHaveBeenCalledWith('check')
+  expect(checkPastMock).toHaveBeenCalled()
+  expect(createReleaseMock).toHaveBeenCalledWith(config, pastChangepacks)
+  expect(runChangepacksMock).toHaveBeenCalledWith('publish')
+  expect(errorMock).toHaveBeenCalledWith(
+    'pkg/a/package.json published failed: Publish failed: network error',
+  )
+  expect(setFailedMock).toHaveBeenCalledWith(
+    'pkg/a/package.json published failed: Publish failed: network error',
+  )
+  expect(infoMock).not.toHaveBeenCalled()
+  expect(createPrMock).not.toHaveBeenCalled()
+
+  mock.module('../install-changepacks', () => originalInstall)
+  mock.module('../run-changepacks', () => originalCheck)
+  mock.module('../check-past-changepacks', () => originalPast)
+  mock.module('../create-pr', () => originalPr)
+  mock.module('../create-release', () => originalRel)
+  mock.module('../update-pr-comment', () => originalUpdatePr)
+  mock.module('@actions/core', () => originalCore)
+  mock.module('@actions/github', () => originalGithub)
+  mock.module('../get-changepacks-config', () => originalConfig)
+  mock.module('../fetch-origin', () => originalFetch)
+  mock.module('@actions/exec', () => originalExec)
+})
+
+test('run handles mixed publish results (some succeed, some fail)', async () => {
+  const originalInstall = { ...(await import('../install-changepacks')) }
+  const originalCheck = { ...(await import('../run-changepacks')) }
+  const originalPast = { ...(await import('../check-past-changepacks')) }
+  const originalPr = { ...(await import('../create-pr')) }
+  const originalRel = { ...(await import('../create-release')) }
+  const originalUpdatePr = { ...(await import('../update-pr-comment')) }
+  const originalCore = { ...(await import('@actions/core')) }
+  const originalGithub = { ...(await import('@actions/github')) }
+  const originalConfig = { ...(await import('../get-changepacks-config')) }
+  const originalFetch = { ...(await import('../fetch-origin')) }
+  const originalExec = { ...(await import('@actions/exec')) }
+
+  const execMock = mock(async () => 0)
+  mock.module('@actions/exec', () => ({ exec: execMock }))
+
+  const installMock = mock()
+  mock.module('../install-changepacks', () => ({
+    installChangepacks: installMock,
+  }))
+
+  const config = { baseBranch: 'main', ignore: [], latestPackage: null }
+  const getConfigMock = mock(async () => config)
+  mock.module('../get-changepacks-config', () => ({
+    getChangepacksConfig: getConfigMock,
+  }))
+
+  const fetchOriginMock = mock()
+  mock.module('../fetch-origin', () => ({
+    fetchOrigin: fetchOriginMock,
+  }))
+
+  const checkMock = mock(async () => ({}))
+  const publishResult = {
+    'pkg/a/package.json': {
+      result: true,
+      error: null,
+    },
+    'pkg/b/package.json': {
+      result: false,
+      error: 'Publish failed',
+    },
+  }
+  const runChangepacksMock = mock(async (cmd: 'check' | 'publish') => {
+    if (cmd === 'check') {
+      return checkMock()
+    }
+    return publishResult
+  })
+  mock.module('../run-changepacks', () => ({
+    runChangepacks: runChangepacksMock,
+  }))
+
+  const pastChangepacks = {
+    'pkg/c': {
+      logs: [],
+      version: '2.0.0',
+      nextVersion: '2.1.0',
+      name: 'c',
+      path: 'pkg/c',
+      changed: false,
+    },
+  }
+  const checkPastMock = mock(async () => pastChangepacks)
+  mock.module('../check-past-changepacks', () => ({
+    checkPastChangepacks: checkPastMock,
+  }))
+
+  const createPrMock = mock()
+  mock.module('../create-pr', () => ({ createPr: createPrMock }))
+
+  const createReleaseMock = mock(async () => true)
+  mock.module('../create-release', () => ({ createRelease: createReleaseMock }))
+
+  const updatePrMock = mock()
+  mock.module('../update-pr-comment', () => ({
+    updatePrComment: updatePrMock,
+  }))
+
+  const getInputMock = mock()
+  const getBooleanInputMock = mock(() => true)
+  const infoMock = mock()
+  const errorMock = mock()
+  const setFailedMock = mock()
+  mock.module('@actions/core', () => ({
+    getInput: getInputMock,
+    getBooleanInput: getBooleanInputMock,
+    debug: mock(),
+    info: infoMock,
+    error: errorMock,
+    setFailed: setFailedMock,
+  }))
+
+  const getOctokitMock = mock()
+  const contextMock = {
+    ...realContext,
+    repo: { owner: 'acme', repo: 'widgets' },
+    issue: { number: 1 },
+  }
+  mock.module('@actions/github', () => ({
+    context: contextMock,
+    getOctokit: getOctokitMock,
+  }))
+
+  const { run } = await import('../run')
+  await run()
+
+  expect(installMock).toHaveBeenCalled()
+  expect(getConfigMock).toHaveBeenCalled()
+  expect(runChangepacksMock).toHaveBeenCalledWith('check')
+  expect(checkPastMock).toHaveBeenCalled()
+  expect(createReleaseMock).toHaveBeenCalledWith(config, pastChangepacks)
+  expect(runChangepacksMock).toHaveBeenCalledWith('publish')
+  expect(infoMock).toHaveBeenCalledWith(
+    'pkg/a/package.json published successfully',
+  )
+  expect(errorMock).toHaveBeenCalledWith(
+    'pkg/b/package.json published failed: Publish failed',
+  )
+  expect(setFailedMock).toHaveBeenCalledWith(
+    'pkg/b/package.json published failed: Publish failed',
+  )
+  expect(createPrMock).not.toHaveBeenCalled()
+
+  mock.module('../install-changepacks', () => originalInstall)
+  mock.module('../run-changepacks', () => originalCheck)
+  mock.module('../check-past-changepacks', () => originalPast)
+  mock.module('../create-pr', () => originalPr)
+  mock.module('../create-release', () => originalRel)
+  mock.module('../update-pr-comment', () => originalUpdatePr)
+  mock.module('@actions/core', () => originalCore)
+  mock.module('@actions/github', () => originalGithub)
+  mock.module('../get-changepacks-config', () => originalConfig)
+  mock.module('../fetch-origin', () => originalFetch)
+  mock.module('@actions/exec', () => originalExec)
+})
+
+test('run does not call publish when createRelease returns false', async () => {
+  const originalInstall = { ...(await import('../install-changepacks')) }
+  const originalCheck = { ...(await import('../run-changepacks')) }
+  const originalPast = { ...(await import('../check-past-changepacks')) }
+  const originalPr = { ...(await import('../create-pr')) }
+  const originalRel = { ...(await import('../create-release')) }
+  const originalUpdatePr = { ...(await import('../update-pr-comment')) }
+  const originalCore = { ...(await import('@actions/core')) }
+  const originalGithub = { ...(await import('@actions/github')) }
+  const originalConfig = { ...(await import('../get-changepacks-config')) }
+  const originalFetch = { ...(await import('../fetch-origin')) }
+  const originalExec = { ...(await import('@actions/exec')) }
+
+  const execMock = mock(async () => 0)
+  mock.module('@actions/exec', () => ({ exec: execMock }))
+
+  const installMock = mock()
+  mock.module('../install-changepacks', () => ({
+    installChangepacks: installMock,
+  }))
+
+  const config = { baseBranch: 'main', ignore: [], latestPackage: null }
+  const getConfigMock = mock(async () => config)
+  mock.module('../get-changepacks-config', () => ({
+    getChangepacksConfig: getConfigMock,
+  }))
+
+  const fetchOriginMock = mock()
+  mock.module('../fetch-origin', () => ({
+    fetchOrigin: fetchOriginMock,
+  }))
+
+  const checkMock = mock(async () => ({}))
+  const runChangepacksMock = mock(async (_cmd: 'check' | 'publish') => {
+    return checkMock()
+  })
+  mock.module('../run-changepacks', () => ({
+    runChangepacks: runChangepacksMock,
+  }))
+
+  const pastChangepacks = {
+    'pkg/b': {
+      logs: [],
+      version: '2.0.0',
+      nextVersion: '2.1.0',
+      name: 'b',
+      path: 'pkg/b',
+      changed: false,
+    },
+  }
+  const checkPastMock = mock(async () => pastChangepacks)
+  mock.module('../check-past-changepacks', () => ({
+    checkPastChangepacks: checkPastMock,
+  }))
+
+  const createPrMock = mock()
+  mock.module('../create-pr', () => ({ createPr: createPrMock }))
+
+  const createReleaseMock = mock()
+  mock.module('../create-release', () => ({ createRelease: createReleaseMock }))
+
+  const updatePrMock = mock()
+  mock.module('../update-pr-comment', () => ({
+    updatePrComment: updatePrMock,
+  }))
+
+  const getInputMock = mock()
+  const getBooleanInputMock = mock()
+  mock.module('@actions/core', () => ({
+    getInput: getInputMock,
+    getBooleanInput: getBooleanInputMock,
+    debug: mock(),
+    error: mock(),
+    setFailed: mock(),
+  }))
+
+  const getOctokitMock = mock()
+  const contextMock = {
+    ...realContext,
+    repo: { owner: 'acme', repo: 'widgets' },
+    issue: { number: 1 },
+  }
+  mock.module('@actions/github', () => ({
+    context: contextMock,
+    getOctokit: getOctokitMock,
+  }))
+
+  const { run } = await import('../run')
+  await run()
+
+  expect(installMock).toHaveBeenCalled()
+  expect(getConfigMock).toHaveBeenCalled()
+  expect(runChangepacksMock).toHaveBeenCalledWith('check')
+  expect(checkPastMock).toHaveBeenCalled()
+  expect(createReleaseMock).toHaveBeenCalledWith(config, pastChangepacks)
+  expect(runChangepacksMock).not.toHaveBeenCalledWith('publish')
+  expect(createPrMock).not.toHaveBeenCalled()
+
+  mock.module('../install-changepacks', () => originalInstall)
+  mock.module('../run-changepacks', () => originalCheck)
+  mock.module('../check-past-changepacks', () => originalPast)
+  mock.module('../create-pr', () => originalPr)
+  mock.module('../create-release', () => originalRel)
+  mock.module('../update-pr-comment', () => originalUpdatePr)
+  mock.module('@actions/core', () => originalCore)
+  mock.module('@actions/github', () => originalGithub)
+  mock.module('../get-changepacks-config', () => originalConfig)
+  mock.module('../fetch-origin', () => originalFetch)
+  mock.module('@actions/exec', () => originalExec)
+})

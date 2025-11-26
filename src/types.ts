@@ -11,6 +11,11 @@ export interface ChangepackResult {
   changed: boolean
 }
 
+export interface ChangepackPublishResult {
+  result: boolean
+  error: string | null
+}
+
 export type ChangepackResultMap = Record<string, ChangepackResult>
 
 export interface ChangepackConfig {
