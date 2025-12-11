@@ -1296,3 +1296,97 @@ test('checkPastChangepacks setsFailed when git diff throws non-revision error', 
   mock.module('@actions/core', () => originalCore)
   mock.module('@actions/github', () => originalGithub)
 })
+
+test('checkPastChangepacks returns {} when rev-list count is greater than 1', async () => {
+  const originalExec = { ...(await import('@actions/exec')) }
+  const originalCore = { ...(await import('@actions/core')) }
+  const originalGithub = { ...(await import('@actions/github')) }
+  const originalInstall = { ...(await import('../install-changepacks')) }
+  const originalRunChangepacks = { ...(await import('../run-changepacks')) }
+
+  const execMock = mock(
+    async (
+      _cmd: string,
+      args?: string[],
+      options?: {
+        listeners?: {
+          stdout?: (data: Buffer) => void
+          stderr?: (data: Buffer) => void
+        }
+      },
+    ) => {
+      if (args?.[0] === 'fetch') {
+        return 0
+      }
+      if (args?.[0] === 'rev-list') {
+        return 2 // simulate >1 to hit early return
+      }
+      options?.listeners?.stdout?.(Buffer.from(''))
+      return 0
+    },
+  )
+  mock.module('@actions/exec', () => ({ exec: execMock }))
+
+  const setFailedMock = mock()
+  const debugMock = mock()
+  const isDebugMock = mock(() => false)
+  const getInputMock = mock((name: string) =>
+    name === 'token' ? 'TEST_TOKEN' : '',
+  )
+  mock.module('@actions/core', () => ({
+    setFailed: setFailedMock,
+    debug: debugMock,
+    isDebug: isDebugMock,
+    getInput: getInputMock,
+  }))
+
+  const pullsListMock = mock(async () => ({
+    data: [
+      {
+        title: 'Update Versions',
+        merged_at: '2024-01-01T00:00:00Z',
+        merge_commit_sha: 'abc123',
+        head: { sha: 'headsha' },
+        number: 99,
+      },
+    ],
+  }))
+  const octokit = { rest: { pulls: { list: pullsListMock } } }
+  const contextMock = {
+    repo: { owner: 'acme', repo: 'widgets' },
+    ref: 'refs/heads/main',
+  }
+  const getOctokitMock = mock((_token: string) => octokit)
+  mock.module('@actions/github', () => ({
+    getOctokit: getOctokitMock,
+    context: contextMock,
+  }))
+
+  const installMock = mock()
+  mock.module('../install-changepacks', () => ({
+    installChangepacks: installMock,
+  }))
+  const runChangepacksMock = mock()
+  mock.module('../run-changepacks', () => ({
+    runChangepacks: runChangepacksMock,
+  }))
+
+  const { checkPastChangepacks } = await import('../check-past-changepacks')
+  const result = await checkPastChangepacks()
+
+  expect(result).toEqual({})
+  expect(setFailedMock).not.toHaveBeenCalled()
+  expect(installMock).not.toHaveBeenCalled()
+  expect(runChangepacksMock).not.toHaveBeenCalled()
+  expect(execMock).toHaveBeenCalledWith(
+    'git',
+    ['rev-list', '--count', 'HEAD', 'abc123~1'],
+    expect.objectContaining({ silent: true }),
+  )
+
+  mock.module('@actions/exec', () => originalExec)
+  mock.module('@actions/core', () => originalCore)
+  mock.module('@actions/github', () => originalGithub)
+  mock.module('../install-changepacks', () => originalInstall)
+  mock.module('../run-changepacks', () => originalRunChangepacks)
+})

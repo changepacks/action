@@ -64,6 +64,12 @@ export async function checkPastChangepacks(): Promise<ChangepackResultMap> {
         debug(`Failed to fetch: ${error}`)
         // Continue anyway, the diff might still work
       }
+    } else if (
+      (await exec('git', ['rev-list', '--count', 'HEAD', pastSha], {
+        silent: !isDebug(),
+      })) > 1
+    ) {
+      return {}
     }
 
     const compareSha = pastSha || 'HEAD~1'
