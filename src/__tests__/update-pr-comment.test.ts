@@ -412,6 +412,7 @@ test('updatePr warns when updateComment fails', async () => {
   const contextMock = {
     repo: { owner: 'acme', repo: 'widgets' },
     issue: { number: 123 },
+    ref: 'refs/heads/main',
   }
   mock.module('@actions/github', () => ({
     getOctokit: getOctokitMock,

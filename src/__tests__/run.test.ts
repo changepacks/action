@@ -47,6 +47,18 @@ test('run creates PR when current changepacks exist', async () => {
   const createReleaseMock = mock()
   mock.module('../create-release', () => ({ createRelease: createReleaseMock }))
 
+  const getOctokitMock = mock()
+  const contextMock = {
+    ...realContext,
+    ref: 'refs/heads/main',
+    repo: { owner: 'acme', repo: 'widgets' },
+    issue: { number: 1 },
+  }
+  mock.module('@actions/github', () => ({
+    context: contextMock,
+    getOctokit: getOctokitMock,
+  }))
+
   const { run } = await import('../run')
   await run()
 
@@ -77,6 +89,7 @@ test('run creates releases from past changepacks when current is empty', async (
   const originalFetch = { ...(await import('../fetch-origin')) }
   const originalExec = { ...(await import('@actions/exec')) }
   const originalCore = { ...(await import('@actions/core')) }
+  const originalGithub = { ...(await import('@actions/github')) }
 
   const execMock = mock(async () => 0)
   mock.module('@actions/exec', () => ({ exec: execMock }))
@@ -122,6 +135,18 @@ test('run creates releases from past changepacks when current is empty', async (
   const createReleaseMock = mock()
   mock.module('../create-release', () => ({ createRelease: createReleaseMock }))
 
+  const getOctokitMock = mock()
+  const contextMock = {
+    ...realContext,
+    ref: 'refs/heads/main',
+    repo: { owner: 'acme', repo: 'widgets' },
+    issue: { number: 1 },
+  }
+  mock.module('@actions/github', () => ({
+    context: contextMock,
+    getOctokit: getOctokitMock,
+  }))
+
   const { run } = await import('../run')
   await run()
 
@@ -141,6 +166,7 @@ test('run creates releases from past changepacks when current is empty', async (
   mock.module('../fetch-origin', () => originalFetch)
   mock.module('@actions/exec', () => originalExec)
   mock.module('@actions/core', () => originalCore)
+  mock.module('@actions/github', () => originalGithub)
 })
 
 test('run posts PR comment and returns early when payload.pull_request exists', async () => {
@@ -291,6 +317,7 @@ test('run does not create release when past changepacks is empty', async () => {
   const getOctokitMock = mock()
   const contextMock = {
     ...realContext,
+    ref: 'refs/heads/main',
     repo: { owner: 'acme', repo: 'widgets' },
     issue: { number: 1 },
   }
@@ -414,7 +441,7 @@ test('run fetches origin when ref is not base branch', async () => {
   expect(getConfigMock).toHaveBeenCalled()
   expect(fetchOriginMock).toHaveBeenCalledWith('main')
   expect(checkMock).toHaveBeenCalledWith('check')
-  expect(createPrMock).toHaveBeenCalled()
+  expect(createPrMock).not.toHaveBeenCalled()
   expect(checkPastMock).not.toHaveBeenCalled()
   expect(createReleaseMock).not.toHaveBeenCalled()
 
@@ -525,6 +552,7 @@ test('run filters past changepacks when current changepack version matches past 
   const getOctokitMock = mock()
   const contextMock = {
     ...realContext,
+    ref: 'refs/heads/main',
     repo: { owner: 'acme', repo: 'widgets' },
     issue: { number: 1 },
   }
@@ -644,6 +672,7 @@ test('run filters past changepacks when nextVersion is null', async () => {
   const getOctokitMock = mock()
   const contextMock = {
     ...realContext,
+    ref: 'refs/heads/main',
     repo: { owner: 'acme', repo: 'widgets' },
     issue: { number: 1 },
   }
@@ -762,6 +791,7 @@ test('run filters past changepacks when current changepack version differs from 
   const getOctokitMock = mock()
   const contextMock = {
     ...realContext,
+    ref: 'refs/heads/main',
     repo: { owner: 'acme', repo: 'widgets' },
     issue: { number: 1 },
   }
@@ -1044,6 +1074,7 @@ test('run calls runChangepacks publish when publish option is true', async () =>
   const getOctokitMock = mock()
   const contextMock = {
     ...realContext,
+    ref: 'refs/heads/main',
     repo: { owner: 'acme', repo: 'widgets' },
     issue: { number: 1 },
   }
@@ -1155,6 +1186,7 @@ test('run does not call runChangepacks publish when publish option is false', as
   const getOctokitMock = mock()
   const contextMock = {
     ...realContext,
+    ref: 'refs/heads/main',
     repo: { owner: 'acme', repo: 'widgets' },
     issue: { number: 1 },
   }
@@ -1279,6 +1311,7 @@ test('run calls info when publish succeeds', async () => {
   const getOctokitMock = mock()
   const contextMock = {
     ...realContext,
+    ref: 'refs/heads/main',
     repo: { owner: 'acme', repo: 'widgets' },
     issue: { number: 1 },
   }
@@ -1408,6 +1441,7 @@ test('run calls error and setFailed when publish fails', async () => {
   const getOctokitMock = mock()
   const contextMock = {
     ...realContext,
+    ref: 'refs/heads/main',
     repo: { owner: 'acme', repo: 'widgets' },
     issue: { number: 1 },
   }
@@ -1543,6 +1577,7 @@ test('run handles mixed publish results (some succeed, some fail)', async () => 
   const getOctokitMock = mock()
   const contextMock = {
     ...realContext,
+    ref: 'refs/heads/main',
     repo: { owner: 'acme', repo: 'widgets' },
     issue: { number: 1 },
   }
@@ -1663,6 +1698,7 @@ test('run does not call publish when createRelease returns false', async () => {
   const getOctokitMock = mock()
   const contextMock = {
     ...realContext,
+    ref: 'refs/heads/main',
     repo: { owner: 'acme', repo: 'widgets' },
     issue: { number: 1 },
   }

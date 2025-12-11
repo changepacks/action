@@ -15,14 +15,16 @@ export async function run() {
     await installChangepacks()
 
     const config = await getChangepacksConfig()
-    if (context.ref !== `refs/heads/${config.baseBranch}`) {
+    const isBaseBranch = context.ref === `refs/heads/${config.baseBranch}`
+    if (!isBaseBranch) {
       await fetchOrigin(config.baseBranch)
     }
     const changepacks = await runChangepacks('check')
     // add pull request comment
     if (context.payload?.pull_request) {
       await updatePrComment(changepacks, context.payload.pull_request.number)
-    } else {
+    } else if (isBaseBranch) {
+      // push to base branch
       if (
         Object.values(changepacks).some(
           (changepack) => !!changepack.nextVersion,
