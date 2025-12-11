@@ -1,4 +1,4 @@
-import { debug, error, getBooleanInput, info, setFailed } from '@actions/core'
+import { error, getBooleanInput, info, setFailed } from '@actions/core'
 import { exec } from '@actions/exec'
 import { context } from '@actions/github'
 import { checkPastChangepacks } from './check-past-changepacks'
@@ -41,7 +41,7 @@ export async function run() {
             return changepack.nextVersion !== null
           }),
         )
-        debug(
+        console.log(
           `filteredPastChangepacks: ${JSON.stringify(filteredPastChangepacks, null, 2)}`,
         )
         if (
