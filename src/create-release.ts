@@ -15,6 +15,9 @@ export async function createRelease(
   changepacks: ChangepackResultMap,
 ): Promise<boolean> {
   debug(`createRelease`)
+  debug(
+    `output changepacks: ${JSON.stringify(Object.keys(changepacks), null, 2)}`,
+  )
   setOutput('changepacks', Object.keys(changepacks))
   if (!getBooleanInput('create_release')) {
     return true
