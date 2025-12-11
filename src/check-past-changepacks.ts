@@ -74,7 +74,7 @@ export async function checkPastChangepacks(): Promise<ChangepackResultMap> {
           },
         },
       })
-      if (parseInt(commitCountOutput, 10) > 1) {
+      if (parseInt(commitCountOutput, 10) > 3) {
         return {}
       }
     }
