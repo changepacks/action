@@ -15,6 +15,8 @@ export async function createRelease(
   changepacks: ChangepackResultMap,
 ): Promise<boolean> {
   debug(`createRelease`)
+
+  debug(`output changepacks object: ${JSON.stringify(changepacks, null, 2)}`)
   debug(
     `output changepacks: ${JSON.stringify(Object.keys(changepacks), null, 2)}`,
   )
