@@ -66,15 +66,20 @@ export async function checkPastChangepacks(): Promise<ChangepackResultMap> {
       }
     } else {
       let commitCountOutput = ''
-      await exec('git', ['rev-list', '--count', 'HEAD', pastSha], {
-        silent: !isDebug(),
-        listeners: {
-          stdout: (data: Buffer) => {
-            commitCountOutput += data.toString()
+      try {
+        await exec('git', ['rev-list', '--count', 'HEAD', pastSha], {
+          silent: !isDebug(),
+          listeners: {
+            stdout: (data: Buffer) => {
+              commitCountOutput += data.toString()
+            },
           },
-        },
-      })
-      if (parseInt(commitCountOutput, 10) > 3) {
+        })
+        if (parseInt(commitCountOutput, 10) > 3) {
+          return {}
+        }
+      } catch (error: unknown) {
+        debug(`Failed to get commit count: ${error}`)
         return {}
       }
     }
