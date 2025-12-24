@@ -1,10 +1,13 @@
 import {
   debug,
+  endGroup,
   error,
   getBooleanInput,
   getInput,
+  info,
   setFailed,
   setOutput,
+  startGroup,
 } from '@actions/core'
 import { context, getOctokit } from '@actions/github'
 import { createBody } from './create-body'
@@ -14,14 +17,13 @@ export async function createRelease(
   config: ChangepackConfig,
   changepacks: ChangepackResultMap,
 ): Promise<boolean> {
-  debug(`createRelease`)
+  startGroup(`createRelease`)
 
-  debug(`output changepacks object: ${JSON.stringify(changepacks, null, 2)}`)
-  debug(
-    `output changepacks: ${JSON.stringify(Object.keys(changepacks), null, 2)}`,
-  )
+  info(`output: ${JSON.stringify(Object.keys(changepacks), null, 2)}`)
   setOutput('changepacks', Object.keys(changepacks))
   if (!getBooleanInput('create_release')) {
+    info(`create_release is not enabled, skipping release creation`)
+    endGroup()
     return true
   }
   const octokit = getOctokit(getInput('token'))
@@ -41,19 +43,19 @@ export async function createRelease(
               ...context.repo,
               ref: `tags/${tagName}`,
             })
-            debug(`ref already exists: ${tagName}`)
+            info(`ref already exists: ${tagName}`)
             tagNames.add(tagName)
           } catch (err: unknown) {
-            debug(`create ref: ${refPath} ${err}`)
+            info(`create ref: ${refPath} ${err}`)
             await octokit.rest.git.createRef({
               ...context.repo,
               ref: refPath,
               sha: context.sha,
             })
             tagNames.add(tagName)
-            debug(`created ref: ${tagName}`)
+            info(`created ref: ${tagName}`)
           }
-          debug(
+          info(
             `create release: ${tagName} ${JSON.stringify(
               {
                 owner: context.repo.owner,
@@ -87,7 +89,7 @@ export async function createRelease(
             draft: false,
           })
           releaseNumbers.add(release.data.id)
-          debug(`created release: ${tagName} ${release.data.id}`)
+          info(`created release: ${tagName} ${release.data.id}`)
           return [projectPath, release.data.upload_url]
         } catch (err: unknown) {
           error(`create release failed: ${tagName} ${err}`)
@@ -95,13 +97,16 @@ export async function createRelease(
         }
       })
     const releaseAssetsUrls = await Promise.all(releasePromises)
-    debug(`releaseAssetsUrls: ${JSON.stringify(releaseAssetsUrls, null, 2)}`)
+    info(`releaseAssetsUrls: ${JSON.stringify(releaseAssetsUrls, null, 2)}`)
     setOutput('release_assets_urls', Object.fromEntries(releaseAssetsUrls))
     return true
   } catch (err: unknown) {
-    error('create release failed')
+    error(`create release failed: ${err}`)
     setFailed(err as Error)
     if (releaseNumbers.size > 0) {
+      info(
+        `delete releases: ${JSON.stringify(Array.from(releaseNumbers), null, 2)}`,
+      )
       await Promise.all(
         Array.from(releaseNumbers).map(async (releaseNumber) => {
           await octokit.rest.repos.deleteRelease({
@@ -113,6 +118,7 @@ export async function createRelease(
       )
     }
     if (tagNames.size > 0) {
+      info(`delete refs: ${JSON.stringify(Array.from(tagNames), null, 2)}`)
       await Promise.all(
         Array.from(tagNames).map(async (tagName) => {
           await octokit.rest.git.deleteRef({
@@ -123,5 +129,7 @@ export async function createRelease(
       )
     }
     return false
+  } finally {
+    endGroup()
   }
 }

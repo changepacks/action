@@ -873,7 +873,9 @@ test('run executes git clean in finally block even when error occurs', async () 
 
   expect(installMock).toHaveBeenCalled()
   // git clean should be called in finally block
-  expect(execMock).toHaveBeenCalledWith('git', ['clean', '-fd'])
+  expect(execMock).toHaveBeenCalledWith('git', ['clean', '-fd'], {
+    silent: true,
+  })
 
   mock.module('../install-changepacks', () => originalInstall)
   mock.module('../run-changepacks', () => originalCheck)

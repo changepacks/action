@@ -1,4 +1,13 @@
-import { debug, error, getInput, isDebug, setFailed } from '@actions/core'
+import {
+  debug,
+  endGroup,
+  error,
+  getInput,
+  info,
+  isDebug,
+  setFailed,
+  startGroup,
+} from '@actions/core'
 import { exec } from '@actions/exec'
 import { context, getOctokit } from '@actions/github'
 import { createContents } from './create-contents'
@@ -7,6 +16,7 @@ import { runChangepacks } from './run-changepacks'
 import type { ChangepackResultMap } from './types'
 
 export async function createPr(mainChangepacks: ChangepackResultMap) {
+  startGroup(`createPr`)
   const base = context.ref.replace(/^refs\/heads\//, '')
   const head = `changepacks/${base}`
 
@@ -48,7 +58,7 @@ export async function createPr(mainChangepacks: ChangepackResultMap) {
       silent: !isDebug(),
     })
 
-    debug(`update changepacks`)
+    info(`update changepacks`)
     const changepacks = await runChangepacks('update')
 
     await exec('git', ['reset', '--hard', `origin/${base}`], {
@@ -102,7 +112,6 @@ export async function createPr(mainChangepacks: ChangepackResultMap) {
       })
     }
 
-    debug(`list pulls`)
     const { data: pulls } = await octokit.rest.pulls.list({
       owner: context.repo.owner,
       repo: context.repo.repo,
@@ -113,22 +122,23 @@ export async function createPr(mainChangepacks: ChangepackResultMap) {
 
     const body = createContents(mainChangepacks)
     if (pulls.length > 0) {
-      debug('find existing PR')
+      info('find existing PR')
       if (
         pulls[0].body?.startsWith('# Changepacks') &&
         pulls[0].body?.trim() !== body.trim() &&
         pulls[0].user?.login === 'github-actions[bot]'
       ) {
-        debug(`update existing PR`)
+        info(`update existing PR`)
         await octokit.rest.issues.update({
           owner: context.repo.owner,
           repo: context.repo.repo,
           issue_number: pulls[0].number,
           body,
         })
+        info(`updated existing PR`)
       }
     } else {
-      debug(`creating new PR`)
+      info(`creating new PR`)
 
       await octokit.rest.pulls.create({
         owner: context.repo.owner,
@@ -138,10 +148,12 @@ export async function createPr(mainChangepacks: ChangepackResultMap) {
         head,
         base,
       })
-      debug(`created PR`)
+      info(`created PR`)
     }
   } catch (err: unknown) {
-    error('create pr failed')
+    error(`create pr failed: ${err}`)
     setFailed(err as Error)
+  } finally {
+    endGroup()
   }
 }
