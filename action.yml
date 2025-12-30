@@ -22,6 +22,10 @@ inputs:
     required: false
     default: false
     type: boolean
+  slack_webhook_url:
+    description: Slack webhook URL for release notifications
+    required: false
+    type: string
 
 outputs:
   changepacks:

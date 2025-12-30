@@ -15,6 +15,7 @@ import { fetchOrigin } from './fetch-origin'
 import { getChangepacksConfig } from './get-changepacks-config'
 import { installChangepacks } from './install-changepacks'
 import { runChangepacks } from './run-changepacks'
+import { sendSlackNotification } from './send-slack-notification'
 import { updatePrComment } from './update-pr-comment'
 
 export async function run() {
@@ -53,16 +54,18 @@ export async function run() {
         )
         if (
           Object.keys(filteredPastChangepacks).length > 0 &&
-          (await createRelease(config, filteredPastChangepacks)) &&
-          getBooleanInput('publish')
+          (await createRelease(config, filteredPastChangepacks))
         ) {
-          const result = await runChangepacks('publish')
-          for (const [path, res] of Object.entries(result)) {
-            if (res.result) {
-              info(`${path} published successfully`)
-            } else {
-              error(`${path} published failed: ${res.error}`)
-              setFailed(`${path} published failed: ${res.error}`)
+          await sendSlackNotification(filteredPastChangepacks)
+          if (getBooleanInput('publish')) {
+            const result = await runChangepacks('publish')
+            for (const [path, res] of Object.entries(result)) {
+              if (res.result) {
+                info(`${path} published successfully`)
+              } else {
+                error(`${path} published failed: ${res.error}`)
+                setFailed(`${path} published failed: ${res.error}`)
+              }
             }
           }
         }

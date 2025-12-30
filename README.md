@@ -19,6 +19,7 @@ This action automates the changepacks workflow by:
 - ✅ Automatic release creation with tags
 - ✅ Support for multiple packages in a monorepo
 - ✅ Past changepack detection and rollback
+- ✅ Slack notifications for releases
 
 ## Usage
 
@@ -91,6 +92,8 @@ jobs:
 |-------|-------------|----------|---------|
 | `token` | GitHub token for API operations | Yes | `${{ github.token }}` |
 | `create_release` | Whether to create releases when changepacks are ready | No | `true` |
+| `publish` | Whether to publish the package | No | `false` |
+| `slack_webhook_url` | Slack webhook URL for release notifications | No | - |
 
 ## Outputs
 
@@ -195,6 +198,23 @@ jobs:
   with:
     create_release: false
 ```
+
+### Slack Notifications
+
+To receive Slack notifications when releases are created, configure a Slack Incoming Webhook and pass the URL:
+
+```yaml
+- uses: changepacks/action@main
+  with:
+    token: ${{ secrets.GITHUB_TOKEN }}
+    slack_webhook_url: ${{ secrets.SLACK_WEBHOOK_URL }}
+```
+
+The notification includes:
+- Repository name
+- Released package names and versions
+- Changelog entries for each release
+- Links to the GitHub releases
 
 ## License
 

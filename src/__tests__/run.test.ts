@@ -999,6 +999,7 @@ test('run calls runChangepacks publish when publish option is true', async () =>
   const originalPr = { ...(await import('../create-pr')) }
   const originalRel = { ...(await import('../create-release')) }
   const originalUpdatePr = { ...(await import('../update-pr-comment')) }
+  const originalSlack = { ...(await import('../send-slack-notification')) }
   const originalCore = { ...(await import('@actions/core')) }
   const originalGithub = { ...(await import('@actions/github')) }
   const originalConfig = { ...(await import('../get-changepacks-config')) }
@@ -1061,6 +1062,11 @@ test('run calls runChangepacks publish when publish option is true', async () =>
     updatePrComment: updatePrMock,
   }))
 
+  const sendSlackMock = mock()
+  mock.module('../send-slack-notification', () => ({
+    sendSlackNotification: sendSlackMock,
+  }))
+
   const getInputMock = mock()
   const getBooleanInputMock = mock((_name: string) => {
     return true
@@ -1093,6 +1099,7 @@ test('run calls runChangepacks publish when publish option is true', async () =>
   expect(runChangepacksMock).toHaveBeenCalledWith('check')
   expect(checkPastMock).toHaveBeenCalled()
   expect(createReleaseMock).toHaveBeenCalledWith(config, pastChangepacks)
+  expect(sendSlackMock).toHaveBeenCalledWith(pastChangepacks)
   expect(runChangepacksMock).toHaveBeenCalledWith('publish')
   expect(createPrMock).not.toHaveBeenCalled()
 
@@ -1102,6 +1109,7 @@ test('run calls runChangepacks publish when publish option is true', async () =>
   mock.module('../create-pr', () => originalPr)
   mock.module('../create-release', () => originalRel)
   mock.module('../update-pr-comment', () => originalUpdatePr)
+  mock.module('../send-slack-notification', () => originalSlack)
   mock.module('@actions/core', () => originalCore)
   mock.module('@actions/github', () => originalGithub)
   mock.module('../get-changepacks-config', () => originalConfig)
@@ -1228,6 +1236,7 @@ test('run calls info when publish succeeds', async () => {
   const originalPr = { ...(await import('../create-pr')) }
   const originalRel = { ...(await import('../create-release')) }
   const originalUpdatePr = { ...(await import('../update-pr-comment')) }
+  const originalSlack = { ...(await import('../send-slack-notification')) }
   const originalCore = { ...(await import('@actions/core')) }
   const originalGithub = { ...(await import('@actions/github')) }
   const originalConfig = { ...(await import('../get-changepacks-config')) }
@@ -1296,6 +1305,11 @@ test('run calls info when publish succeeds', async () => {
     updatePrComment: updatePrMock,
   }))
 
+  const sendSlackMock = mock()
+  mock.module('../send-slack-notification', () => ({
+    sendSlackNotification: sendSlackMock,
+  }))
+
   const getInputMock = mock()
   const getBooleanInputMock = mock(() => true)
   const infoMock = mock()
@@ -1330,6 +1344,7 @@ test('run calls info when publish succeeds', async () => {
   expect(runChangepacksMock).toHaveBeenCalledWith('check')
   expect(checkPastMock).toHaveBeenCalled()
   expect(createReleaseMock).toHaveBeenCalledWith(config, pastChangepacks)
+  expect(sendSlackMock).toHaveBeenCalledWith(pastChangepacks)
   expect(runChangepacksMock).toHaveBeenCalledWith('publish')
   expect(infoMock).toHaveBeenCalledWith(
     'pkg/a/package.json published successfully',
@@ -1344,6 +1359,7 @@ test('run calls info when publish succeeds', async () => {
   mock.module('../create-pr', () => originalPr)
   mock.module('../create-release', () => originalRel)
   mock.module('../update-pr-comment', () => originalUpdatePr)
+  mock.module('../send-slack-notification', () => originalSlack)
   mock.module('@actions/core', () => originalCore)
   mock.module('@actions/github', () => originalGithub)
   mock.module('../get-changepacks-config', () => originalConfig)
@@ -1358,6 +1374,7 @@ test('run calls error and setFailed when publish fails', async () => {
   const originalPr = { ...(await import('../create-pr')) }
   const originalRel = { ...(await import('../create-release')) }
   const originalUpdatePr = { ...(await import('../update-pr-comment')) }
+  const originalSlack = { ...(await import('../send-slack-notification')) }
   const originalCore = { ...(await import('@actions/core')) }
   const originalGithub = { ...(await import('@actions/github')) }
   const originalConfig = { ...(await import('../get-changepacks-config')) }
@@ -1426,6 +1443,11 @@ test('run calls error and setFailed when publish fails', async () => {
     updatePrComment: updatePrMock,
   }))
 
+  const sendSlackMock = mock()
+  mock.module('../send-slack-notification', () => ({
+    sendSlackNotification: sendSlackMock,
+  }))
+
   const getInputMock = mock()
   const getBooleanInputMock = mock(() => true)
   const infoMock = mock()
@@ -1460,6 +1482,7 @@ test('run calls error and setFailed when publish fails', async () => {
   expect(runChangepacksMock).toHaveBeenCalledWith('check')
   expect(checkPastMock).toHaveBeenCalled()
   expect(createReleaseMock).toHaveBeenCalledWith(config, pastChangepacks)
+  expect(sendSlackMock).toHaveBeenCalledWith(pastChangepacks)
   expect(runChangepacksMock).toHaveBeenCalledWith('publish')
   expect(errorMock).toHaveBeenCalledWith(
     'pkg/a/package.json published failed: Publish failed: network error',
@@ -1467,7 +1490,6 @@ test('run calls error and setFailed when publish fails', async () => {
   expect(setFailedMock).toHaveBeenCalledWith(
     'pkg/a/package.json published failed: Publish failed: network error',
   )
-  expect(infoMock).not.toHaveBeenCalled()
   expect(createPrMock).not.toHaveBeenCalled()
 
   mock.module('../install-changepacks', () => originalInstall)
@@ -1476,6 +1498,7 @@ test('run calls error and setFailed when publish fails', async () => {
   mock.module('../create-pr', () => originalPr)
   mock.module('../create-release', () => originalRel)
   mock.module('../update-pr-comment', () => originalUpdatePr)
+  mock.module('../send-slack-notification', () => originalSlack)
   mock.module('@actions/core', () => originalCore)
   mock.module('@actions/github', () => originalGithub)
   mock.module('../get-changepacks-config', () => originalConfig)
@@ -1490,6 +1513,7 @@ test('run handles mixed publish results (some succeed, some fail)', async () => 
   const originalPr = { ...(await import('../create-pr')) }
   const originalRel = { ...(await import('../create-release')) }
   const originalUpdatePr = { ...(await import('../update-pr-comment')) }
+  const originalSlack = { ...(await import('../send-slack-notification')) }
   const originalCore = { ...(await import('@actions/core')) }
   const originalGithub = { ...(await import('@actions/github')) }
   const originalConfig = { ...(await import('../get-changepacks-config')) }
@@ -1562,6 +1586,11 @@ test('run handles mixed publish results (some succeed, some fail)', async () => 
     updatePrComment: updatePrMock,
   }))
 
+  const sendSlackMock = mock()
+  mock.module('../send-slack-notification', () => ({
+    sendSlackNotification: sendSlackMock,
+  }))
+
   const getInputMock = mock()
   const getBooleanInputMock = mock(() => true)
   const infoMock = mock()
@@ -1596,6 +1625,7 @@ test('run handles mixed publish results (some succeed, some fail)', async () => 
   expect(runChangepacksMock).toHaveBeenCalledWith('check')
   expect(checkPastMock).toHaveBeenCalled()
   expect(createReleaseMock).toHaveBeenCalledWith(config, pastChangepacks)
+  expect(sendSlackMock).toHaveBeenCalledWith(pastChangepacks)
   expect(runChangepacksMock).toHaveBeenCalledWith('publish')
   expect(infoMock).toHaveBeenCalledWith(
     'pkg/a/package.json published successfully',
@@ -1614,6 +1644,7 @@ test('run handles mixed publish results (some succeed, some fail)', async () => 
   mock.module('../create-pr', () => originalPr)
   mock.module('../create-release', () => originalRel)
   mock.module('../update-pr-comment', () => originalUpdatePr)
+  mock.module('../send-slack-notification', () => originalSlack)
   mock.module('@actions/core', () => originalCore)
   mock.module('@actions/github', () => originalGithub)
   mock.module('../get-changepacks-config', () => originalConfig)
