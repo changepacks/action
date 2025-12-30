@@ -23,12 +23,15 @@ import type { ChangepackPublishResult, ChangepackResultMap } from './types'
  */
 export async function runChangepacks(
   command: 'publish',
+  ...args: string[]
 ): Promise<Record<string, ChangepackPublishResult>>
 export async function runChangepacks(
   command: 'check' | 'update',
+  ...args: string[]
 ): Promise<ChangepackResultMap>
 export async function runChangepacks(
   command: 'check' | 'update' | 'publish',
+  ...args: string[]
 ): Promise<ChangepackResultMap | Record<string, ChangepackPublishResult>> {
   let output = ''
   debug(`running changepacks ${command}`)
@@ -39,12 +42,13 @@ export async function runChangepacks(
   await exec(
     bin,
     command === 'publish'
-      ? ['publish', '-y', '--format', 'json']
+      ? ['publish', '-y', '--format', 'json', ...args]
       : [
           command,
           '--format',
           'json',
           ...(command === 'update' ? ['-y'] : ['--remote']),
+          ...args,
         ],
     {
       listeners: {

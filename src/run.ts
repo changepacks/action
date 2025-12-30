@@ -58,7 +58,13 @@ export async function run() {
         ) {
           await sendSlackNotification(filteredPastChangepacks)
           if (getBooleanInput('publish')) {
-            const result = await runChangepacks('publish')
+            const publishTarget = Object.keys(filteredPastChangepacks)
+            info(`publish target: ${publishTarget.join(', ')}`)
+            const result = await runChangepacks(
+              'publish',
+              ...publishTarget.flatMap((path) => ['-p', path]),
+            )
+
             for (const [path, res] of Object.entries(result)) {
               if (res.result) {
                 info(`${path} published successfully`)

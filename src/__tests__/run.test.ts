@@ -1100,7 +1100,7 @@ test('run calls runChangepacks publish when publish option is true', async () =>
   expect(checkPastMock).toHaveBeenCalled()
   expect(createReleaseMock).toHaveBeenCalledWith(config, pastChangepacks)
   expect(sendSlackMock).toHaveBeenCalledWith(pastChangepacks)
-  expect(runChangepacksMock).toHaveBeenCalledWith('publish')
+  expect(runChangepacksMock).toHaveBeenCalledWith('publish', '-p', 'pkg/b')
   expect(createPrMock).not.toHaveBeenCalled()
 
   mock.module('../install-changepacks', () => originalInstall)
@@ -1345,7 +1345,7 @@ test('run calls info when publish succeeds', async () => {
   expect(checkPastMock).toHaveBeenCalled()
   expect(createReleaseMock).toHaveBeenCalledWith(config, pastChangepacks)
   expect(sendSlackMock).toHaveBeenCalledWith(pastChangepacks)
-  expect(runChangepacksMock).toHaveBeenCalledWith('publish')
+  expect(runChangepacksMock).toHaveBeenCalledWith('publish', '-p', 'pkg/b')
   expect(infoMock).toHaveBeenCalledWith(
     'pkg/a/package.json published successfully',
   )
@@ -1483,7 +1483,7 @@ test('run calls error and setFailed when publish fails', async () => {
   expect(checkPastMock).toHaveBeenCalled()
   expect(createReleaseMock).toHaveBeenCalledWith(config, pastChangepacks)
   expect(sendSlackMock).toHaveBeenCalledWith(pastChangepacks)
-  expect(runChangepacksMock).toHaveBeenCalledWith('publish')
+  expect(runChangepacksMock).toHaveBeenCalledWith('publish', '-p', 'pkg/b')
   expect(errorMock).toHaveBeenCalledWith(
     'pkg/a/package.json published failed: Publish failed: network error',
   )
@@ -1626,7 +1626,7 @@ test('run handles mixed publish results (some succeed, some fail)', async () => 
   expect(checkPastMock).toHaveBeenCalled()
   expect(createReleaseMock).toHaveBeenCalledWith(config, pastChangepacks)
   expect(sendSlackMock).toHaveBeenCalledWith(pastChangepacks)
-  expect(runChangepacksMock).toHaveBeenCalledWith('publish')
+  expect(runChangepacksMock).toHaveBeenCalledWith('publish', '-p', 'pkg/c')
   expect(infoMock).toHaveBeenCalledWith(
     'pkg/a/package.json published successfully',
   )
@@ -1757,6 +1757,197 @@ test('run does not call publish when createRelease returns false', async () => {
   mock.module('../create-pr', () => originalPr)
   mock.module('../create-release', () => originalRel)
   mock.module('../update-pr-comment', () => originalUpdatePr)
+  mock.module('@actions/core', () => originalCore)
+  mock.module('@actions/github', () => originalGithub)
+  mock.module('../get-changepacks-config', () => originalConfig)
+  mock.module('../fetch-origin', () => originalFetch)
+  mock.module('@actions/exec', () => originalExec)
+})
+
+test('run passes only filtered project paths to publish command', async () => {
+  const originalInstall = { ...(await import('../install-changepacks')) }
+  const originalCheck = { ...(await import('../run-changepacks')) }
+  const originalPast = { ...(await import('../check-past-changepacks')) }
+  const originalPr = { ...(await import('../create-pr')) }
+  const originalRel = { ...(await import('../create-release')) }
+  const originalUpdatePr = { ...(await import('../update-pr-comment')) }
+  const originalSlack = { ...(await import('../send-slack-notification')) }
+  const originalCore = { ...(await import('@actions/core')) }
+  const originalGithub = { ...(await import('@actions/github')) }
+  const originalConfig = { ...(await import('../get-changepacks-config')) }
+  const originalFetch = { ...(await import('../fetch-origin')) }
+  const originalExec = { ...(await import('@actions/exec')) }
+
+  const execMock = mock(async () => 0)
+  mock.module('@actions/exec', () => ({ exec: execMock }))
+
+  const installMock = mock()
+  mock.module('../install-changepacks', () => ({
+    installChangepacks: installMock,
+  }))
+
+  const config = { baseBranch: 'main', ignore: [], latestPackage: null }
+  const getConfigMock = mock(async () => config)
+  mock.module('../get-changepacks-config', () => ({
+    getChangepacksConfig: getConfigMock,
+  }))
+
+  const fetchOriginMock = mock()
+  mock.module('../fetch-origin', () => ({
+    fetchOrigin: fetchOriginMock,
+  }))
+
+  // current changepacks shows pkg/a is at version 1.1.0 and pkg/b is at version 2.1.0
+  const currentChangepacks = {
+    'pkg/a': {
+      logs: [],
+      version: '1.1.0',
+      nextVersion: null,
+      name: 'a',
+      path: 'pkg/a',
+      changed: false,
+    },
+    'pkg/b': {
+      logs: [],
+      version: '2.1.0',
+      nextVersion: null,
+      name: 'b',
+      path: 'pkg/b',
+      changed: false,
+    },
+    'pkg/c': {
+      logs: [],
+      version: '3.0.0',
+      nextVersion: null,
+      name: 'c',
+      path: 'pkg/c',
+      changed: false,
+    },
+  }
+
+  // past changepacks: pkg/a should be released (version matches nextVersion),
+  // pkg/b should NOT be released (version doesn't match nextVersion),
+  // pkg/c should be released (nextVersion matches current version)
+  const pastChangepacks = {
+    'pkg/a': {
+      logs: [],
+      version: '1.0.0',
+      nextVersion: '1.1.0', // matches current version -> should publish
+      name: 'a',
+      path: 'pkg/a',
+      changed: false,
+    },
+    'pkg/b': {
+      logs: [],
+      version: '2.0.0',
+      nextVersion: '2.0.1', // doesn't match current version 2.1.0 -> should NOT publish
+      name: 'b',
+      path: 'pkg/b',
+      changed: false,
+    },
+    'pkg/c': {
+      logs: [],
+      version: '2.5.0',
+      nextVersion: '3.0.0', // matches current version -> should publish
+      name: 'c',
+      path: 'pkg/c',
+      changed: false,
+    },
+  }
+
+  const filteredPastChangepacks = {
+    'pkg/a': pastChangepacks['pkg/a'],
+    'pkg/c': pastChangepacks['pkg/c'],
+  }
+
+  const checkMock = mock(async () => currentChangepacks)
+  const publishResult = {
+    'pkg/a': { result: true, error: null },
+    'pkg/c': { result: true, error: null },
+  }
+  const runChangepacksMock = mock(async (cmd: 'check' | 'publish') => {
+    if (cmd === 'check') {
+      return checkMock()
+    }
+    return publishResult
+  })
+  mock.module('../run-changepacks', () => ({
+    runChangepacks: runChangepacksMock,
+  }))
+
+  const checkPastMock = mock(async () => pastChangepacks)
+  mock.module('../check-past-changepacks', () => ({
+    checkPastChangepacks: checkPastMock,
+  }))
+
+  const createPrMock = mock()
+  mock.module('../create-pr', () => ({ createPr: createPrMock }))
+
+  const createReleaseMock = mock(async () => true)
+  mock.module('../create-release', () => ({ createRelease: createReleaseMock }))
+
+  const updatePrMock = mock()
+  mock.module('../update-pr-comment', () => ({
+    updatePrComment: updatePrMock,
+  }))
+
+  const sendSlackMock = mock()
+  mock.module('../send-slack-notification', () => ({
+    sendSlackNotification: sendSlackMock,
+  }))
+
+  const getInputMock = mock()
+  const getBooleanInputMock = mock(() => true)
+  const infoMock = mock()
+  mock.module('@actions/core', () => ({
+    getInput: getInputMock,
+    getBooleanInput: getBooleanInputMock,
+    debug: mock(),
+    info: infoMock,
+    error: mock(),
+    setFailed: mock(),
+  }))
+
+  const getOctokitMock = mock()
+  const contextMock = {
+    ...realContext,
+    ref: 'refs/heads/main',
+    repo: { owner: 'acme', repo: 'widgets' },
+    issue: { number: 1 },
+  }
+  mock.module('@actions/github', () => ({
+    context: contextMock,
+    getOctokit: getOctokitMock,
+  }))
+
+  const { run } = await import('../run')
+  await run()
+
+  // createRelease should be called with filtered changepacks (pkg/a and pkg/c only)
+  expect(createReleaseMock).toHaveBeenCalledWith(
+    config,
+    filteredPastChangepacks,
+  )
+  // Should only pass pkg/a and pkg/c (filtered projects) to publish
+  expect(runChangepacksMock).toHaveBeenCalledWith(
+    'publish',
+    '-p',
+    'pkg/a',
+    '-p',
+    'pkg/c',
+  )
+  // Should NOT include pkg/b
+  expect(infoMock).toHaveBeenCalledWith('publish target: pkg/a, pkg/c')
+  expect(infoMock).toHaveBeenCalledWith('pkg/a published successfully')
+  expect(infoMock).toHaveBeenCalledWith('pkg/c published successfully')
+
+  mock.module('../install-changepacks', () => originalInstall)
+  mock.module('../run-changepacks', () => originalCheck)
+  mock.module('../check-past-changepacks', () => originalPast)
+  mock.module('../create-pr', () => originalPr)
+  mock.module('../create-release', () => originalRel)
+  mock.module('../update-pr-comment', () => originalUpdatePr)
+  mock.module('../send-slack-notification', () => originalSlack)
   mock.module('@actions/core', () => originalCore)
   mock.module('@actions/github', () => originalGithub)
   mock.module('../get-changepacks-config', () => originalConfig)
