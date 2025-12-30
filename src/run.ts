@@ -54,14 +54,18 @@ export async function run() {
               'publish',
               ...publishTarget.flatMap((path) => ['-p', path]),
             )
+            const errors = []
 
             for (const [path, res] of Object.entries(result)) {
               if (res.result) {
                 info(`${path} published successfully`)
               } else {
                 error(`${path} published failed: ${res.error}`)
-                setFailed(`${path} published failed: ${res.error}`)
+                errors.push(`${path} published failed: ${res.error}`)
               }
+            }
+            if (errors.length > 0) {
+              setFailed(errors.join('\n'))
             }
           }
         }
