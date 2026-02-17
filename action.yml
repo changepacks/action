@@ -27,6 +27,11 @@ inputs:
     required: false
     default: ''
     type: string
+  language:
+    description: Language filter to pass to the publish command (-l <language>)
+    required: false
+    default: ''
+    type: string
   slack_webhook_url:
     description: Slack webhook URL for release notifications
     required: false

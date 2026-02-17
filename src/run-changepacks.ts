@@ -1,5 +1,5 @@
 import { resolve } from 'node:path'
-import { debug, isDebug } from '@actions/core'
+import { debug, getInput, isDebug } from '@actions/core'
 import { exec } from '@actions/exec'
 import type { ChangepackPublishResult, ChangepackResultMap } from './types'
 
@@ -39,15 +39,18 @@ export async function runChangepacks(
     process.platform === 'win32' ? 'changepacks.exe' : 'changepacks',
   )
   debug(`changepacks path: ${bin}`)
+  const language = getInput('language')
+  const languageArgs = language ? ['-l', language] : []
   await exec(
     bin,
     command === 'publish'
-      ? ['publish', '-y', '--format', 'json', ...args]
+      ? ['publish', '-y', '--format', 'json', ...languageArgs, ...args]
       : [
           command,
           '--format',
           'json',
           ...(command === 'update' ? ['-y'] : ['--remote']),
+          ...languageArgs,
           ...args,
         ],
     {
