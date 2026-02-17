@@ -128,123 +128,6 @@ test('rollbackReleases deletes release and tag when path fails and not latest', 
   mock.module('@actions/github', () => originalGithub)
 })
 
-test('rollbackReleases sets rolledBackLatest when failed path is marked as latest', async () => {
-  const originalCore = { ...(await import('@actions/core')) }
-  const originalGithub = { ...(await import('@actions/github')) }
-
-  const getInputMock = mock((name: string) => (name === 'token' ? 'T' : ''))
-  const infoMock = mock()
-  mock.module('@actions/core', () => ({
-    getInput: getInputMock,
-    info: infoMock,
-  }))
-
-  const deleteReleaseMock = mock(async () => ({}))
-  const deleteRefMock = mock(async () => ({}))
-  const updateReleaseMock = mock(async () => ({}))
-  const octokit = {
-    rest: {
-      repos: {
-        deleteRelease: deleteReleaseMock,
-        updateRelease: updateReleaseMock,
-      },
-      git: { deleteRef: deleteRefMock },
-    },
-  }
-  const getOctokitMock = mock(() => octokit)
-  mock.module('@actions/github', () => ({
-    getOctokit: getOctokitMock,
-    context: { repo: { owner: 'acme', repo: 'widgets' } },
-  }))
-
-  const { rollbackReleases } = await import('../rollback-releases')
-  const publishResult: Record<string, ChangepackPublishResult> = {
-    'packages/a/package.json': { result: false, error: 'publish failed' },
-  }
-  const releaseResult: Record<string, ReleaseInfo> = {
-    'packages/a/package.json': {
-      releaseId: 123,
-      tagName: 'a(packages/a/package.json)@1.0.0',
-      makeLatest: true,
-    },
-    'packages/b/package.json': {
-      releaseId: 456,
-      tagName: 'b(packages/b/package.json)@2.0.0',
-      makeLatest: false,
-    },
-  }
-
-  await rollbackReleases(publishResult, releaseResult)
-
-  expect(infoMock).toHaveBeenCalledWith(
-    'reassigning latest to packages/b/package.json: b(packages/b/package.json)@2.0.0',
-  )
-  expect(updateReleaseMock).toHaveBeenCalledWith({
-    owner: 'acme',
-    repo: 'widgets',
-    release_id: 456,
-    make_latest: 'true',
-  })
-  expect(infoMock).toHaveBeenCalledWith(
-    'reassigned latest to: b(packages/b/package.json)@2.0.0',
-  )
-
-  mock.module('@actions/core', () => originalCore)
-  mock.module('@actions/github', () => originalGithub)
-})
-
-test('rollbackReleases does not call updateRelease when no surviving release exists', async () => {
-  const originalCore = { ...(await import('@actions/core')) }
-  const originalGithub = { ...(await import('@actions/github')) }
-
-  const getInputMock = mock((name: string) => (name === 'token' ? 'T' : ''))
-  const infoMock = mock()
-  mock.module('@actions/core', () => ({
-    getInput: getInputMock,
-    info: infoMock,
-  }))
-
-  const deleteReleaseMock = mock(async () => ({}))
-  const deleteRefMock = mock(async () => ({}))
-  const updateReleaseMock = mock(async () => ({}))
-  const octokit = {
-    rest: {
-      repos: {
-        deleteRelease: deleteReleaseMock,
-        updateRelease: updateReleaseMock,
-      },
-      git: { deleteRef: deleteRefMock },
-    },
-  }
-  const getOctokitMock = mock(() => octokit)
-  mock.module('@actions/github', () => ({
-    getOctokit: getOctokitMock,
-    context: { repo: { owner: 'acme', repo: 'widgets' } },
-  }))
-
-  const { rollbackReleases } = await import('../rollback-releases')
-  const publishResult: Record<string, ChangepackPublishResult> = {
-    'packages/a/package.json': { result: false, error: 'publish failed' },
-  }
-  const releaseResult: Record<string, ReleaseInfo> = {
-    'packages/a/package.json': {
-      releaseId: 123,
-      tagName: 'a(packages/a/package.json)@1.0.0',
-      makeLatest: true,
-    },
-  }
-
-  await rollbackReleases(publishResult, releaseResult)
-
-  expect(updateReleaseMock).not.toHaveBeenCalled()
-  expect(infoMock).not.toHaveBeenCalledWith(
-    expect.stringContaining('reassigning latest'),
-  )
-
-  mock.module('@actions/core', () => originalCore)
-  mock.module('@actions/github', () => originalGithub)
-})
-
 test('rollbackReleases still deletes tag when deleteRelease fails', async () => {
   const originalCore = { ...(await import('@actions/core')) }
   const originalGithub = { ...(await import('@actions/github')) }
@@ -353,72 +236,6 @@ test('rollbackReleases handles deleteRef error', async () => {
   mock.module('@actions/github', () => originalGithub)
 })
 
-test('rollbackReleases handles updateRelease error', async () => {
-  const originalCore = { ...(await import('@actions/core')) }
-  const originalGithub = { ...(await import('@actions/github')) }
-
-  const getInputMock = mock((name: string) => (name === 'token' ? 'T' : ''))
-  const infoMock = mock()
-  const errorMock = mock()
-  mock.module('@actions/core', () => ({
-    getInput: getInputMock,
-    info: infoMock,
-    error: errorMock,
-  }))
-
-  const deleteReleaseMock = mock(async () => ({}))
-  const deleteRefMock = mock(async () => ({}))
-  const updateReleaseMock = mock(async () => {
-    throw new Error('update release failed')
-  })
-  const octokit = {
-    rest: {
-      repos: {
-        deleteRelease: deleteReleaseMock,
-        updateRelease: updateReleaseMock,
-      },
-      git: { deleteRef: deleteRefMock },
-    },
-  }
-  const getOctokitMock = mock(() => octokit)
-  mock.module('@actions/github', () => ({
-    getOctokit: getOctokitMock,
-    context: { repo: { owner: 'acme', repo: 'widgets' } },
-  }))
-
-  const { rollbackReleases } = await import('../rollback-releases')
-  const publishResult: Record<string, ChangepackPublishResult> = {
-    'packages/a/package.json': { result: false, error: 'publish failed' },
-  }
-  const releaseResult: Record<string, ReleaseInfo> = {
-    'packages/a/package.json': {
-      releaseId: 123,
-      tagName: 'a(packages/a/package.json)@1.0.0',
-      makeLatest: true,
-    },
-    'packages/b/package.json': {
-      releaseId: 456,
-      tagName: 'b(packages/b/package.json)@2.0.0',
-      makeLatest: false,
-    },
-  }
-
-  await rollbackReleases(publishResult, releaseResult)
-
-  expect(updateReleaseMock).toHaveBeenCalledWith({
-    owner: 'acme',
-    repo: 'widgets',
-    release_id: 456,
-    make_latest: 'true',
-  })
-  expect(errorMock).toHaveBeenCalledWith(
-    expect.stringContaining('failed to reassign latest'),
-  )
-
-  mock.module('@actions/core', () => originalCore)
-  mock.module('@actions/github', () => originalGithub)
-})
-
 test('rollbackReleases handles multiple failed paths correctly', async () => {
   const originalCore = { ...(await import('@actions/core')) }
   const originalGithub = { ...(await import('@actions/github')) }
@@ -432,12 +249,10 @@ test('rollbackReleases handles multiple failed paths correctly', async () => {
 
   const deleteReleaseMock = mock(async () => ({}))
   const deleteRefMock = mock(async () => ({}))
-  const updateReleaseMock = mock(async () => ({}))
   const octokit = {
     rest: {
       repos: {
         deleteRelease: deleteReleaseMock,
-        updateRelease: updateReleaseMock,
       },
       git: { deleteRef: deleteRefMock },
     },
@@ -476,66 +291,6 @@ test('rollbackReleases handles multiple failed paths correctly', async () => {
 
   expect(deleteReleaseMock).toHaveBeenCalledTimes(2)
   expect(deleteRefMock).toHaveBeenCalledTimes(2)
-  expect(updateReleaseMock).toHaveBeenCalledWith({
-    owner: 'acme',
-    repo: 'widgets',
-    release_id: 789,
-    make_latest: 'true',
-  })
-
-  mock.module('@actions/core', () => originalCore)
-  mock.module('@actions/github', () => originalGithub)
-})
-
-test('rollbackReleases handles surviving release with no releaseId', async () => {
-  const originalCore = { ...(await import('@actions/core')) }
-  const originalGithub = { ...(await import('@actions/github')) }
-
-  const getInputMock = mock((name: string) => (name === 'token' ? 'T' : ''))
-  const infoMock = mock()
-  mock.module('@actions/core', () => ({
-    getInput: getInputMock,
-    info: infoMock,
-  }))
-
-  const deleteReleaseMock = mock(async () => ({}))
-  const deleteRefMock = mock(async () => ({}))
-  const updateReleaseMock = mock(async () => ({}))
-  const octokit = {
-    rest: {
-      repos: {
-        deleteRelease: deleteReleaseMock,
-        updateRelease: updateReleaseMock,
-      },
-      git: { deleteRef: deleteRefMock },
-    },
-  }
-  const getOctokitMock = mock(() => octokit)
-  mock.module('@actions/github', () => ({
-    getOctokit: getOctokitMock,
-    context: { repo: { owner: 'acme', repo: 'widgets' } },
-  }))
-
-  const { rollbackReleases } = await import('../rollback-releases')
-  const publishResult: Record<string, ChangepackPublishResult> = {
-    'packages/a/package.json': { result: false, error: 'publish failed' },
-  }
-  const releaseResult: Record<string, ReleaseInfo> = {
-    'packages/a/package.json': {
-      releaseId: 123,
-      tagName: 'a(packages/a/package.json)@1.0.0',
-      makeLatest: true,
-    },
-    'packages/b/package.json': {
-      releaseId: 0,
-      tagName: 'b(packages/b/package.json)@2.0.0',
-      makeLatest: false,
-    },
-  }
-
-  await rollbackReleases(publishResult, releaseResult)
-
-  expect(updateReleaseMock).not.toHaveBeenCalled()
 
   mock.module('@actions/core', () => originalCore)
   mock.module('@actions/github', () => originalGithub)

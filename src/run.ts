@@ -7,7 +7,7 @@ import {
   setFailed,
 } from '@actions/core'
 import { exec } from '@actions/exec'
-import { context } from '@actions/github'
+import { context, getOctokit } from '@actions/github'
 import { checkPastChangepacks } from './check-past-changepacks'
 import { createPr } from './create-pr'
 import { createRelease } from './create-release'
@@ -58,6 +58,7 @@ export async function run() {
           )
           if (releaseResult) {
             await sendSlackNotification(filteredPastChangepacks)
+            let publishFailed = false
             if (getBooleanInput('publish')) {
               const publishTarget = Object.keys(filteredPastChangepacks)
               info(`publish target: ${publishTarget.join(', ')}`)
@@ -84,6 +85,7 @@ export async function run() {
                 if (errors.length > 0) {
                   await rollbackReleases(result, releaseResult)
                   setFailed(errors.join('\n'))
+                  publishFailed = true
                 }
               } catch (err: unknown) {
                 error(`publish crashed: ${err}`)
@@ -96,6 +98,23 @@ export async function run() {
                   )
                 await rollbackReleases(allFailed, releaseResult)
                 setFailed(err as Error)
+                publishFailed = true
+              }
+            }
+            if (!publishFailed) {
+              const latestEntry = Object.entries(releaseResult).find(
+                ([_, rel]) => rel.makeLatest,
+              )
+              if (latestEntry) {
+                const [, latestRelease] = latestEntry
+                const octokit = getOctokit(getInput('token'))
+                info(`updating latest: ${latestRelease.tagName}`)
+                await octokit.rest.repos.updateRelease({
+                  ...context.repo,
+                  release_id: latestRelease.releaseId,
+                  make_latest: 'true',
+                })
+                info(`updated latest: ${latestRelease.tagName}`)
               }
             }
           }

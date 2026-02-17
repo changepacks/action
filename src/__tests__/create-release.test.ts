@@ -359,7 +359,7 @@ test('createRelease deletes created releases when error occurs after some releas
   mock.module('@actions/github', () => originalGithub)
 })
 
-test('createRelease sets make_latest to true when changepacks has only 1 item even if latestPackage does not match', async () => {
+test('createRelease returns makeLatest true when changepacks has only 1 item even if latestPackage does not match', async () => {
   const originalCore = { ...(await import('@actions/core')) }
   const originalGithub = { ...(await import('@actions/github')) }
 
@@ -430,7 +430,7 @@ test('createRelease sets make_latest to true when changepacks has only 1 item ev
     name: 'a(packages/a/package.json)@1.1.0',
     body: createBody(changepacks['packages/a/package.json']),
     tag_name: 'a(packages/a/package.json)@1.1.0',
-    make_latest: 'true', // should be true because changepacks.length === 1
+    make_latest: 'false',
     target_commitish: 'refs/heads/main',
     draft: false,
   })
@@ -521,7 +521,7 @@ test('createRelease skips creating ref when tag already exists', async () => {
     name: 'a(packages/a/package.json)@1.1.0',
     body: createBody(changepacks['packages/a/package.json']),
     tag_name: 'a(packages/a/package.json)@1.1.0',
-    make_latest: 'true',
+    make_latest: 'false',
     target_commitish: 'refs/heads/main',
     draft: false,
   })

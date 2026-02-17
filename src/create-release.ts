@@ -70,7 +70,7 @@ export async function createRelease(
                 name: tagName,
                 body: createBody(changepack),
                 tag_name: tagName,
-                make_latest: makeLatest ? 'true' : 'false',
+                make_latest: 'false',
                 target_commitish: context.ref,
               },
               null,
@@ -83,7 +83,7 @@ export async function createRelease(
             name: tagName,
             body: createBody(changepack),
             tag_name: tagName,
-            make_latest: makeLatest ? 'true' : 'false',
+            make_latest: 'false',
             target_commitish: context.ref,
             draft: false,
           })

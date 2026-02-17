@@ -1301,7 +1301,7 @@ test('run calls info when publish succeeds', async () => {
   mock.module('../create-pr', () => ({ createPr: createPrMock }))
 
   const releaseInfo = {
-    'pkg/b': { releaseId: 1, tagName: 'b(pkg/b)@2.1.0', makeLatest: false },
+    'pkg/b': { releaseId: 1, tagName: 'b(pkg/b)@2.1.0', makeLatest: true },
   }
   const createReleaseMock = mock(async () => releaseInfo)
   mock.module('../create-release', () => ({ createRelease: createReleaseMock }))
@@ -1330,7 +1330,10 @@ test('run calls info when publish succeeds', async () => {
     setFailed: setFailedMock,
   }))
 
-  const getOctokitMock = mock()
+  const updateReleaseMock = mock()
+  const getOctokitMock = mock(() => ({
+    rest: { repos: { updateRelease: updateReleaseMock } },
+  }))
   const contextMock = {
     ...realContext,
     ref: 'refs/heads/main',
@@ -1358,6 +1361,15 @@ test('run calls info when publish succeeds', async () => {
   expect(errorMock).not.toHaveBeenCalled()
   expect(setFailedMock).not.toHaveBeenCalled()
   expect(createPrMock).not.toHaveBeenCalled()
+  expect(getOctokitMock).toHaveBeenCalled()
+  expect(infoMock).toHaveBeenCalledWith('updating latest: b(pkg/b)@2.1.0')
+  expect(updateReleaseMock).toHaveBeenCalledWith({
+    owner: 'acme',
+    repo: 'widgets',
+    release_id: 1,
+    make_latest: 'true',
+  })
+  expect(infoMock).toHaveBeenCalledWith('updated latest: b(pkg/b)@2.1.0')
 
   mock.module('../install-changepacks', () => originalInstall)
   mock.module('../run-changepacks', () => originalCheck)

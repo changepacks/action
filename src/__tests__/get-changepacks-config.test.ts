@@ -192,7 +192,7 @@ test('getChangepacksConfig uses silent=false when isDebug is true', async () => 
   mock.module('@actions/core', () => originalCore)
 })
 
-test('createRelease uses latestPackage from config to set make_latest', async () => {
+test('createRelease always passes make_latest false to API', async () => {
   const originalCore = { ...(await import('@actions/core')) }
   const originalGithub = { ...(await import('@actions/github')) }
 
@@ -263,7 +263,7 @@ test('createRelease uses latestPackage from config to set make_latest', async ()
     name: 'a(packages/a/package.json)@1.1.0',
     body: createBody(changepacks['packages/a/package.json']),
     tag_name: 'a(packages/a/package.json)@1.1.0',
-    make_latest: 'true',
+    make_latest: 'false',
     target_commitish: 'refs/heads/main',
     draft: false,
   })
