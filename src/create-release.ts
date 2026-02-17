@@ -11,12 +11,16 @@ import {
 } from '@actions/core'
 import { context, getOctokit } from '@actions/github'
 import { createBody } from './create-body'
-import type { ChangepackConfig, ChangepackResultMap } from './types'
+import type {
+  ChangepackConfig,
+  ChangepackResultMap,
+  ReleaseInfo,
+} from './types'
 
 export async function createRelease(
   config: ChangepackConfig,
   changepacks: ChangepackResultMap,
-): Promise<boolean> {
+): Promise<Record<string, ReleaseInfo> | false> {
   startGroup(`createRelease`)
 
   info(`output: ${JSON.stringify(Object.keys(changepacks), null, 2)}`)
@@ -24,7 +28,7 @@ export async function createRelease(
   if (!getBooleanInput('create_release')) {
     info(`create_release is not enabled, skipping release creation`)
     endGroup()
-    return true
+    return {}
   }
   const octokit = getOctokit(getInput('token'))
 
@@ -55,6 +59,9 @@ export async function createRelease(
             tagNames.add(tagName)
             info(`created ref: ${tagName}`)
           }
+          const makeLatest =
+            config.latestPackage === projectPath ||
+            Object.keys(changepacks).length === 1
           info(
             `create release: ${tagName} ${JSON.stringify(
               {
@@ -63,11 +70,7 @@ export async function createRelease(
                 name: tagName,
                 body: createBody(changepack),
                 tag_name: tagName,
-                make_latest:
-                  config.latestPackage === projectPath ||
-                  Object.keys(changepacks).length === 1
-                    ? 'true'
-                    : 'false',
+                make_latest: makeLatest ? 'true' : 'false',
                 target_commitish: context.ref,
               },
               null,
@@ -80,26 +83,42 @@ export async function createRelease(
             name: tagName,
             body: createBody(changepack),
             tag_name: tagName,
-            make_latest:
-              config.latestPackage === projectPath ||
-              Object.keys(changepacks).length === 1
-                ? 'true'
-                : 'false',
+            make_latest: makeLatest ? 'true' : 'false',
             target_commitish: context.ref,
             draft: false,
           })
           releaseNumbers.add(release.data.id)
           info(`created release: ${tagName} ${release.data.id}`)
-          return [projectPath, release.data.upload_url]
+          return [
+            projectPath,
+            release.data.id,
+            tagName,
+            release.data.upload_url,
+            makeLatest,
+          ] as const
         } catch (err: unknown) {
           error(`create release failed: ${tagName} ${err}`)
           throw err
         }
       })
-    const releaseAssetsUrls = await Promise.all(releasePromises)
+    const releaseResults = await Promise.all(releasePromises)
+    const releaseAssetsUrls = releaseResults.map(
+      ([projectPath, _releaseId, _tagName, uploadUrl]) =>
+        [projectPath, uploadUrl] as const,
+    )
     info(`releaseAssetsUrls: ${JSON.stringify(releaseAssetsUrls, null, 2)}`)
     setOutput('release_assets_urls', Object.fromEntries(releaseAssetsUrls))
-    return true
+    const releaseInfoMap: Record<string, ReleaseInfo> = {}
+    for (const [
+      projectPath,
+      releaseId,
+      tagName,
+      _uploadUrl,
+      makeLatest,
+    ] of releaseResults) {
+      releaseInfoMap[projectPath] = { releaseId, tagName, makeLatest }
+    }
+    return releaseInfoMap
   } catch (err: unknown) {
     error(`create release failed: ${err}`)
     setFailed(err as Error)

@@ -18,6 +18,12 @@ export interface ChangepackPublishResult {
 
 export type ChangepackResultMap = Record<string, ChangepackResult>
 
+export interface ReleaseInfo {
+  releaseId: number
+  tagName: string
+  makeLatest: boolean
+}
+
 export interface ChangepackConfig {
   ignore: string[]
   baseBranch: string

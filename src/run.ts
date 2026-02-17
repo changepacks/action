@@ -7,6 +7,7 @@ import { createRelease } from './create-release'
 import { fetchOrigin } from './fetch-origin'
 import { getChangepacksConfig } from './get-changepacks-config'
 import { installChangepacks } from './install-changepacks'
+import { rollbackReleases } from './rollback-releases'
 import { runChangepacks } from './run-changepacks'
 import { sendSlackNotification } from './send-slack-notification'
 import { updatePrComment } from './update-pr-comment'
@@ -42,30 +43,34 @@ export async function run() {
             return changepack.nextVersion !== null
           }),
         )
-        if (
-          Object.keys(filteredPastChangepacks).length > 0 &&
-          (await createRelease(config, filteredPastChangepacks))
-        ) {
-          await sendSlackNotification(filteredPastChangepacks)
-          if (getBooleanInput('publish')) {
-            const publishTarget = Object.keys(filteredPastChangepacks)
-            info(`publish target: ${publishTarget.join(', ')}`)
-            const result = await runChangepacks(
-              'publish',
-              ...publishTarget.flatMap((path) => ['-p', path]),
-            )
-            const errors = []
+        if (Object.keys(filteredPastChangepacks).length > 0) {
+          const releaseResult = await createRelease(
+            config,
+            filteredPastChangepacks,
+          )
+          if (releaseResult) {
+            await sendSlackNotification(filteredPastChangepacks)
+            if (getBooleanInput('publish')) {
+              const publishTarget = Object.keys(filteredPastChangepacks)
+              info(`publish target: ${publishTarget.join(', ')}`)
+              const result = await runChangepacks(
+                'publish',
+                ...publishTarget.flatMap((path) => ['-p', path]),
+              )
+              const errors = []
 
-            for (const [path, res] of Object.entries(result)) {
-              if (res.result) {
-                info(`${path} published successfully`)
-              } else {
-                error(`${path} published failed: ${res.error}`)
-                errors.push(`${path} published failed: ${res.error}`)
+              for (const [path, res] of Object.entries(result)) {
+                if (res.result) {
+                  info(`${path} published successfully`)
+                } else {
+                  error(`${path} published failed: ${res.error}`)
+                  errors.push(`${path} published failed: ${res.error}`)
+                }
               }
-            }
-            if (errors.length > 0) {
-              setFailed(errors.join('\n'))
+              if (errors.length > 0) {
+                await rollbackReleases(result, releaseResult)
+                setFailed(errors.join('\n'))
+              }
             }
           }
         }

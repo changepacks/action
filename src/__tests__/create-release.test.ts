@@ -58,7 +58,7 @@ test('createRelease sets output and creates releases per project', async () => {
   }
 
   const { createRelease } = await import('../create-release')
-  await createRelease(
+  const result = await createRelease(
     {
       ignore: [],
       baseBranch: 'main',
@@ -66,6 +66,19 @@ test('createRelease sets output and creates releases per project', async () => {
     },
     changepacks,
   )
+
+  expect(result).toEqual({
+    'packages/a/package.json': {
+      releaseId: 1,
+      tagName: 'a(packages/a/package.json)@1.1.0',
+      makeLatest: false,
+    },
+    'packages/b/package.json': {
+      releaseId: 1,
+      tagName: 'b(packages/b/package.json)@2.0.1',
+      makeLatest: false,
+    },
+  })
 
   expect(setOutputMock).toHaveBeenCalledWith(
     'changepacks',
@@ -136,7 +149,7 @@ test('createRelease sets only changepacks output when create_release=false', asy
   }
 
   const { createRelease } = await import('../create-release')
-  await createRelease(
+  const result = await createRelease(
     {
       ignore: [],
       baseBranch: 'main',
@@ -144,6 +157,8 @@ test('createRelease sets only changepacks output when create_release=false', asy
     },
     changepacks,
   )
+
+  expect(result).toEqual({})
 
   expect(setOutputMock).toHaveBeenCalledWith(
     'changepacks',
@@ -208,7 +223,7 @@ test('createRelease logs error and sets failed on API failure', async () => {
   }
 
   const { createRelease } = await import('../create-release')
-  await createRelease(
+  const result = await createRelease(
     {
       ignore: [],
       baseBranch: 'main',
@@ -216,6 +231,8 @@ test('createRelease logs error and sets failed on API failure', async () => {
     },
     changepacks,
   )
+
+  expect(result).toBe(false)
 
   expect(setOutputMock).toHaveBeenCalledWith(
     'changepacks',
@@ -307,7 +324,7 @@ test('createRelease deletes created releases when error occurs after some releas
   }
 
   const { createRelease } = await import('../create-release')
-  await createRelease(
+  const result = await createRelease(
     {
       ignore: [],
       baseBranch: 'main',
@@ -315,6 +332,8 @@ test('createRelease deletes created releases when error occurs after some releas
     },
     changepacks,
   )
+
+  expect(result).toBe(false)
 
   expect(setOutputMock).toHaveBeenCalledWith(
     'changepacks',
@@ -388,7 +407,7 @@ test('createRelease sets make_latest to true when changepacks has only 1 item ev
   }
 
   const { createRelease } = await import('../create-release')
-  await createRelease(
+  const result = await createRelease(
     {
       ignore: [],
       baseBranch: 'main',
@@ -396,6 +415,14 @@ test('createRelease sets make_latest to true when changepacks has only 1 item ev
     },
     changepacks,
   )
+
+  expect(result).toEqual({
+    'packages/a/package.json': {
+      releaseId: 1,
+      tagName: 'a(packages/a/package.json)@1.1.0',
+      makeLatest: true,
+    },
+  })
 
   expect(createReleaseMock).toHaveBeenCalledWith({
     owner: 'acme',
@@ -461,7 +488,7 @@ test('createRelease skips creating ref when tag already exists', async () => {
   }
 
   const { createRelease } = await import('../create-release')
-  await createRelease(
+  const result = await createRelease(
     {
       ignore: [],
       baseBranch: 'main',
@@ -469,6 +496,14 @@ test('createRelease skips creating ref when tag already exists', async () => {
     },
     changepacks,
   )
+
+  expect(result).toEqual({
+    'packages/a/package.json': {
+      releaseId: 1,
+      tagName: 'a(packages/a/package.json)@1.1.0',
+      makeLatest: true,
+    },
+  })
 
   expect(setOutputMock).toHaveBeenCalledWith(
     'changepacks',
