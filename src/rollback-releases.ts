@@ -21,16 +21,20 @@ export async function rollbackReleases(
         ...context.repo,
         release_id: release.releaseId,
       })
+    } catch (err: unknown) {
+      error(`failed to delete release ${release.tagName}: ${err}`)
+    }
+    try {
       await octokit.rest.git.deleteRef({
         ...context.repo,
         ref: `tags/${release.tagName}`,
       })
-      info(`rolled back release: ${release.tagName}`)
-      if (release.makeLatest) {
-        rolledBackLatest = true
-      }
     } catch (err: unknown) {
-      error(`failed to rollback release ${release.tagName}: ${err}`)
+      error(`failed to delete tag ${release.tagName}: ${err}`)
+    }
+    info(`rolled back release: ${release.tagName}`)
+    if (release.makeLatest) {
+      rolledBackLatest = true
     }
   }
 

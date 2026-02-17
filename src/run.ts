@@ -17,6 +17,7 @@ import { installChangepacks } from './install-changepacks'
 import { rollbackReleases } from './rollback-releases'
 import { runChangepacks } from './run-changepacks'
 import { sendSlackNotification } from './send-slack-notification'
+import type { ChangepackPublishResult } from './types'
 import { updatePrComment } from './update-pr-comment'
 
 export async function run() {
@@ -64,24 +65,37 @@ export async function run() {
               const publishOptions = publishOptionsStr
                 ? publishOptionsStr.split(/\s+/).filter(Boolean)
                 : []
-              const result = await runChangepacks(
-                'publish',
-                ...publishTarget.flatMap((path) => ['-p', path]),
-                ...publishOptions,
-              )
-              const errors = []
+              try {
+                const result = await runChangepacks(
+                  'publish',
+                  ...publishTarget.flatMap((path) => ['-p', path]),
+                  ...publishOptions,
+                )
+                const errors = []
 
-              for (const [path, res] of Object.entries(result)) {
-                if (res.result) {
-                  info(`${path} published successfully`)
-                } else {
-                  error(`${path} published failed: ${res.error}`)
-                  errors.push(`${path} published failed: ${res.error}`)
+                for (const [path, res] of Object.entries(result)) {
+                  if (res.result) {
+                    info(`${path} published successfully`)
+                  } else {
+                    error(`${path} published failed: ${res.error}`)
+                    errors.push(`${path} published failed: ${res.error}`)
+                  }
                 }
-              }
-              if (errors.length > 0) {
-                await rollbackReleases(result, releaseResult)
-                setFailed(errors.join('\n'))
+                if (errors.length > 0) {
+                  await rollbackReleases(result, releaseResult)
+                  setFailed(errors.join('\n'))
+                }
+              } catch (err: unknown) {
+                error(`publish crashed: ${err}`)
+                const allFailed: Record<string, ChangepackPublishResult> =
+                  Object.fromEntries(
+                    publishTarget.map((path) => [
+                      path,
+                      { result: false, error: String(err) },
+                    ]),
+                  )
+                await rollbackReleases(allFailed, releaseResult)
+                setFailed(err as Error)
               }
             }
           }

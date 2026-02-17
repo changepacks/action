@@ -245,7 +245,7 @@ test('rollbackReleases does not call updateRelease when no surviving release exi
   mock.module('@actions/github', () => originalGithub)
 })
 
-test('rollbackReleases handles deleteRelease error', async () => {
+test('rollbackReleases still deletes tag when deleteRelease fails', async () => {
   const originalCore = { ...(await import('@actions/core')) }
   const originalGithub = { ...(await import('@actions/github')) }
 
@@ -261,7 +261,7 @@ test('rollbackReleases handles deleteRelease error', async () => {
   const deleteReleaseMock = mock(async () => {
     throw new Error('delete release failed')
   })
-  const deleteRefMock = mock()
+  const deleteRefMock = mock(async () => ({}))
   const octokit = {
     rest: {
       repos: { deleteRelease: deleteReleaseMock },
@@ -289,9 +289,13 @@ test('rollbackReleases handles deleteRelease error', async () => {
   await rollbackReleases(publishResult, releaseResult)
 
   expect(errorMock).toHaveBeenCalledWith(
-    expect.stringContaining('failed to rollback release'),
+    expect.stringContaining('failed to delete release'),
   )
-  expect(deleteRefMock).not.toHaveBeenCalled()
+  expect(deleteRefMock).toHaveBeenCalledWith({
+    owner: 'acme',
+    repo: 'widgets',
+    ref: 'tags/a(packages/a/package.json)@1.0.0',
+  })
 
   mock.module('@actions/core', () => originalCore)
   mock.module('@actions/github', () => originalGithub)
@@ -340,8 +344,9 @@ test('rollbackReleases handles deleteRef error', async () => {
 
   await rollbackReleases(publishResult, releaseResult)
 
+  expect(deleteReleaseMock).toHaveBeenCalled()
   expect(errorMock).toHaveBeenCalledWith(
-    expect.stringContaining('failed to rollback release'),
+    expect.stringContaining('failed to delete tag'),
   )
 
   mock.module('@actions/core', () => originalCore)
