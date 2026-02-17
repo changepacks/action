@@ -22,6 +22,11 @@ inputs:
     required: false
     default: false
     type: boolean
+  publish_options:
+    description: Additional CLI options to pass to the publish command
+    required: false
+    default: ''
+    type: string
   slack_webhook_url:
     description: Slack webhook URL for release notifications
     required: false

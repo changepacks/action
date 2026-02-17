@@ -1,4 +1,11 @@
-import { error, getBooleanInput, info, isDebug, setFailed } from '@actions/core'
+import {
+  error,
+  getBooleanInput,
+  getInput,
+  info,
+  isDebug,
+  setFailed,
+} from '@actions/core'
 import { exec } from '@actions/exec'
 import { context } from '@actions/github'
 import { checkPastChangepacks } from './check-past-changepacks'
@@ -53,9 +60,14 @@ export async function run() {
             if (getBooleanInput('publish')) {
               const publishTarget = Object.keys(filteredPastChangepacks)
               info(`publish target: ${publishTarget.join(', ')}`)
+              const publishOptionsStr = getInput('publish_options')
+              const publishOptions = publishOptionsStr
+                ? publishOptionsStr.split(/\s+/).filter(Boolean)
+                : []
               const result = await runChangepacks(
                 'publish',
                 ...publishTarget.flatMap((path) => ['-p', path]),
+                ...publishOptions,
               )
               const errors = []
 
