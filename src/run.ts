@@ -30,6 +30,7 @@ export async function run() {
       await fetchOrigin(config.baseBranch)
     }
     const changepacks = await runChangepacks('check')
+    info(`changepacks result: ${JSON.stringify(changepacks, null, 2)}`)
     // add pull request comment
     if (context.payload?.pull_request) {
       await updatePrComment(changepacks, context.payload.pull_request.number)
