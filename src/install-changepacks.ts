@@ -1,7 +1,7 @@
 import { chmod, writeFile } from 'node:fs/promises'
 import { machine, type } from 'node:os'
 import { resolve } from 'node:path'
-import { debug, getInput, setFailed } from '@actions/core'
+import { debug, getInput, info, setFailed } from '@actions/core'
 import { getOctokit } from '@actions/github'
 import { HttpClient } from '@actions/http-client'
 
@@ -44,4 +44,5 @@ export async function installChangepacks() {
     await chmod(binPath, 0o755)
   }
   debug(`wrote binary to ${binPath}: ${binary.length} bytes`)
+  info(`changepacks version: ${release.tag_name}`)
 }

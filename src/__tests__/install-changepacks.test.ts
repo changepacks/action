@@ -20,15 +20,18 @@ test('installChangepacks downloads asset and writes binary (linux/x64)', async (
 
   const getInputMock = mock((_name: string) => 'TOKEN')
   const debugMock = mock()
+  const infoMock = mock()
   const setFailedMock = mock()
   mock.module('@actions/core', () => ({
     getInput: getInputMock,
     debug: debugMock,
+    info: infoMock,
     setFailed: setFailedMock,
   }))
 
   const pullsGetLatestReleaseMock = mock(async () => ({
     data: {
+      tag_name: 'v1.2.3',
       assets: [
         {
           name: 'changepacks-linux-x64',
@@ -67,6 +70,7 @@ test('installChangepacks downloads asset and writes binary (linux/x64)', async (
     resolve('changepacks'),
     Buffer.from('BINARYDATA'),
   )
+  expect(infoMock).toHaveBeenCalledWith('changepacks version: v1.2.3')
   expect(setFailedMock).not.toHaveBeenCalled()
 
   // restore
@@ -92,10 +96,12 @@ test('installChangepacks sets failed when asset not found', async () => {
 
   const getInputMock = mock((_name: string) => 'TOKEN')
   const debugMock = mock()
+  const infoMock = mock()
   const setFailedMock = mock()
   mock.module('@actions/core', () => ({
     getInput: getInputMock,
     debug: debugMock,
+    info: infoMock,
     setFailed: setFailedMock,
   }))
 
