@@ -56,9 +56,11 @@ export async function runChangepacks(
     {
       listeners: {
         stdout: (data) => {
+          debug(`stdout: ${data.toString()}`)
           output += data.toString()
         },
         stderr: (data) => {
+          debug(`stderr: ${data.toString()}`)
           output += data.toString()
         },
       },
