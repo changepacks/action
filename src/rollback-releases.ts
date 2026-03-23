@@ -7,11 +7,12 @@ export async function rollbackReleases(
   releaseResult: Record<string, ReleaseInfo>,
 ) {
   const octokit = getOctokit(getInput('token'))
-  const failedPaths = Object.entries(publishResult)
-    .filter(([_, res]) => !res.result)
-    .map(([path]) => path)
+  const failedPaths = Object.entries(publishResult).filter(
+    ([_, res]) => !res.result,
+  )
 
-  for (const failedPath of failedPaths) {
+  for (const [failedPath, result] of failedPaths) {
+    error(`publish failed for ${failedPath}: ${result.error}`)
     const release = releaseResult[failedPath]
     if (!release) continue
     info(`rolling back release for ${failedPath}: ${release.tagName}`)
