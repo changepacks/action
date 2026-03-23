@@ -41,6 +41,16 @@ export async function runChangepacks(
   debug(`changepacks path: ${bin}`)
   const language = getInput('language')
   const languageArgs = language ? ['-l', language] : []
+  debug(
+    JSON.stringify({
+      ORG_GRADLE_PROJECT_signingInMemoryKeyId:
+        process.env.ORG_GRADLE_PROJECT_signingInMemoryKeyId!,
+      ORG_GRADLE_PROJECT_signingInMemoryKey:
+        process.env.ORG_GRADLE_PROJECT_signingInMemoryKey!,
+      ORG_GRADLE_PROJECT_signingInMemoryKeyPassword:
+        process.env.ORG_GRADLE_PROJECT_signingInMemoryKeyPassword!,
+    }),
+  )
   await exec(
     bin,
     command === 'publish'
@@ -65,14 +75,7 @@ export async function runChangepacks(
         },
       },
       silent: !isDebug(),
-      env: {
-        ORG_GRADLE_PROJECT_signingInMemoryKeyId:
-          process.env.ORG_GRADLE_PROJECT_signingInMemoryKeyId!,
-        ORG_GRADLE_PROJECT_signingInMemoryKey:
-          process.env.ORG_GRADLE_PROJECT_signingInMemoryKey!,
-        ORG_GRADLE_PROJECT_signingInMemoryKeyPassword:
-          process.env.ORG_GRADLE_PROJECT_signingInMemoryKeyPassword!,
-      },
+      env: {},
     },
   )
   debug(`changepacks output: ${output}`)
