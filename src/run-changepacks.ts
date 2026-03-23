@@ -65,6 +65,14 @@ export async function runChangepacks(
         },
       },
       silent: !isDebug(),
+      env: {
+        ORG_GRADLE_PROJECT_signingInMemoryKeyId:
+          process.env.ORG_GRADLE_PROJECT_signingInMemoryKeyId!,
+        ORG_GRADLE_PROJECT_signingInMemoryKey:
+          process.env.ORG_GRADLE_PROJECT_signingInMemoryKey!,
+        ORG_GRADLE_PROJECT_signingInMemoryKeyPassword:
+          process.env.ORG_GRADLE_PROJECT_signingInMemoryKeyPassword!,
+      },
     },
   )
   debug(`changepacks output: ${output}`)
