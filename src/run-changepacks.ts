@@ -75,7 +75,6 @@ export async function runChangepacks(
         },
       },
       silent: !isDebug(),
-      env: {},
     },
   )
   debug(`changepacks output: ${output}`)
