@@ -78,6 +78,7 @@ export async function run() {
                 for (const [path, res] of Object.entries(result)) {
                   if (res.result) {
                     info(`${path} published successfully`)
+                    info(`stdout: ${res.stdout}`)
                   } else {
                     error(`${path} published failed: ${res.error}`)
                     errors.push(`${path} published failed: ${res.error}`)
