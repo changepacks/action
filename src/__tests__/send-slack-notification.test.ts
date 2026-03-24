@@ -28,6 +28,9 @@ test('sendSlackNotification skips when slack_webhook_url is not set', async () =
     },
   }
 
+  mock.module('../send-slack-notification', () =>
+    require('../send-slack-notification'),
+  )
   const { sendSlackNotification } = await import('../send-slack-notification')
   await sendSlackNotification(changepacks)
 
@@ -62,6 +65,9 @@ test('sendSlackNotification skips when no releases to notify', async () => {
     },
   }
 
+  mock.module('../send-slack-notification', () =>
+    require('../send-slack-notification'),
+  )
   const { sendSlackNotification } = await import('../send-slack-notification')
   await sendSlackNotification(changepacks)
 
@@ -109,6 +115,9 @@ test('sendSlackNotification sends notification successfully', async () => {
     },
   }
 
+  mock.module('../send-slack-notification', () =>
+    require('../send-slack-notification'),
+  )
   const { sendSlackNotification } = await import('../send-slack-notification')
   await sendSlackNotification(changepacks)
 
@@ -165,6 +174,9 @@ test('sendSlackNotification warns on fetch failure', async () => {
     },
   }
 
+  mock.module('../send-slack-notification', () =>
+    require('../send-slack-notification'),
+  )
   const { sendSlackNotification } = await import('../send-slack-notification')
   await sendSlackNotification(changepacks)
 
@@ -216,6 +228,9 @@ test('sendSlackNotification warns on fetch exception', async () => {
     },
   }
 
+  mock.module('../send-slack-notification', () =>
+    require('../send-slack-notification'),
+  )
   const { sendSlackNotification } = await import('../send-slack-notification')
   await sendSlackNotification(changepacks)
 
@@ -275,6 +290,9 @@ test('sendSlackNotification sends notification with multiple releases', async ()
     },
   }
 
+  mock.module('../send-slack-notification', () =>
+    require('../send-slack-notification'),
+  )
   const { sendSlackNotification } = await import('../send-slack-notification')
   await sendSlackNotification(changepacks)
 
@@ -328,6 +346,9 @@ test('sendSlackNotification handles empty logs', async () => {
     },
   }
 
+  mock.module('../send-slack-notification', () =>
+    require('../send-slack-notification'),
+  )
   const { sendSlackNotification } = await import('../send-slack-notification')
   await sendSlackNotification(changepacks)
 

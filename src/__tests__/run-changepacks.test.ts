@@ -387,6 +387,8 @@ test('runChangepacks executes publish command with -y flag and returns parsed JS
     'packages/a/package.json': {
       result: true,
       error: null,
+      stderr: null,
+      stdout: null,
     },
   }
 

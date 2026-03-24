@@ -56,7 +56,12 @@ test('rollbackReleases skips failed path not in releaseResult', async () => {
 
   const { rollbackReleases } = await import('../rollback-releases')
   const publishResult: Record<string, ChangepackPublishResult> = {
-    'packages/a/package.json': { result: false, error: 'publish failed' },
+    'packages/a/package.json': {
+      result: false,
+      error: 'publish failed',
+      stderr: null,
+      stdout: null,
+    },
   }
   const releaseResult: Record<string, ReleaseInfo> = {}
 
@@ -95,7 +100,12 @@ test('rollbackReleases deletes release and tag when path fails and not latest', 
 
   const { rollbackReleases } = await import('../rollback-releases')
   const publishResult: Record<string, ChangepackPublishResult> = {
-    'packages/a/package.json': { result: false, error: 'publish failed' },
+    'packages/a/package.json': {
+      result: false,
+      error: 'publish failed',
+      stderr: null,
+      stdout: null,
+    },
   }
   const releaseResult: Record<string, ReleaseInfo> = {
     'packages/a/package.json': {
@@ -159,7 +169,12 @@ test('rollbackReleases still deletes tag when deleteRelease fails', async () => 
 
   const { rollbackReleases } = await import('../rollback-releases')
   const publishResult: Record<string, ChangepackPublishResult> = {
-    'packages/a/package.json': { result: false, error: 'publish failed' },
+    'packages/a/package.json': {
+      result: false,
+      error: 'publish failed',
+      stderr: null,
+      stdout: null,
+    },
   }
   const releaseResult: Record<string, ReleaseInfo> = {
     'packages/a/package.json': {
@@ -215,7 +230,12 @@ test('rollbackReleases handles deleteRef error', async () => {
 
   const { rollbackReleases } = await import('../rollback-releases')
   const publishResult: Record<string, ChangepackPublishResult> = {
-    'packages/a/package.json': { result: false, error: 'publish failed' },
+    'packages/a/package.json': {
+      result: false,
+      error: 'publish failed',
+      stderr: null,
+      stdout: null,
+    },
   }
   const releaseResult: Record<string, ReleaseInfo> = {
     'packages/a/package.json': {
@@ -265,9 +285,24 @@ test('rollbackReleases handles multiple failed paths correctly', async () => {
 
   const { rollbackReleases } = await import('../rollback-releases')
   const publishResult: Record<string, ChangepackPublishResult> = {
-    'packages/a/package.json': { result: false, error: 'publish failed' },
-    'packages/b/package.json': { result: false, error: 'publish failed' },
-    'packages/c/package.json': { result: true, error: null },
+    'packages/a/package.json': {
+      result: false,
+      error: 'publish failed',
+      stderr: null,
+      stdout: null,
+    },
+    'packages/b/package.json': {
+      result: false,
+      error: 'publish failed',
+      stderr: null,
+      stdout: null,
+    },
+    'packages/c/package.json': {
+      result: true,
+      error: null,
+      stderr: null,
+      stdout: null,
+    },
   }
   const releaseResult: Record<string, ReleaseInfo> = {
     'packages/a/package.json': {

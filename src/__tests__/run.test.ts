@@ -2264,8 +2264,18 @@ test('run rolls back all releases when publish command crashes (exit code 1)', a
   // rollback should be called with all paths marked as failed
   expect(rollbackMock).toHaveBeenCalledWith(
     {
-      'pkg/a': { result: false, error: String(publishError) },
-      'pkg/b': { result: false, error: String(publishError) },
+      'pkg/a': {
+        result: false,
+        error: String(publishError),
+        stderr: null,
+        stdout: null,
+      },
+      'pkg/b': {
+        result: false,
+        error: String(publishError),
+        stderr: null,
+        stdout: null,
+      },
     },
     releaseInfo,
   )

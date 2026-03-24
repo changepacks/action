@@ -14,6 +14,8 @@ export interface ChangepackResult {
 export interface ChangepackPublishResult {
   result: boolean
   error: string | null
+  stderr: string | null
+  stdout: string | null
 }
 
 export type ChangepackResultMap = Record<string, ChangepackResult>

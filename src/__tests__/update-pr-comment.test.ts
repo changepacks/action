@@ -55,6 +55,7 @@ test('updatePr posts combined body to the PR issue', async () => {
     },
   }
 
+  mock.module('../update-pr-comment', () => require('../update-pr-comment'))
   const { updatePrComment: updatePr } = await import('../update-pr-comment')
   await updatePr(changepacks, 123)
 
@@ -129,6 +130,7 @@ test('updatePr updates existing Changepacks comment by github-actions[bot]', asy
     },
   }
 
+  mock.module('../update-pr-comment', () => require('../update-pr-comment'))
   const { updatePrComment: updatePr } = await import('../update-pr-comment')
   await updatePr(changepacks, 123)
 
@@ -215,6 +217,7 @@ test('updatePr updates existing Changepacks comment by github-actions[bot] 2', a
     },
   }
 
+  mock.module('../update-pr-comment', () => require('../update-pr-comment'))
   const { updatePrComment: updatePr } = await import('../update-pr-comment')
   await updatePr(changepacks, 123)
 
@@ -286,6 +289,7 @@ test('updatePr creates new comment when no existing Changepacks comment', async 
     },
   }
 
+  mock.module('../update-pr-comment', () => require('../update-pr-comment'))
   const { updatePrComment: updatePr } = await import('../update-pr-comment')
   await updatePr(changepacks, 123)
 
@@ -359,6 +363,7 @@ test('updatePr warns when listComments fails', async () => {
     },
   }
 
+  mock.module('../update-pr-comment', () => require('../update-pr-comment'))
   const { updatePrComment: updatePr } = await import('../update-pr-comment')
   await updatePr(changepacks, 123)
 
@@ -430,6 +435,7 @@ test('updatePr warns when updateComment fails', async () => {
     },
   }
 
+  mock.module('../update-pr-comment', () => require('../update-pr-comment'))
   const { updatePrComment: updatePr } = await import('../update-pr-comment')
   await updatePr(changepacks, 123)
 
@@ -495,6 +501,7 @@ test('updatePr warns when createComment fails', async () => {
     },
   }
 
+  mock.module('../update-pr-comment', () => require('../update-pr-comment'))
   const { updatePrComment: updatePr } = await import('../update-pr-comment')
   await updatePr(changepacks, 123)
 

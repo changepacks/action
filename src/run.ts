@@ -94,7 +94,12 @@ export async function run() {
                   Object.fromEntries(
                     publishTarget.map((path) => [
                       path,
-                      { result: false, error: String(err) },
+                      {
+                        result: false,
+                        error: String(err),
+                        stderr: null,
+                        stdout: null,
+                      },
                     ]),
                   )
                 await rollbackReleases(allFailed, releaseResult)

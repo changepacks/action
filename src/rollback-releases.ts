@@ -1,4 +1,4 @@
-import { error, getInput, info } from '@actions/core'
+import { debug, error, getInput, info } from '@actions/core'
 import { context, getOctokit } from '@actions/github'
 import type { ChangepackPublishResult, ReleaseInfo } from './types'
 
@@ -13,6 +13,7 @@ export async function rollbackReleases(
 
   for (const [failedPath, result] of failedPaths) {
     error(`publish failed for ${failedPath}: ${result.error}`)
+    debug(`publish output for ${failedPath}: ${result.stdout}`)
     const release = releaseResult[failedPath]
     if (!release) continue
     info(`rolling back release for ${failedPath}: ${release.tagName}`)
