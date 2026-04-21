@@ -29,7 +29,10 @@ export async function run() {
     if (!isBaseBranch) {
       await fetchOrigin(config.baseBranch)
     }
-    const changepacks = await runChangepacks('check')
+    const changepacks = await runChangepacks(
+      'check',
+      ...(isBaseBranch ? [] : ['--remote']),
+    )
     info(`changepacks result: ${JSON.stringify(changepacks, null, 2)}`)
     // add pull request comment
     if (context.payload?.pull_request) {

@@ -93,6 +93,8 @@ jobs:
 | `token` | GitHub token for API operations | Yes | `${{ github.token }}` |
 | `create_release` | Whether to create releases when changepacks are ready | No | `true` |
 | `publish` | Whether to publish the package | No | `false` |
+| `publish_options` | Additional CLI options passed to `changepacks publish` | No | `''` |
+| `language` | Language filter passed to changepacks commands that support `-l/--language` | No | `''` |
 | `slack_webhook_url` | Slack webhook URL for release notifications | No | - |
 
 ## Outputs

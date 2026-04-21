@@ -28,7 +28,7 @@ inputs:
     default: ''
     type: string
   language:
-    description: Language filter to pass to the publish command (-l <language>)
+    description: Language filter to pass to changepacks commands that support it (-l <language>)
     required: false
     default: ''
     type: string

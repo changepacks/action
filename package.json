@@ -14,12 +14,12 @@
 		"@biomejs/biome": "^2.4",
 		"@types/bun": "^1.3",
 		"husky": "^9",
-		"typescript": "^5.9"
+		"typescript": "^6.0"
 	},
 	"dependencies": {
 		"@actions/core": "^3.0.0",
 		"@actions/exec": "^3.0.0",
-		"@actions/github": "^9.0.0",
+		"@actions/github": "^9.1.0",
 		"@actions/http-client": "^4.0.0"
 	}
 }

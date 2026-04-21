@@ -49,7 +49,7 @@ export async function runChangepacks(
           command,
           '--format',
           'json',
-          ...(command === 'update' ? ['-y'] : ['--remote']),
+          ...(command === 'update' ? ['-y'] : []),
           ...languageArgs,
           ...args,
         ],

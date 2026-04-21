@@ -41,6 +41,7 @@ test('runChangepacks executes check command and returns parsed JSON', async () =
   mock.module('@actions/core', () => ({
     debug: debugMock,
     isDebug: isDebugMock,
+    getInput: mock(() => ''),
   }))
 
   const { runChangepacks } = await import('../run-changepacks')
@@ -49,7 +50,7 @@ test('runChangepacks executes check command and returns parsed JSON', async () =
   expect(result).toEqual(expectedResult)
   expect(execMock).toHaveBeenCalledWith(
     resolve(process.platform === 'win32' ? 'changepacks.exe' : 'changepacks'),
-    ['check', '--format', 'json', '--remote'],
+    ['check', '--format', 'json'],
     expect.objectContaining({
       listeners: expect.any(Object),
       silent: true,
@@ -101,6 +102,7 @@ test('runChangepacks executes update command with -y flag and returns parsed JSO
   mock.module('@actions/core', () => ({
     debug: debugMock,
     isDebug: isDebugMock,
+    getInput: mock(() => ''),
   }))
 
   const { runChangepacks } = await import('../run-changepacks')
@@ -164,6 +166,7 @@ test('runChangepacks handles output from both stdout and stderr', async () => {
   mock.module('@actions/core', () => ({
     debug: debugMock,
     isDebug: isDebugMock,
+    getInput: mock(() => ''),
   }))
 
   const { runChangepacks } = await import('../run-changepacks')
@@ -203,6 +206,7 @@ test('runChangepacks uses .exe extension on Windows', async () => {
   mock.module('@actions/core', () => ({
     debug: debugMock,
     isDebug: isDebugMock,
+    getInput: mock(() => ''),
   }))
 
   // Mock Windows platform
@@ -259,6 +263,7 @@ test('runChangepacks throws error when JSON parse fails', async () => {
   mock.module('@actions/core', () => ({
     debug: debugMock,
     isDebug: isDebugMock,
+    getInput: mock(() => ''),
   }))
 
   const { runChangepacks } = await import('../run-changepacks')
@@ -285,6 +290,7 @@ test('runChangepacks throws error when exec fails', async () => {
   mock.module('@actions/core', () => ({
     debug: debugMock,
     isDebug: isDebugMock,
+    getInput: mock(() => ''),
   }))
 
   const { runChangepacks } = await import('../run-changepacks')
@@ -322,6 +328,7 @@ test('runChangepacks sets silent to false when isDebug returns true', async () =
   mock.module('@actions/core', () => ({
     debug: debugMock,
     isDebug: isDebugMock,
+    getInput: mock(() => ''),
   }))
 
   const { runChangepacks } = await import('../run-changepacks')
@@ -367,6 +374,7 @@ test('runChangepacks returns empty object when output is empty', async () => {
   mock.module('@actions/core', () => ({
     debug: debugMock,
     isDebug: isDebugMock,
+    getInput: mock(() => ''),
   }))
 
   const { runChangepacks } = await import('../run-changepacks')
@@ -415,6 +423,7 @@ test('runChangepacks executes publish command with -y flag and returns parsed JS
   mock.module('@actions/core', () => ({
     debug: debugMock,
     isDebug: isDebugMock,
+    getInput: mock(() => ''),
   }))
 
   const { runChangepacks } = await import('../run-changepacks')
@@ -475,6 +484,7 @@ test('runChangepacks calls debug with changepacks path', async () => {
   mock.module('@actions/core', () => ({
     debug: debugMock,
     isDebug: isDebugMock,
+    getInput: mock(() => ''),
   }))
 
   const { runChangepacks } = await import('../run-changepacks')
@@ -529,6 +539,7 @@ test('runChangepacks calls debug with changepacks output', async () => {
   mock.module('@actions/core', () => ({
     debug: debugMock,
     isDebug: isDebugMock,
+    getInput: mock(() => ''),
   }))
 
   const { runChangepacks } = await import('../run-changepacks')
@@ -544,7 +555,7 @@ test('runChangepacks calls debug with changepacks output', async () => {
   mock.module('../run-changepacks', () => originalRunChangepacks)
 })
 
-test('runChangepacks adds -l flag when language input is set for check command', async () => {
+test('runChangepacks passes explicit --remote flag for check command', async () => {
   const originalExec = { ...(await import('@actions/exec')) }
   const originalCore = { ...(await import('@actions/core')) }
   const originalRunChangepacks = { ...(await import('../run-changepacks')) }
@@ -567,22 +578,18 @@ test('runChangepacks adds -l flag when language input is set for check command',
 
   const debugMock = mock()
   const isDebugMock = mock(() => false)
-  const getInputMock = mock((name: string) => {
-    if (name === 'language') return 'rust'
-    return ''
-  })
   mock.module('@actions/core', () => ({
     debug: debugMock,
     isDebug: isDebugMock,
-    getInput: getInputMock,
+    getInput: mock(() => ''),
   }))
 
   const { runChangepacks } = await import('../run-changepacks')
-  await runChangepacks('check')
+  await runChangepacks('check', '--remote')
 
   expect(execMock).toHaveBeenCalledWith(
     resolve(process.platform === 'win32' ? 'changepacks.exe' : 'changepacks'),
-    ['check', '--format', 'json', '--remote', '-l', 'rust'],
+    ['check', '--format', 'json', '--remote'],
     expect.objectContaining({
       silent: true,
     }),
@@ -632,6 +639,55 @@ test('runChangepacks adds -l flag when language input is set for publish command
   expect(execMock).toHaveBeenCalledWith(
     resolve(process.platform === 'win32' ? 'changepacks.exe' : 'changepacks'),
     ['publish', '-y', '--format', 'json', '-l', 'node', '-p', 'pkg/a'],
+    expect.objectContaining({
+      silent: true,
+    }),
+  )
+
+  mock.module('@actions/exec', () => originalExec)
+  mock.module('@actions/core', () => originalCore)
+  mock.module('../run-changepacks', () => originalRunChangepacks)
+})
+
+test('runChangepacks adds -l flag when language input is set for check command', async () => {
+  const originalExec = { ...(await import('@actions/exec')) }
+  const originalCore = { ...(await import('@actions/core')) }
+  const originalRunChangepacks = { ...(await import('../run-changepacks')) }
+
+  const execMock = mock(
+    async (
+      _cmd: string,
+      _args?: string[],
+      options?: {
+        listeners?: {
+          stdout?: (data: Buffer) => void
+        }
+      },
+    ) => {
+      options?.listeners?.stdout?.(Buffer.from('{}'))
+      return 0
+    },
+  )
+  mock.module('@actions/exec', () => ({ exec: execMock }))
+
+  const debugMock = mock()
+  const isDebugMock = mock(() => false)
+  const getInputMock = mock((name: string) => {
+    if (name === 'language') return 'rust'
+    return ''
+  })
+  mock.module('@actions/core', () => ({
+    debug: debugMock,
+    isDebug: isDebugMock,
+    getInput: getInputMock,
+  }))
+
+  const { runChangepacks } = await import('../run-changepacks')
+  await runChangepacks('check')
+
+  expect(execMock).toHaveBeenCalledWith(
+    resolve(process.platform === 'win32' ? 'changepacks.exe' : 'changepacks'),
+    ['check', '--format', 'json', '-l', 'rust'],
     expect.objectContaining({
       silent: true,
     }),
@@ -726,7 +782,7 @@ test('runChangepacks omits -l flag when language input is empty', async () => {
 
   expect(execMock).toHaveBeenCalledWith(
     resolve(process.platform === 'win32' ? 'changepacks.exe' : 'changepacks'),
-    ['check', '--format', 'json', '--remote'],
+    ['check', '--format', 'json'],
     expect.objectContaining({
       silent: true,
     }),
@@ -764,6 +820,7 @@ test('runChangepacks uses non-exe extension on non-Windows platforms', async () 
   mock.module('@actions/core', () => ({
     debug: debugMock,
     isDebug: isDebugMock,
+    getInput: mock(() => ''),
   }))
 
   // Mock non-Windows platform

@@ -4,11 +4,13 @@
 		"lib": ["ESNext"],
 		"module": "ESNext",
 		"declaration": false,
+		"rootDir": "src",
 		"outDir": "dist",
 		"strict": true,
 		"esModuleInterop": true,
 		"skipLibCheck": true,
 		"forceConsistentCasingInFileNames": true,
+		"types": ["bun"],
 		"moduleResolution": "bundler"
 	},
 	"include": ["src/**/*"]
