@@ -67,7 +67,7 @@ export async function checkPastChangepacks(): Promise<ChangepackResultMap> {
     } else {
       let commitCountOutput = ''
       try {
-        await exec('git', ['rev-list', '--count', 'HEAD', pastSha], {
+        await exec('git', ['rev-list', '--count', `${pastSha}..HEAD`], {
           silent: !isDebug(),
           listeners: {
             stdout: (data: Buffer) => {

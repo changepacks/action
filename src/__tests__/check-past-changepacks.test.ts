@@ -1297,7 +1297,7 @@ test('checkPastChangepacks setsFailed when git diff throws non-revision error', 
   mock.module('@actions/github', () => originalGithub)
 })
 
-test('checkPastChangepacks returns {} when rev-list count is greater than 1', async () => {
+test('checkPastChangepacks continues when rev-list count is within threshold', async () => {
   const originalExec = { ...(await import('@actions/exec')) }
   const originalCore = { ...(await import('@actions/core')) }
   const originalGithub = { ...(await import('@actions/github')) }
@@ -1319,7 +1319,15 @@ test('checkPastChangepacks returns {} when rev-list count is greater than 1', as
         return 0
       }
       if (args?.[0] === 'rev-list') {
-        return 2 // simulate >1 to hit early return
+        options?.listeners?.stdout?.(Buffer.from('2'))
+        return 0
+      }
+      if (args?.[0] === 'diff') {
+        options?.listeners?.stdout?.(Buffer.from('.changepacks/example.json'))
+        return 0
+      }
+      if (args?.[0] === 'checkout') {
+        return 0
       }
       options?.listeners?.stdout?.(Buffer.from(''))
       return 0
@@ -1362,11 +1370,21 @@ test('checkPastChangepacks returns {} when rev-list count is greater than 1', as
     context: contextMock,
   }))
 
-  const installMock = mock()
+  const installMock = mock(async () => undefined)
   mock.module('../install-changepacks', () => ({
     installChangepacks: installMock,
   }))
-  const runChangepacksMock = mock()
+  const changepacksResult = {
+    'packages/example/package.json': {
+      logs: [],
+      version: '1.0.0',
+      nextVersion: '1.0.1',
+      name: '@acme/example',
+      changed: true,
+      path: 'packages/example/package.json',
+    },
+  }
+  const runChangepacksMock = mock(async () => changepacksResult)
   mock.module('../run-changepacks', () => ({
     runChangepacks: runChangepacksMock,
   }))
@@ -1374,13 +1392,13 @@ test('checkPastChangepacks returns {} when rev-list count is greater than 1', as
   const { checkPastChangepacks } = await import('../check-past-changepacks')
   const result = await checkPastChangepacks()
 
-  expect(result).toEqual({})
+  expect(result).toEqual(changepacksResult)
   expect(setFailedMock).not.toHaveBeenCalled()
-  expect(installMock).not.toHaveBeenCalled()
-  expect(runChangepacksMock).not.toHaveBeenCalled()
+  expect(installMock).toHaveBeenCalled()
+  expect(runChangepacksMock).toHaveBeenCalledWith('check')
   expect(execMock).toHaveBeenCalledWith(
     'git',
-    ['rev-list', '--count', 'HEAD', 'abc123~1'],
+    ['rev-list', '--count', 'abc123~1..HEAD'],
     expect.objectContaining({ silent: true }),
   )
 
@@ -1391,7 +1409,7 @@ test('checkPastChangepacks returns {} when rev-list count is greater than 1', as
   mock.module('../run-changepacks', () => originalRunChangepacks)
 })
 
-test('checkPastChangepacks uses rev-list stdout to return {} when count > 1', async () => {
+test('checkPastChangepacks uses rev-list stdout to return {} when count > 3', async () => {
   const originalExec = { ...(await import('@actions/exec')) }
   const originalCore = { ...(await import('@actions/core')) }
   const originalGithub = { ...(await import('@actions/github')) }
@@ -1413,7 +1431,7 @@ test('checkPastChangepacks uses rev-list stdout to return {} when count > 1', as
         return 0
       }
       if (args?.[0] === 'rev-list') {
-        options?.listeners?.stdout?.(Buffer.from('2'))
+        options?.listeners?.stdout?.(Buffer.from('4'))
         return 0
       }
       options?.listeners?.stdout?.(Buffer.from(''))
@@ -1475,7 +1493,7 @@ test('checkPastChangepacks uses rev-list stdout to return {} when count > 1', as
   expect(runChangepacksMock).not.toHaveBeenCalled()
   expect(execMock).toHaveBeenCalledWith(
     'git',
-    ['rev-list', '--count', 'HEAD', 'abc123~1'],
+    ['rev-list', '--count', 'abc123~1..HEAD'],
     expect.objectContaining({ silent: true }),
   )
 
@@ -1568,6 +1586,11 @@ test('checkPastChangepacks returns {} when rev-list count is greater than 3', as
   expect(setFailedMock).not.toHaveBeenCalled()
   expect(installMock).not.toHaveBeenCalled()
   expect(runChangepacksMock).not.toHaveBeenCalled()
+  expect(execMock).toHaveBeenCalledWith(
+    'git',
+    ['rev-list', '--count', 'abc123~1..HEAD'],
+    expect.objectContaining({ silent: true }),
+  )
 
   mock.module('@actions/exec', () => originalExec)
   mock.module('@actions/core', () => originalCore)
