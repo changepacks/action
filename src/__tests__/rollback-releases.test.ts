@@ -73,6 +73,68 @@ test('rollbackReleases skips failed path not in releaseResult', async () => {
   mock.module('@actions/github', () => originalGithub)
 })
 
+test('rollbackReleases logs publish output as an error when publish fails', async () => {
+  const originalCore = { ...(await import('@actions/core')) }
+  const originalGithub = { ...(await import('@actions/github')) }
+
+  const getInputMock = mock((name: string) => (name === 'token' ? 'T' : ''))
+  const errorMock = mock()
+  const debugMock = mock()
+  const infoMock = mock()
+  mock.module('@actions/core', () => ({
+    getInput: getInputMock,
+    error: errorMock,
+    debug: debugMock,
+    info: infoMock,
+  }))
+
+  const deleteReleaseMock = mock(async () => ({}))
+  const deleteRefMock = mock(async () => ({}))
+  const octokit = {
+    rest: {
+      repos: { deleteRelease: deleteReleaseMock },
+      git: { deleteRef: deleteRefMock },
+    },
+  }
+  const getOctokitMock = mock(() => octokit)
+  mock.module('@actions/github', () => ({
+    getOctokit: getOctokitMock,
+    context: { repo: { owner: 'acme', repo: 'widgets' } },
+  }))
+
+  const { rollbackReleases } = await import('../rollback-releases')
+  const publishResult: Record<string, ChangepackPublishResult> = {
+    'packages/a/package.json': {
+      result: false,
+      error: 'publish failed',
+      stderr: null,
+      stdout: 'npm ERR! 403 Forbidden - invalid token',
+    },
+  }
+  const releaseResult: Record<string, ReleaseInfo> = {
+    'packages/a/package.json': {
+      releaseId: 123,
+      tagName: 'a(packages/a/package.json)@1.0.0',
+      makeLatest: false,
+    },
+  }
+
+  await rollbackReleases(publishResult, releaseResult)
+
+  expect(errorMock).toHaveBeenCalledWith(
+    'publish failed for packages/a/package.json: publish failed',
+  )
+  expect(errorMock).toHaveBeenCalledWith(
+    'publish output for packages/a/package.json: npm ERR! 403 Forbidden - invalid token',
+  )
+  expect(debugMock).not.toHaveBeenCalledWith(
+    expect.stringContaining('npm ERR! 403 Forbidden'),
+  )
+
+  mock.module('@actions/core', () => originalCore)
+  mock.module('@actions/github', () => originalGithub)
+})
+
 test('rollbackReleases deletes release and tag when path fails and not latest', async () => {
   const originalCore = { ...(await import('@actions/core')) }
   const originalGithub = { ...(await import('@actions/github')) }
