@@ -75,7 +75,7 @@ jobs:
       changepacks: ${{ steps.changepacks.outputs.changepacks }}
       release_assets_urls: ${{ steps.changepacks.outputs.release_assets_urls }}
 
-  # Build only if specific package changed
+  # Build only if specific package was published
   node-build:
     needs: changepacks
     if: ${{ contains(needs.changepacks.outputs.changepacks, 'bridge/node/package.json') }}
@@ -101,7 +101,7 @@ jobs:
 
 | Output | Description |
 |--------|-------------|
-| `changepacks` | JSON array of changed project paths (e.g., `["bridge/node/package.json"]`) |
+| `changepacks` | JSON array of successfully published project paths (e.g., `["bridge/node/package.json"]`) |
 | `release_assets_urls` | JSON object mapping project paths to release asset upload URLs |
 
 ## How It Works
@@ -167,7 +167,7 @@ permissions:
 
 ## Examples
 
-### Conditional Build Jobs
+### Conditional Jobs After Publish
 
 ```yaml
 jobs:

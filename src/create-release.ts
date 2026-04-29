@@ -23,32 +23,33 @@ export async function createRelease(
 ): Promise<Record<string, ReleaseInfo> | false> {
   startGroup(`createRelease`)
 
-  info(`output: ${JSON.stringify(Object.keys(changepacks), null, 2)}`)
-  setOutput('changepacks', Object.keys(changepacks))
-  if (!getBooleanInput('create_release')) {
-    info(`create_release is not enabled, skipping release creation`)
-    endGroup()
-    return {}
-  }
-  const octokit = getOctokit(getInput('token'))
-
-  const releaseNumbers = new Set<number>()
-  const tagNames = new Set<string>()
   try {
+    if (!getBooleanInput('create_release')) {
+      info(`create_release is not enabled, skipping release creation`)
+      return {}
+    }
+
+    const octokit = getOctokit(getInput('token'))
     const releasePromises = Object.entries(changepacks)
       .filter(([_, changepack]) => !!changepack.nextVersion)
       .map(async ([projectPath, changepack]) => {
         const tagName = `${changepack.name}(${changepack.path})@${changepack.nextVersion}`
+        const refPath = `refs/tags/${tagName}`
+        const makeLatest =
+          config.latestPackage === projectPath ||
+          Object.keys(changepacks).length === 1
+        let createdTagName: string | null = null
+
         try {
-          const refPath = `refs/tags/${tagName}`
+          let tagAlreadyExisted = false
           try {
             debug(`get ref: ${refPath}`)
             await octokit.rest.git.getRef({
               ...context.repo,
               ref: `tags/${tagName}`,
             })
+            tagAlreadyExisted = true
             info(`ref already exists: ${tagName}`)
-            tagNames.add(tagName)
           } catch (err: unknown) {
             info(`create ref: ${refPath} ${err}`)
             await octokit.rest.git.createRef({
@@ -56,12 +57,32 @@ export async function createRelease(
               ref: refPath,
               sha: context.sha,
             })
-            tagNames.add(tagName)
+            createdTagName = tagName
             info(`created ref: ${tagName}`)
           }
-          const makeLatest =
-            config.latestPackage === projectPath ||
-            Object.keys(changepacks).length === 1
+
+          if (tagAlreadyExisted) {
+            try {
+              const existingRelease = await octokit.rest.repos.getReleaseByTag({
+                ...context.repo,
+                tag: tagName,
+              })
+              info(
+                `release already exists: ${tagName} ${existingRelease.data.id}`,
+              )
+              return [
+                projectPath,
+                existingRelease.data.id,
+                tagName,
+                existingRelease.data.upload_url,
+                makeLatest,
+                true,
+              ] as const
+            } catch (err: unknown) {
+              info(`release does not exist for existing ref: ${tagName} ${err}`)
+            }
+          }
+
           info(
             `create release: ${tagName} ${JSON.stringify(
               {
@@ -87,7 +108,6 @@ export async function createRelease(
             target_commitish: context.ref,
             draft: false,
           })
-          releaseNumbers.add(release.data.id)
           info(`created release: ${tagName} ${release.data.id}`)
           return [
             projectPath,
@@ -95,13 +115,32 @@ export async function createRelease(
             tagName,
             release.data.upload_url,
             makeLatest,
+            false,
           ] as const
         } catch (err: unknown) {
           error(`create release failed: ${tagName} ${err}`)
-          throw err
+          setFailed(err as Error)
+
+          // A failure for one package should not delete releases that were
+          // already created for other packages. Only clean artifacts created
+          // for this package in the current attempt.
+          if (createdTagName) {
+            try {
+              await octokit.rest.git.deleteRef({
+                ...context.repo,
+                ref: `tags/${createdTagName}`,
+              })
+            } catch (deleteErr: unknown) {
+              error(`failed to delete tag ${createdTagName}: ${deleteErr}`)
+            }
+          }
+          return null
         }
       })
-    const releaseResults = await Promise.all(releasePromises)
+
+    const releaseResults = (await Promise.all(releasePromises)).filter(
+      (releaseResult) => releaseResult !== null,
+    )
     const releaseAssetsUrls = releaseResults.map(
       ([projectPath, _releaseId, _tagName, uploadUrl]) =>
         [projectPath, uploadUrl] as const,
@@ -115,39 +154,16 @@ export async function createRelease(
       tagName,
       _uploadUrl,
       makeLatest,
+      alreadyExisted,
     ] of releaseResults) {
-      releaseInfoMap[projectPath] = { releaseId, tagName, makeLatest }
+      releaseInfoMap[projectPath] = {
+        releaseId,
+        tagName,
+        makeLatest,
+        ...(alreadyExisted ? { alreadyExisted } : {}),
+      }
     }
     return releaseInfoMap
-  } catch (err: unknown) {
-    error(`create release failed: ${err}`)
-    setFailed(err as Error)
-    if (releaseNumbers.size > 0) {
-      info(
-        `delete releases: ${JSON.stringify(Array.from(releaseNumbers), null, 2)}`,
-      )
-      await Promise.all(
-        Array.from(releaseNumbers).map(async (releaseNumber) => {
-          await octokit.rest.repos.deleteRelease({
-            owner: context.repo.owner,
-            repo: context.repo.repo,
-            release_id: releaseNumber,
-          })
-        }),
-      )
-    }
-    if (tagNames.size > 0) {
-      info(`delete refs: ${JSON.stringify(Array.from(tagNames), null, 2)}`)
-      await Promise.all(
-        Array.from(tagNames).map(async (tagName) => {
-          await octokit.rest.git.deleteRef({
-            ...context.repo,
-            ref: `tags/${tagName}`,
-          })
-        }),
-      )
-    }
-    return false
   } finally {
     endGroup()
   }

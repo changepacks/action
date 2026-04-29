@@ -1,5 +1,5 @@
 import { resolve } from 'node:path'
-import { debug, getInput, isDebug } from '@actions/core'
+import { debug, getInput, isDebug, warning } from '@actions/core'
 import { exec } from '@actions/exec'
 import type { ChangepackPublishResult, ChangepackResultMap } from './types'
 
@@ -41,32 +41,41 @@ export async function runChangepacks(
   debug(`changepacks path: ${bin}`)
   const language = getInput('language')
   const languageArgs = language ? ['-l', language] : []
-  await exec(
-    bin,
-    command === 'publish'
-      ? ['publish', '-y', '--format', 'json', ...languageArgs, ...args]
-      : [
-          command,
-          '--format',
-          'json',
-          ...(command === 'update' ? ['-y'] : []),
-          ...languageArgs,
-          ...args,
-        ],
-    {
-      listeners: {
-        stdout: (data) => {
-          debug(`stdout: ${data.toString()}`)
-          output += data.toString()
+  try {
+    await exec(
+      bin,
+      command === 'publish'
+        ? ['publish', '-y', '--format', 'json', ...languageArgs, ...args]
+        : [
+            command,
+            '--format',
+            'json',
+            ...(command === 'update' ? ['-y'] : []),
+            ...languageArgs,
+            ...args,
+          ],
+      {
+        listeners: {
+          stdout: (data) => {
+            debug(`stdout: ${data.toString()}`)
+            output += data.toString()
+          },
+          stderr: (data) => {
+            debug(`stderr: ${data.toString()}`)
+            output += data.toString()
+          },
         },
-        stderr: (data) => {
-          debug(`stderr: ${data.toString()}`)
-          output += data.toString()
-        },
+        silent: !isDebug(),
       },
-      silent: !isDebug(),
-    },
-  )
+    )
+  } catch (err: unknown) {
+    if (command !== 'publish' || !output) {
+      throw err
+    }
+    // Publish may exit non-zero for partial failures while still emitting
+    // per-package JSON. Preserve that detail so only failed packages rollback.
+    warning(`changepacks publish exited with error: ${err}`)
+  }
   debug(`changepacks output: ${output}`)
   return JSON.parse(output)
 }

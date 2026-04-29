@@ -24,6 +24,7 @@ export interface ReleaseInfo {
   releaseId: number
   tagName: string
   makeLatest: boolean
+  alreadyExisted?: boolean
 }
 
 export interface ChangepackConfig {

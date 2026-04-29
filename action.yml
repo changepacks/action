@@ -39,7 +39,7 @@ inputs:
 
 outputs:
   changepacks:
-    description: Changed project paths
+    description: Successfully published project paths
   release_assets_urls:
     description: The URLs of the release assets
 

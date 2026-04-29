@@ -445,6 +445,64 @@ test('runChangepacks executes publish command with -y flag and returns parsed JS
   mock.module('../run-changepacks', () => originalRunChangepacks)
 })
 
+test('runChangepacks returns publish JSON when publish exits non-zero', async () => {
+  const originalExec = { ...(await import('@actions/exec')) }
+  const originalCore = { ...(await import('@actions/core')) }
+  const originalRunChangepacks = { ...(await import('../run-changepacks')) }
+
+  const expectedResult: Record<string, ChangepackPublishResult> = {
+    'packages/a/package.json': {
+      result: true,
+      error: null,
+      stderr: null,
+      stdout: 'published',
+    },
+    'packages/b/package.json': {
+      result: false,
+      error: 'publish failed',
+      stderr: 'npm ERR',
+      stdout: null,
+    },
+  }
+  const publishError = new Error('Process failed with exit code 1')
+
+  const execMock = mock(
+    async (
+      _cmd: string,
+      _args?: string[],
+      options?: {
+        listeners?: {
+          stdout?: (data: Buffer) => void
+        }
+      },
+    ) => {
+      options?.listeners?.stdout?.(Buffer.from(JSON.stringify(expectedResult)))
+      throw publishError
+    },
+  )
+  mock.module('@actions/exec', () => ({ exec: execMock }))
+
+  const warningMock = mock()
+  mock.module('@actions/core', () => ({
+    debug: mock(),
+    warning: warningMock,
+    isDebug: mock(() => false),
+    getInput: mock(() => ''),
+  }))
+
+  const { runChangepacks } = await import('../run-changepacks')
+  const result = await runChangepacks('publish')
+
+  expect(result).toEqual(expectedResult)
+  expect(warningMock).toHaveBeenCalledWith(
+    `changepacks publish exited with error: ${publishError}`,
+  )
+
+  mock.module('@actions/exec', () => originalExec)
+  mock.module('@actions/core', () => originalCore)
+  mock.module('../run-changepacks', () => originalRunChangepacks)
+})
+
 test('runChangepacks calls debug with changepacks path', async () => {
   const originalExec = { ...(await import('@actions/exec')) }
   const originalCore = { ...(await import('@actions/core')) }
