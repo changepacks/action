@@ -1321,7 +1321,7 @@ test('run calls runChangepacks publish when publish option is true', async () =>
   mock.module('@actions/exec', () => originalExec)
 })
 
-test('run does not call runChangepacks publish when publish option is false', async () => {
+test('run sets changepacks output from releases when publish option is false', async () => {
   const originalInstall = { ...(await import('../install-changepacks')) }
   const originalCheck = { ...(await import('../run-changepacks')) }
   const originalPast = { ...(await import('../check-past-changepacks')) }
@@ -1379,7 +1379,10 @@ test('run does not call runChangepacks publish when publish option is false', as
   const createPrMock = mock()
   mock.module('../create-pr', () => ({ createPr: createPrMock }))
 
-  const createReleaseMock = mock()
+  const releaseInfo = {
+    'pkg/b': { releaseId: 1, tagName: 'b(pkg/b)@2.1.0', makeLatest: false },
+  }
+  const createReleaseMock = mock(async () => releaseInfo)
   mock.module('../create-release', () => ({ createRelease: createReleaseMock }))
 
   const updatePrMock = mock()
@@ -1389,12 +1392,14 @@ test('run does not call runChangepacks publish when publish option is false', as
 
   const getInputMock = mock()
   const getBooleanInputMock = mock()
+  const setOutputMock = mock()
   mock.module('@actions/core', () => ({
     getInput: getInputMock,
     getBooleanInput: getBooleanInputMock,
     debug: mock(),
     error: mock(),
     setFailed: mock(),
+    setOutput: setOutputMock,
   }))
 
   const getOctokitMock = mock()
@@ -1418,6 +1423,7 @@ test('run does not call runChangepacks publish when publish option is false', as
   expect(checkPastMock).toHaveBeenCalled()
   expect(createReleaseMock).toHaveBeenCalledWith(config, pastChangepacks)
   expect(runChangepacksMock).not.toHaveBeenCalledWith('publish')
+  expect(setOutputMock).toHaveBeenCalledWith('changepacks', ['pkg/b'])
   expect(createPrMock).not.toHaveBeenCalled()
 
   mock.module('../install-changepacks', () => originalInstall)

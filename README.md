@@ -101,7 +101,7 @@ jobs:
 
 | Output | Description |
 |--------|-------------|
-| `changepacks` | JSON array of successfully published project paths (e.g., `["bridge/node/package.json"]`) |
+| `changepacks` | JSON array of successfully released or published project paths (e.g., `["bridge/node/package.json"]`) |
 | `release_assets_urls` | JSON object mapping project paths to release asset upload URLs |
 
 ## How It Works

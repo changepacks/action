@@ -70,7 +70,14 @@ export async function run() {
             await sendSlackNotification(releasedChangepacks)
             let publishFailed = false
             const publishedChangepacks: string[] = []
-            if (getBooleanInput('publish')) {
+            const shouldPublish = getBooleanInput('publish')
+            if (!shouldPublish) {
+              const releasedChangepackPaths = Object.keys(releasedChangepacks)
+              if (releasedChangepackPaths.length > 0) {
+                setOutput('changepacks', releasedChangepackPaths)
+              }
+            }
+            if (shouldPublish) {
               const publishTarget = Object.keys(filteredPastChangepacks).filter(
                 (path) =>
                   releaseResult[path] && !releaseResult[path].alreadyExisted,
