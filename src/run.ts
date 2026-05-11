@@ -112,6 +112,25 @@ export async function run() {
                       errors.push(`${path} published failed: ${res.error}`)
                     }
                   }
+                  // Targets in `publishTarget` that are missing from `result`
+                  // were filtered out by changepacks itself (typically via
+                  // `publish_options: -l <language>` or `language` input).
+                  // Their release tags were already created and the actual
+                  // publishing is expected to happen in downstream workflows
+                  // (e.g. npm/pypi publish jobs built from these tags), so
+                  // they must still appear in the `changepacks` output to
+                  // trigger those downstream jobs.
+                  const filteredOutTargets = publishTarget.filter(
+                    (path) => !(path in result),
+                  )
+                  if (filteredOutTargets.length > 0) {
+                    info(
+                      `not published by changepacks, delegated downstream: ${filteredOutTargets.join(
+                        ', ',
+                      )}`,
+                    )
+                    publishedChangepacks.push(...filteredOutTargets)
+                  }
                   info(
                     `published changepacks output: ${JSON.stringify(
                       publishedChangepacks,
@@ -119,8 +138,10 @@ export async function run() {
                       2,
                     )}`,
                   )
-                  // Downstream jobs should run only for packages that actually
-                  // published in this run, not for release candidates or reruns.
+                  // Downstream jobs should run for every package that was
+                  // either published in this run or delegated to another
+                  // pipeline via a language filter. Reruns where releases
+                  // already existed are excluded earlier in the flow.
                   setOutput('changepacks', publishedChangepacks)
                   if (errors.length > 0) {
                     await rollbackReleases(result, releaseResult)

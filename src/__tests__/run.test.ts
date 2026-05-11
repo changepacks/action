@@ -1630,7 +1630,7 @@ test('run calls error and setFailed when publish fails', async () => {
 
   const checkMock = mock(async () => ({}))
   const publishResult = {
-    'pkg/a/package.json': {
+    'pkg/b': {
       result: false,
       error: 'Publish failed: network error',
     },
@@ -1719,12 +1719,12 @@ test('run calls error and setFailed when publish fails', async () => {
   expect(sendSlackMock).toHaveBeenCalledWith(pastChangepacks)
   expect(runChangepacksMock).toHaveBeenCalledWith('publish', '-p', 'pkg/b')
   expect(errorMock).toHaveBeenCalledWith(
-    'pkg/a/package.json published failed: Publish failed: network error',
+    'pkg/b published failed: Publish failed: network error',
   )
   expect(rollbackMock).toHaveBeenCalledWith(publishResult, releaseInfo)
   expect(setOutputMock).toHaveBeenCalledWith('changepacks', [])
   expect(setFailedMock).toHaveBeenCalledWith(
-    'pkg/a/package.json published failed: Publish failed: network error',
+    'pkg/b published failed: Publish failed: network error',
   )
   expect(createPrMock).not.toHaveBeenCalled()
 
@@ -1799,12 +1799,20 @@ test('run handles mixed publish results (some succeed, some fail)', async () => 
   }))
 
   const pastChangepacks = {
-    'pkg/c': {
+    'pkg/a/package.json': {
+      logs: [],
+      version: '1.0.0',
+      nextVersion: '1.0.1',
+      name: 'a',
+      path: 'pkg/a/package.json',
+      changed: false,
+    },
+    'pkg/b/package.json': {
       logs: [],
       version: '2.0.0',
       nextVersion: '2.1.0',
-      name: 'c',
-      path: 'pkg/c',
+      name: 'b',
+      path: 'pkg/b/package.json',
       changed: false,
     },
   }
@@ -1817,7 +1825,16 @@ test('run handles mixed publish results (some succeed, some fail)', async () => 
   mock.module('../create-pr', () => ({ createPr: createPrMock }))
 
   const releaseInfo = {
-    'pkg/c': { releaseId: 1, tagName: 'c(pkg/c)@2.1.0', makeLatest: false },
+    'pkg/a/package.json': {
+      releaseId: 1,
+      tagName: 'a(pkg/a/package.json)@1.0.1',
+      makeLatest: false,
+    },
+    'pkg/b/package.json': {
+      releaseId: 2,
+      tagName: 'b(pkg/b/package.json)@2.1.0',
+      makeLatest: false,
+    },
   }
   const createReleaseMock = mock(async () => releaseInfo)
   mock.module('../create-release', () => ({ createRelease: createReleaseMock }))
@@ -1870,7 +1887,13 @@ test('run handles mixed publish results (some succeed, some fail)', async () => 
 
   expect(createReleaseMock).toHaveBeenCalledWith(config, pastChangepacks)
   expect(sendSlackMock).toHaveBeenCalledWith(pastChangepacks)
-  expect(runChangepacksMock).toHaveBeenCalledWith('publish', '-p', 'pkg/c')
+  expect(runChangepacksMock).toHaveBeenCalledWith(
+    'publish',
+    '-p',
+    'pkg/a/package.json',
+    '-p',
+    'pkg/b/package.json',
+  )
   expect(infoMock).toHaveBeenCalledWith(
     'pkg/a/package.json published successfully',
   )
@@ -1885,6 +1908,220 @@ test('run handles mixed publish results (some succeed, some fail)', async () => 
     'pkg/b/package.json published failed: Publish failed',
   )
   expect(createPrMock).not.toHaveBeenCalled()
+
+  mock.module('../install-changepacks', () => originalInstall)
+  mock.module('../run-changepacks', () => originalCheck)
+  mock.module('../check-past-changepacks', () => originalPast)
+  mock.module('../create-pr', () => originalPr)
+  mock.module('../create-release', () => originalRel)
+  mock.module('../rollback-releases', () => originalRollback)
+  mock.module('../update-pr-comment', () => originalUpdatePr)
+  mock.module('../send-slack-notification', () => originalSlack)
+  mock.module('@actions/core', () => originalCore)
+  mock.module('@actions/github', () => originalGithub)
+  mock.module('../get-changepacks-config', () => originalConfig)
+  mock.module('../fetch-origin', () => originalFetch)
+  mock.module('@actions/exec', () => originalExec)
+})
+
+test('run includes filtered-out publish targets in changepacks output', async () => {
+  const originalInstall = { ...(await import('../install-changepacks')) }
+  const originalCheck = { ...(await import('../run-changepacks')) }
+  const originalPast = { ...(await import('../check-past-changepacks')) }
+  const originalPr = { ...(await import('../create-pr')) }
+  const originalRel = { ...(await import('../create-release')) }
+  const originalRollback = { ...(await import('../rollback-releases')) }
+  const originalUpdatePr = { ...(await import('../update-pr-comment')) }
+  const originalSlack = { ...(await import('../send-slack-notification')) }
+  const originalCore = { ...(await import('@actions/core')) }
+  const originalGithub = { ...(await import('@actions/github')) }
+  const originalConfig = { ...(await import('../get-changepacks-config')) }
+  const originalFetch = { ...(await import('../fetch-origin')) }
+  const originalExec = { ...(await import('@actions/exec')) }
+
+  const execMock = mock(async () => 0)
+  mock.module('@actions/exec', () => ({ exec: execMock }))
+
+  const installMock = mock()
+  mock.module('../install-changepacks', () => ({
+    installChangepacks: installMock,
+  }))
+
+  const config = { baseBranch: 'main', ignore: [], latestPackage: null }
+  const getConfigMock = mock(async () => config)
+  mock.module('../get-changepacks-config', () => ({
+    getChangepacksConfig: getConfigMock,
+  }))
+
+  const fetchOriginMock = mock()
+  mock.module('../fetch-origin', () => ({
+    fetchOrigin: fetchOriginMock,
+  }))
+
+  // changepacks publish was invoked with `publish_options: -l rust`, which
+  // makes changepacks itself only publish the rust crate. The node/python
+  // packages are released as GitHub releases but their actual publishing is
+  // delegated to downstream workflows, so they are absent from the publish
+  // result map.
+  const checkMock = mock(async () => ({}))
+  const publishResult = {
+    'crates/rust/Cargo.toml': {
+      result: true,
+      error: null,
+      stderr: null,
+      stdout: 'cargo publish ok',
+    },
+  }
+  const runChangepacksMock = mock(async (cmd: 'check' | 'publish') => {
+    if (cmd === 'check') {
+      return checkMock()
+    }
+    return publishResult
+  })
+  mock.module('../run-changepacks', () => ({
+    runChangepacks: runChangepacksMock,
+  }))
+
+  const pastChangepacks = {
+    'crates/rust/Cargo.toml': {
+      logs: [],
+      version: '0.1.0',
+      nextVersion: '0.1.1',
+      name: 'rust-crate',
+      path: 'crates/rust/Cargo.toml',
+      changed: false,
+    },
+    'bridge/node/package.json': {
+      logs: [],
+      version: '0.1.0',
+      nextVersion: '0.1.1',
+      name: '@scope/node',
+      path: 'bridge/node/package.json',
+      changed: false,
+    },
+    'bridge/python/pyproject.toml': {
+      logs: [],
+      version: '0.1.0',
+      nextVersion: '0.1.1',
+      name: 'scope-python',
+      path: 'bridge/python/pyproject.toml',
+      changed: false,
+    },
+  }
+  const checkPastMock = mock(async () => pastChangepacks)
+  mock.module('../check-past-changepacks', () => ({
+    checkPastChangepacks: checkPastMock,
+  }))
+
+  const createPrMock = mock()
+  mock.module('../create-pr', () => ({ createPr: createPrMock }))
+
+  const releaseInfo = {
+    'crates/rust/Cargo.toml': {
+      releaseId: 1,
+      tagName: 'rust-crate(crates/rust/Cargo.toml)@0.1.1',
+      makeLatest: false,
+    },
+    'bridge/node/package.json': {
+      releaseId: 2,
+      tagName: '@scope/node(bridge/node/package.json)@0.1.1',
+      makeLatest: false,
+    },
+    'bridge/python/pyproject.toml': {
+      releaseId: 3,
+      tagName: 'scope-python(bridge/python/pyproject.toml)@0.1.1',
+      makeLatest: false,
+    },
+  }
+  const createReleaseMock = mock(async () => releaseInfo)
+  mock.module('../create-release', () => ({ createRelease: createReleaseMock }))
+
+  const rollbackMock = mock()
+  mock.module('../rollback-releases', () => ({
+    rollbackReleases: rollbackMock,
+  }))
+
+  const updatePrMock = mock()
+  mock.module('../update-pr-comment', () => ({
+    updatePrComment: updatePrMock,
+  }))
+
+  const sendSlackMock = mock()
+  mock.module('../send-slack-notification', () => ({
+    sendSlackNotification: sendSlackMock,
+  }))
+
+  const getInputMock = mock((name: string) => {
+    if (name === 'publish_options') return '-l rust'
+    return ''
+  })
+  const getBooleanInputMock = mock(() => true)
+  const infoMock = mock()
+  const errorMock = mock()
+  const setFailedMock = mock()
+  const setOutputMock = mock()
+  mock.module('@actions/core', () => ({
+    getInput: getInputMock,
+    getBooleanInput: getBooleanInputMock,
+    debug: mock(),
+    info: infoMock,
+    error: errorMock,
+    setFailed: setFailedMock,
+    setOutput: setOutputMock,
+  }))
+
+  const updateReleaseMock = mock(async () => ({}))
+  const getOctokitMock = mock(() => ({
+    rest: { repos: { updateRelease: updateReleaseMock } },
+  }))
+  const contextMock = {
+    ...realContext,
+    ref: 'refs/heads/main',
+    repo: { owner: 'acme', repo: 'widgets' },
+    issue: { number: 1 },
+  }
+  mock.module('@actions/github', () => ({
+    context: contextMock,
+    getOctokit: getOctokitMock,
+  }))
+
+  const { run } = await import('../run')
+  await run()
+
+  // changepacks publish is called with -p for every released path AND the
+  // publish_options that were forwarded by the user (-l rust).
+  expect(runChangepacksMock).toHaveBeenCalledWith(
+    'publish',
+    '-p',
+    'crates/rust/Cargo.toml',
+    '-p',
+    'bridge/node/package.json',
+    '-p',
+    'bridge/python/pyproject.toml',
+    '-l',
+    'rust',
+  )
+  // Only the rust crate was actually published by changepacks.
+  expect(infoMock).toHaveBeenCalledWith(
+    'crates/rust/Cargo.toml published successfully',
+  )
+  // The node/python paths were filtered out by `-l rust`, so they should be
+  // surfaced as delegated-downstream so downstream publish jobs can pick
+  // them up via the `changepacks` output.
+  expect(infoMock).toHaveBeenCalledWith(
+    'not published by changepacks, delegated downstream: bridge/node/package.json, bridge/python/pyproject.toml',
+  )
+  // The published output must contain every release that needs follow-up
+  // work: the rust crate that changepacks published itself plus the
+  // node/python paths that downstream pipelines will publish.
+  expect(setOutputMock).toHaveBeenCalledWith('changepacks', [
+    'crates/rust/Cargo.toml',
+    'bridge/node/package.json',
+    'bridge/python/pyproject.toml',
+  ])
+  // Nothing failed, so rollback / setFailed must not have been triggered.
+  expect(rollbackMock).not.toHaveBeenCalled()
+  expect(setFailedMock).not.toHaveBeenCalled()
 
   mock.module('../install-changepacks', () => originalInstall)
   mock.module('../run-changepacks', () => originalCheck)
