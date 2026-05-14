@@ -55,7 +55,6 @@ test('updatePr posts combined body to the PR issue', async () => {
     },
   }
 
-  mock.module('../update-pr-comment', () => require('../update-pr-comment'))
   const { updatePrComment: updatePr } = await import('../update-pr-comment')
   await updatePr(changepacks, 123)
 
@@ -130,7 +129,6 @@ test('updatePr updates existing Changepacks comment by github-actions[bot]', asy
     },
   }
 
-  mock.module('../update-pr-comment', () => require('../update-pr-comment'))
   const { updatePrComment: updatePr } = await import('../update-pr-comment')
   await updatePr(changepacks, 123)
 
@@ -217,7 +215,6 @@ test('updatePr updates existing Changepacks comment by github-actions[bot] 2', a
     },
   }
 
-  mock.module('../update-pr-comment', () => require('../update-pr-comment'))
   const { updatePrComment: updatePr } = await import('../update-pr-comment')
   await updatePr(changepacks, 123)
 
@@ -289,7 +286,6 @@ test('updatePr creates new comment when no existing Changepacks comment', async 
     },
   }
 
-  mock.module('../update-pr-comment', () => require('../update-pr-comment'))
   const { updatePrComment: updatePr } = await import('../update-pr-comment')
   await updatePr(changepacks, 123)
 
@@ -363,7 +359,6 @@ test('updatePr warns when listComments fails', async () => {
     },
   }
 
-  mock.module('../update-pr-comment', () => require('../update-pr-comment'))
   const { updatePrComment: updatePr } = await import('../update-pr-comment')
   await updatePr(changepacks, 123)
 
@@ -435,7 +430,6 @@ test('updatePr warns when updateComment fails', async () => {
     },
   }
 
-  mock.module('../update-pr-comment', () => require('../update-pr-comment'))
   const { updatePrComment: updatePr } = await import('../update-pr-comment')
   await updatePr(changepacks, 123)
 
@@ -501,7 +495,6 @@ test('updatePr warns when createComment fails', async () => {
     },
   }
 
-  mock.module('../update-pr-comment', () => require('../update-pr-comment'))
   const { updatePrComment: updatePr } = await import('../update-pr-comment')
   await updatePr(changepacks, 123)
 
@@ -511,6 +504,68 @@ test('updatePr warns when createComment fails', async () => {
   expect(errorMock).toHaveBeenCalledWith(
     expect.stringContaining('update pr comment failed'),
   )
+
+  mock.module('@actions/core', () => originalCore)
+  mock.module('@actions/github', () => originalGithub)
+})
+
+test('updatePr skips failure when PR comment is blocked by integration permissions', async () => {
+  const originalCore = { ...(await import('@actions/core')) }
+  const originalGithub = { ...(await import('@actions/github')) }
+
+  const errorMock = mock()
+  const setFailedMock = mock()
+  const warningMock = mock()
+  const getInputMock = mock((name: string) => (name === 'token' ? 'T' : ''))
+  mock.module('@actions/core', () => ({
+    getInput: getInputMock,
+    error: errorMock,
+    setFailed: setFailedMock,
+    warning: warningMock,
+  }))
+
+  const listCommentsMock = mock(async () => ({ data: [] }))
+  const createCommentMock = mock(async () => {
+    throw new Error('Resource not accessible by integration')
+  })
+  const octokit = {
+    rest: {
+      issues: {
+        listComments: listCommentsMock,
+        createComment: createCommentMock,
+      },
+    },
+  }
+  const getOctokitMock = mock((_token: string) => octokit)
+  const contextMock = {
+    repo: { owner: 'acme', repo: 'widgets' },
+    issue: { number: 123 },
+  }
+  mock.module('@actions/github', () => ({
+    getOctokit: getOctokitMock,
+    context: contextMock,
+  }))
+
+  const changepacks: ChangepackResultMap = {
+    'packages/a/package.json': {
+      logs: [{ type: 'Patch', note: 'fix' }],
+      version: '1.0.0',
+      nextVersion: '1.0.1',
+      name: 'a',
+      path: 'packages/a/package.json',
+      changed: false,
+    },
+  }
+
+  const { updatePrComment: updatePr } = await import('../update-pr-comment')
+  await updatePr(changepacks, 123)
+
+  expect(createCommentMock).toHaveBeenCalled()
+  expect(warningMock).toHaveBeenCalledWith(
+    expect.stringContaining('skip pr comment'),
+  )
+  expect(errorMock).not.toHaveBeenCalled()
+  expect(setFailedMock).not.toHaveBeenCalled()
 
   mock.module('@actions/core', () => originalCore)
   mock.module('@actions/github', () => originalGithub)

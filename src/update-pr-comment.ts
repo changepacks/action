@@ -5,10 +5,17 @@ import {
   info,
   setFailed,
   startGroup,
+  warning,
 } from '@actions/core'
 import { context, getOctokit } from '@actions/github'
 import { createContents } from './create-contents'
 import type { ChangepackResultMap } from './types'
+
+function isPermissionDeniedError(e: unknown): boolean {
+  const message = e instanceof Error ? e.message : String(e)
+
+  return message.includes('Resource not accessible by integration')
+}
 
 export async function updatePrComment(
   changepacks: ChangepackResultMap,
@@ -49,6 +56,11 @@ export async function updatePrComment(
       })
     }
   } catch (e) {
+    if (isPermissionDeniedError(e)) {
+      warning(`skip pr comment: ${e}`)
+      return
+    }
+
     error(`update pr comment failed: ${e}`)
     setFailed(e as Error)
   } finally {
