@@ -1635,12 +1635,21 @@ test('run calls error and setFailed when publish fails', async () => {
       error: 'Publish failed: network error',
     },
   }
-  const runChangepacksMock = mock(async (cmd: 'check' | 'publish') => {
-    if (cmd === 'check') {
-      return checkMock()
-    }
-    return publishResult
-  })
+  const runChangepacksMock = mock(
+    async (cmd: 'check' | 'publish', ...args: string[]) => {
+      if (cmd === 'check') {
+        return checkMock()
+      }
+      // Dry-run pass should succeed so the test can exercise the
+      // actual publish failure path.
+      if (args.includes('--dry-run')) {
+        return {
+          'pkg/b': { result: true, error: null, stdout: '', stderr: '' },
+        }
+      }
+      return publishResult
+    },
+  )
   mock.module('../run-changepacks', () => ({
     runChangepacks: runChangepacksMock,
   }))
@@ -1788,12 +1797,32 @@ test('run handles mixed publish results (some succeed, some fail)', async () => 
       error: 'Publish failed',
     },
   }
-  const runChangepacksMock = mock(async (cmd: 'check' | 'publish') => {
-    if (cmd === 'check') {
-      return checkMock()
-    }
-    return publishResult
-  })
+  const runChangepacksMock = mock(
+    async (cmd: 'check' | 'publish', ...args: string[]) => {
+      if (cmd === 'check') {
+        return checkMock()
+      }
+      // Dry-run pass should succeed so the test can exercise the
+      // actual publish failure path.
+      if (args.includes('--dry-run')) {
+        return {
+          'pkg/a/package.json': {
+            result: true,
+            error: null,
+            stdout: '',
+            stderr: '',
+          },
+          'pkg/b/package.json': {
+            result: true,
+            error: null,
+            stdout: '',
+            stderr: '',
+          },
+        }
+      }
+      return publishResult
+    },
+  )
   mock.module('../run-changepacks', () => ({
     runChangepacks: runChangepacksMock,
   }))
@@ -2714,12 +2743,22 @@ test('run rolls back all releases when publish command crashes (exit code 1)', a
 
   const checkMock = mock(async () => ({}))
   const publishError = new Error('Process failed with exit code 1')
-  const runChangepacksMock = mock(async (cmd: 'check' | 'publish') => {
-    if (cmd === 'check') {
-      return checkMock()
-    }
-    throw publishError
-  })
+  const runChangepacksMock = mock(
+    async (cmd: 'check' | 'publish', ...args: string[]) => {
+      if (cmd === 'check') {
+        return checkMock()
+      }
+      // Dry-run pass should succeed so the test can exercise the
+      // actual publish crash path.
+      if (args.includes('--dry-run')) {
+        return {
+          'pkg/a': { result: true, error: null, stdout: '', stderr: '' },
+          'pkg/b': { result: true, error: null, stdout: '', stderr: '' },
+        }
+      }
+      throw publishError
+    },
+  )
   mock.module('../run-changepacks', () => ({
     runChangepacks: runChangepacksMock,
   }))
@@ -2893,12 +2932,22 @@ test('run calls rollbackReleases with publish result and release info when publi
     'pkg/a': { result: true, error: null },
     'pkg/b': { result: false, error: 'npm publish failed' },
   }
-  const runChangepacksMock = mock(async (cmd: 'check' | 'publish') => {
-    if (cmd === 'check') {
-      return checkMock()
-    }
-    return publishResult
-  })
+  const runChangepacksMock = mock(
+    async (cmd: 'check' | 'publish', ...args: string[]) => {
+      if (cmd === 'check') {
+        return checkMock()
+      }
+      // Dry-run pass should succeed so the test can exercise the
+      // actual publish failure path.
+      if (args.includes('--dry-run')) {
+        return {
+          'pkg/a': { result: true, error: null, stdout: '', stderr: '' },
+          'pkg/b': { result: true, error: null, stdout: '', stderr: '' },
+        }
+      }
+      return publishResult
+    },
+  )
   mock.module('../run-changepacks', () => ({
     runChangepacks: runChangepacksMock,
   }))
@@ -2997,6 +3046,382 @@ test('run calls rollbackReleases with publish result and release info when publi
   expect(setFailedMock).toHaveBeenCalledWith(
     'pkg/b published failed: npm publish failed',
   )
+
+  mock.module('../install-changepacks', () => originalInstall)
+  mock.module('../run-changepacks', () => originalCheck)
+  mock.module('../check-past-changepacks', () => originalPast)
+  mock.module('../create-pr', () => originalPr)
+  mock.module('../create-release', () => originalRel)
+  mock.module('../rollback-releases', () => originalRollback)
+  mock.module('../update-pr-comment', () => originalUpdatePr)
+  mock.module('../send-slack-notification', () => originalSlack)
+  mock.module('@actions/core', () => originalCore)
+  mock.module('@actions/github', () => originalGithub)
+  mock.module('../get-changepacks-config', () => originalConfig)
+  mock.module('../fetch-origin', () => originalFetch)
+  mock.module('@actions/exec', () => originalExec)
+})
+
+test('run rolls back releases and skips publish when dry-run reports per-package failure', async () => {
+  const originalInstall = { ...(await import('../install-changepacks')) }
+  const originalCheck = { ...(await import('../run-changepacks')) }
+  const originalPast = { ...(await import('../check-past-changepacks')) }
+  const originalPr = { ...(await import('../create-pr')) }
+  const originalRel = { ...(await import('../create-release')) }
+  const originalRollback = { ...(await import('../rollback-releases')) }
+  const originalUpdatePr = { ...(await import('../update-pr-comment')) }
+  const originalSlack = { ...(await import('../send-slack-notification')) }
+  const originalCore = { ...(await import('@actions/core')) }
+  const originalGithub = { ...(await import('@actions/github')) }
+  const originalConfig = { ...(await import('../get-changepacks-config')) }
+  const originalFetch = { ...(await import('../fetch-origin')) }
+  const originalExec = { ...(await import('@actions/exec')) }
+
+  const execMock = mock(async () => 0)
+  mock.module('@actions/exec', () => ({ exec: execMock }))
+
+  const installMock = mock()
+  mock.module('../install-changepacks', () => ({
+    installChangepacks: installMock,
+  }))
+
+  const config = { baseBranch: 'main', ignore: [], latestPackage: null }
+  const getConfigMock = mock(async () => config)
+  mock.module('../get-changepacks-config', () => ({
+    getChangepacksConfig: getConfigMock,
+  }))
+
+  const fetchOriginMock = mock()
+  mock.module('../fetch-origin', () => ({
+    fetchOrigin: fetchOriginMock,
+  }))
+
+  const checkMock = mock(async () => ({}))
+  // Dry-run returns mixed results: one succeeds (with stdout), one fails.
+  // This drives the entire dry-run loop: the success branch logs stdout,
+  // and the failure branch builds dryRunErrors and triggers rollback.
+  const dryRunResult = {
+    'pkg/a': {
+      result: true,
+      error: null,
+      stdout: 'npm notice dry-run ok',
+      stderr: null,
+    },
+    'pkg/b': {
+      result: false,
+      error: null,
+      stdout: '',
+      stderr: 'EPUBLISHCONFLICT: package version already exists',
+    },
+  }
+  const runChangepacksMock = mock(
+    async (cmd: 'check' | 'publish', ...args: string[]) => {
+      if (cmd === 'check') {
+        return checkMock()
+      }
+      if (args.includes('--dry-run')) {
+        return dryRunResult
+      }
+      // Actual publish must never be reached.
+      throw new Error('actual publish should not run when dry-run fails')
+    },
+  )
+  mock.module('../run-changepacks', () => ({
+    runChangepacks: runChangepacksMock,
+  }))
+
+  const pastChangepacks = {
+    'pkg/a': {
+      logs: [],
+      version: '1.0.0',
+      nextVersion: '1.1.0',
+      name: 'a',
+      path: 'pkg/a',
+      changed: false,
+    },
+    'pkg/b': {
+      logs: [],
+      version: '2.0.0',
+      nextVersion: '2.1.0',
+      name: 'b',
+      path: 'pkg/b',
+      changed: false,
+    },
+  }
+  const checkPastMock = mock(async () => pastChangepacks)
+  mock.module('../check-past-changepacks', () => ({
+    checkPastChangepacks: checkPastMock,
+  }))
+
+  const createPrMock = mock()
+  mock.module('../create-pr', () => ({ createPr: createPrMock }))
+
+  const releaseInfo = {
+    'pkg/a': {
+      releaseId: 10,
+      tagName: 'a(pkg/a)@1.1.0',
+      makeLatest: true,
+    },
+    'pkg/b': {
+      releaseId: 20,
+      tagName: 'b(pkg/b)@2.1.0',
+      makeLatest: false,
+    },
+  }
+  const createReleaseMock = mock(async () => releaseInfo)
+  mock.module('../create-release', () => ({ createRelease: createReleaseMock }))
+
+  const rollbackMock = mock()
+  mock.module('../rollback-releases', () => ({
+    rollbackReleases: rollbackMock,
+  }))
+
+  const updatePrMock = mock()
+  mock.module('../update-pr-comment', () => ({
+    updatePrComment: updatePrMock,
+  }))
+
+  const sendSlackMock = mock()
+  mock.module('../send-slack-notification', () => ({
+    sendSlackNotification: sendSlackMock,
+  }))
+
+  const getInputMock = mock()
+  const getBooleanInputMock = mock(() => true)
+  const infoMock = mock()
+  const errorMock = mock()
+  const setFailedMock = mock()
+  mock.module('@actions/core', () => ({
+    getInput: getInputMock,
+    getBooleanInput: getBooleanInputMock,
+    debug: mock(),
+    info: infoMock,
+    error: errorMock,
+    setFailed: setFailedMock,
+  }))
+
+  const getOctokitMock = mock()
+  const contextMock = {
+    ...realContext,
+    ref: 'refs/heads/main',
+    repo: { owner: 'acme', repo: 'widgets' },
+    issue: { number: 1 },
+  }
+  mock.module('@actions/github', () => ({
+    context: contextMock,
+    getOctokit: getOctokitMock,
+  }))
+
+  const { run } = await import('../run')
+  await run()
+
+  expect(runChangepacksMock).toHaveBeenCalledWith(
+    'publish',
+    '--dry-run',
+    '-p',
+    'pkg/a',
+    '-p',
+    'pkg/b',
+  )
+  // Actual publish call must NOT have happened.
+  expect(runChangepacksMock).not.toHaveBeenCalledWith(
+    'publish',
+    '-p',
+    'pkg/a',
+    '-p',
+    'pkg/b',
+  )
+  // Success branch must log stdout when present.
+  expect(infoMock).toHaveBeenCalledWith('pkg/a dry-run succeeded')
+  expect(infoMock).toHaveBeenCalledWith('dry-run stdout: npm notice dry-run ok')
+  // Failure branch falls back to stderr when error is null.
+  expect(errorMock).toHaveBeenCalledWith(
+    'pkg/b dry-run failed: EPUBLISHCONFLICT: package version already exists',
+  )
+  // Rollback marks ALL publish targets as failed (so partial releases get cleaned up).
+  expect(rollbackMock).toHaveBeenCalledWith(
+    {
+      'pkg/a': {
+        result: false,
+        error: 'dry-run failed: unknown error',
+        stderr: null,
+        stdout: 'npm notice dry-run ok',
+      },
+      'pkg/b': {
+        result: false,
+        error:
+          'dry-run failed: EPUBLISHCONFLICT: package version already exists',
+        stderr: 'EPUBLISHCONFLICT: package version already exists',
+        stdout: '',
+      },
+    },
+    releaseInfo,
+  )
+  expect(setFailedMock).toHaveBeenCalledWith(
+    'pkg/b dry-run failed: EPUBLISHCONFLICT: package version already exists',
+  )
+
+  mock.module('../install-changepacks', () => originalInstall)
+  mock.module('../run-changepacks', () => originalCheck)
+  mock.module('../check-past-changepacks', () => originalPast)
+  mock.module('../create-pr', () => originalPr)
+  mock.module('../create-release', () => originalRel)
+  mock.module('../rollback-releases', () => originalRollback)
+  mock.module('../update-pr-comment', () => originalUpdatePr)
+  mock.module('../send-slack-notification', () => originalSlack)
+  mock.module('@actions/core', () => originalCore)
+  mock.module('@actions/github', () => originalGithub)
+  mock.module('../get-changepacks-config', () => originalConfig)
+  mock.module('../fetch-origin', () => originalFetch)
+  mock.module('@actions/exec', () => originalExec)
+})
+
+test('run rolls back releases and skips publish when dry-run crashes', async () => {
+  const originalInstall = { ...(await import('../install-changepacks')) }
+  const originalCheck = { ...(await import('../run-changepacks')) }
+  const originalPast = { ...(await import('../check-past-changepacks')) }
+  const originalPr = { ...(await import('../create-pr')) }
+  const originalRel = { ...(await import('../create-release')) }
+  const originalRollback = { ...(await import('../rollback-releases')) }
+  const originalUpdatePr = { ...(await import('../update-pr-comment')) }
+  const originalSlack = { ...(await import('../send-slack-notification')) }
+  const originalCore = { ...(await import('@actions/core')) }
+  const originalGithub = { ...(await import('@actions/github')) }
+  const originalConfig = { ...(await import('../get-changepacks-config')) }
+  const originalFetch = { ...(await import('../fetch-origin')) }
+  const originalExec = { ...(await import('@actions/exec')) }
+
+  const execMock = mock(async () => 0)
+  mock.module('@actions/exec', () => ({ exec: execMock }))
+
+  const installMock = mock()
+  mock.module('../install-changepacks', () => ({
+    installChangepacks: installMock,
+  }))
+
+  const config = { baseBranch: 'main', ignore: [], latestPackage: null }
+  const getConfigMock = mock(async () => config)
+  mock.module('../get-changepacks-config', () => ({
+    getChangepacksConfig: getConfigMock,
+  }))
+
+  const fetchOriginMock = mock()
+  mock.module('../fetch-origin', () => ({
+    fetchOrigin: fetchOriginMock,
+  }))
+
+  const checkMock = mock(async () => ({}))
+  const dryRunError = new Error('binary spawn failed: ENOENT')
+  const runChangepacksMock = mock(
+    async (cmd: 'check' | 'publish', ...args: string[]) => {
+      if (cmd === 'check') {
+        return checkMock()
+      }
+      if (args.includes('--dry-run')) {
+        throw dryRunError
+      }
+      throw new Error('actual publish should not run when dry-run crashes')
+    },
+  )
+  mock.module('../run-changepacks', () => ({
+    runChangepacks: runChangepacksMock,
+  }))
+
+  const pastChangepacks = {
+    'pkg/a': {
+      logs: [],
+      version: '1.0.0',
+      nextVersion: '1.1.0',
+      name: 'a',
+      path: 'pkg/a',
+      changed: false,
+    },
+  }
+  const checkPastMock = mock(async () => pastChangepacks)
+  mock.module('../check-past-changepacks', () => ({
+    checkPastChangepacks: checkPastMock,
+  }))
+
+  const createPrMock = mock()
+  mock.module('../create-pr', () => ({ createPr: createPrMock }))
+
+  const releaseInfo = {
+    'pkg/a': {
+      releaseId: 10,
+      tagName: 'a(pkg/a)@1.1.0',
+      makeLatest: false,
+    },
+  }
+  const createReleaseMock = mock(async () => releaseInfo)
+  mock.module('../create-release', () => ({ createRelease: createReleaseMock }))
+
+  const rollbackMock = mock()
+  mock.module('../rollback-releases', () => ({
+    rollbackReleases: rollbackMock,
+  }))
+
+  const updatePrMock = mock()
+  mock.module('../update-pr-comment', () => ({
+    updatePrComment: updatePrMock,
+  }))
+
+  const sendSlackMock = mock()
+  mock.module('../send-slack-notification', () => ({
+    sendSlackNotification: sendSlackMock,
+  }))
+
+  const getInputMock = mock()
+  const getBooleanInputMock = mock(() => true)
+  const infoMock = mock()
+  const errorMock = mock()
+  const setFailedMock = mock()
+  mock.module('@actions/core', () => ({
+    getInput: getInputMock,
+    getBooleanInput: getBooleanInputMock,
+    debug: mock(),
+    info: infoMock,
+    error: errorMock,
+    setFailed: setFailedMock,
+  }))
+
+  const getOctokitMock = mock()
+  const contextMock = {
+    ...realContext,
+    ref: 'refs/heads/main',
+    repo: { owner: 'acme', repo: 'widgets' },
+    issue: { number: 1 },
+  }
+  mock.module('@actions/github', () => ({
+    context: contextMock,
+    getOctokit: getOctokitMock,
+  }))
+
+  const { run } = await import('../run')
+  await run()
+
+  expect(runChangepacksMock).toHaveBeenCalledWith(
+    'publish',
+    '--dry-run',
+    '-p',
+    'pkg/a',
+  )
+  // Actual publish must not run after a dry-run crash.
+  expect(runChangepacksMock).not.toHaveBeenCalledWith('publish', '-p', 'pkg/a')
+  expect(errorMock).toHaveBeenCalledWith(
+    `publish --dry-run crashed: ${dryRunError}`,
+  )
+  expect(rollbackMock).toHaveBeenCalledWith(
+    {
+      'pkg/a': {
+        result: false,
+        error: `dry-run crashed: ${String(dryRunError)}`,
+        stderr: null,
+        stdout: null,
+      },
+    },
+    releaseInfo,
+  )
+  expect(setFailedMock).toHaveBeenCalledWith(dryRunError)
 
   mock.module('../install-changepacks', () => originalInstall)
   mock.module('../run-changepacks', () => originalCheck)

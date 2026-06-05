@@ -1,0 +1,14 @@
+# Enforce LF line endings across all OSes to match biome's default.
+# Without this, Windows checkouts with `git config core.autocrlf=true` would
+# convert files to CRLF and break `bun run lint` even though no source change
+# was made on disk.
+* text=auto eol=lf
+
+# Binary files - never normalize.
+*.png binary
+*.jpg binary
+*.jpeg binary
+*.gif binary
+*.ico binary
+*.lock binary
+bun.lock binary
