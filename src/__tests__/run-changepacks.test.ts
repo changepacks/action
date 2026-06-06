@@ -124,7 +124,7 @@ test('runChangepacks executes update command with -y flag and returns parsed JSO
   mock.module('../run-changepacks', () => originalRunChangepacks)
 })
 
-test('runChangepacks handles output from both stdout and stderr', async () => {
+test('runChangepacks parses only stdout and ignores stderr noise', async () => {
   const originalExec = { ...(await import('@actions/exec')) }
   const originalCore = { ...(await import('@actions/core')) }
   const originalRunChangepacks = { ...(await import('../run-changepacks')) }
@@ -152,10 +152,10 @@ test('runChangepacks handles output from both stdout and stderr', async () => {
       },
     ) => {
       const jsonOutput = JSON.stringify(expectedResult)
-      // Split output between stdout and stderr to test both listeners
-      const half = Math.floor(jsonOutput.length / 2)
-      options?.listeners?.stdout?.(Buffer.from(jsonOutput.substring(0, half)))
-      options?.listeners?.stderr?.(Buffer.from(jsonOutput.substring(half)))
+      // stdout carries the JSON; stderr carries human-readable noise that
+      // must NOT be appended to the JSON parse input.
+      options?.listeners?.stdout?.(Buffer.from(jsonOutput))
+      options?.listeners?.stderr?.(Buffer.from('warning: deprecated flag\n'))
       return 0
     },
   )
@@ -605,7 +605,7 @@ test('runChangepacks calls debug with changepacks output', async () => {
 
   expect(debugMock).toHaveBeenCalledWith('running changepacks check')
   expect(debugMock).toHaveBeenCalledWith(
-    expect.stringContaining('changepacks output:'),
+    expect.stringContaining('changepacks stdout:'),
   )
 
   mock.module('@actions/exec', () => originalExec)
@@ -903,6 +903,187 @@ test('runChangepacks uses non-exe extension on non-Windows platforms', async () 
     writable: true,
     configurable: true,
   })
+
+  mock.module('@actions/exec', () => originalExec)
+  mock.module('@actions/core', () => originalCore)
+  mock.module('../run-changepacks', () => originalRunChangepacks)
+})
+
+// Regression: changepacks publish writes valid JSON to stdout and
+// human-readable error context to stderr on partial failures. The
+// JSON parser must never see stderr content.
+test('runChangepacks publish parses stdout JSON when stderr carries failure message and exec exits non-zero', async () => {
+  const originalExec = { ...(await import('@actions/exec')) }
+  const originalCore = { ...(await import('@actions/core')) }
+  const originalRunChangepacks = { ...(await import('../run-changepacks')) }
+
+  const expectedResult: Record<string, ChangepackPublishResult> = {
+    'bindings/devup-ui-wasm/package.json': {
+      result: false,
+      error: 'npm publish failed',
+      stderr: 'npm ERR! 403 Forbidden',
+      stdout: null,
+    },
+    'packages/ok/package.json': {
+      result: true,
+      error: null,
+      stderr: null,
+      stdout: 'published',
+    },
+  }
+  const publishError = new Error('Process failed with exit code 1')
+
+  const execMock = mock(
+    async (
+      _cmd: string,
+      _args?: string[],
+      options?: {
+        listeners?: {
+          stdout?: (data: Buffer) => void
+          stderr?: (data: Buffer) => void
+        }
+      },
+    ) => {
+      options?.listeners?.stdout?.(Buffer.from(JSON.stringify(expectedResult)))
+      options?.listeners?.stderr?.(
+        Buffer.from(
+          'Error: Failed to publish 1 project(s): bindings/devup-ui-wasm/package.json\n',
+        ),
+      )
+      throw publishError
+    },
+  )
+  mock.module('@actions/exec', () => ({ exec: execMock }))
+
+  const warningMock = mock()
+  const debugMock = mock()
+  mock.module('@actions/core', () => ({
+    debug: debugMock,
+    warning: warningMock,
+    isDebug: mock(() => false),
+    getInput: mock(() => ''),
+  }))
+
+  const { runChangepacks } = await import('../run-changepacks')
+  const result = await runChangepacks('publish')
+
+  expect(result).toEqual(expectedResult)
+  expect(warningMock).toHaveBeenCalledWith(
+    `changepacks publish exited with error: ${publishError}`,
+  )
+  expect(warningMock).toHaveBeenCalledWith(
+    expect.stringContaining('changepacks stderr:'),
+  )
+
+  mock.module('@actions/exec', () => originalExec)
+  mock.module('@actions/core', () => originalCore)
+  mock.module('../run-changepacks', () => originalRunChangepacks)
+})
+
+test('runChangepacks publish throws when stdout is empty and only stderr was produced', async () => {
+  const originalExec = { ...(await import('@actions/exec')) }
+  const originalCore = { ...(await import('@actions/core')) }
+  const originalRunChangepacks = { ...(await import('../run-changepacks')) }
+
+  const publishError = new Error('Process failed with exit code 1')
+
+  const execMock = mock(
+    async (
+      _cmd: string,
+      _args?: string[],
+      options?: {
+        listeners?: {
+          stdout?: (data: Buffer) => void
+          stderr?: (data: Buffer) => void
+        }
+      },
+    ) => {
+      options?.listeners?.stderr?.(
+        Buffer.from('Error: Failed to publish 1 project(s): foo\n'),
+      )
+      throw publishError
+    },
+  )
+  mock.module('@actions/exec', () => ({ exec: execMock }))
+
+  mock.module('@actions/core', () => ({
+    debug: mock(),
+    warning: mock(),
+    isDebug: mock(() => false),
+    getInput: mock(() => ''),
+  }))
+
+  const { runChangepacks } = await import('../run-changepacks')
+
+  await expect(runChangepacks('publish')).rejects.toThrow(
+    'Process failed with exit code 1',
+  )
+
+  mock.module('@actions/exec', () => originalExec)
+  mock.module('@actions/core', () => originalCore)
+  mock.module('../run-changepacks', () => originalRunChangepacks)
+})
+
+test('runChangepacks publish handles interleaved stdout/stderr chunks without breaking JSON parse', async () => {
+  const originalExec = { ...(await import('@actions/exec')) }
+  const originalCore = { ...(await import('@actions/core')) }
+  const originalRunChangepacks = { ...(await import('../run-changepacks')) }
+
+  const expectedResult: Record<string, ChangepackPublishResult> = {
+    'packages/a/package.json': {
+      result: true,
+      error: null,
+      stderr: null,
+      stdout: 'published',
+    },
+    'packages/b/package.json': {
+      result: false,
+      error: 'failed',
+      stderr: 'npm ERR',
+      stdout: null,
+    },
+  }
+  const publishError = new Error('Process failed with exit code 1')
+
+  const execMock = mock(
+    async (
+      _cmd: string,
+      _args?: string[],
+      options?: {
+        listeners?: {
+          stdout?: (data: Buffer) => void
+          stderr?: (data: Buffer) => void
+        }
+      },
+    ) => {
+      const jsonOutput = JSON.stringify(expectedResult)
+      const third = Math.floor(jsonOutput.length / 3)
+      // stdout chunk 1 -> stderr noise -> stdout chunk 2 -> more stderr -> stdout tail
+      options?.listeners?.stdout?.(Buffer.from(jsonOutput.substring(0, third)))
+      options?.listeners?.stderr?.(Buffer.from('Compiling foo...\n'))
+      options?.listeners?.stdout?.(
+        Buffer.from(jsonOutput.substring(third, third * 2)),
+      )
+      options?.listeners?.stderr?.(
+        Buffer.from('Error: Failed to publish 1 project(s): foo\n'),
+      )
+      options?.listeners?.stdout?.(Buffer.from(jsonOutput.substring(third * 2)))
+      throw publishError
+    },
+  )
+  mock.module('@actions/exec', () => ({ exec: execMock }))
+
+  mock.module('@actions/core', () => ({
+    debug: mock(),
+    warning: mock(),
+    isDebug: mock(() => false),
+    getInput: mock(() => ''),
+  }))
+
+  const { runChangepacks } = await import('../run-changepacks')
+  const result = await runChangepacks('publish')
+
+  expect(result).toEqual(expectedResult)
 
   mock.module('@actions/exec', () => originalExec)
   mock.module('@actions/core', () => originalCore)

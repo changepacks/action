@@ -33,7 +33,8 @@ export async function runChangepacks(
   command: 'check' | 'update' | 'publish',
   ...args: string[]
 ): Promise<ChangepackResultMap | Record<string, ChangepackPublishResult>> {
-  let output = ''
+  let stdout = ''
+  let stderr = ''
   debug(`running changepacks ${command}`)
   const bin = resolve(
     process.platform === 'win32' ? 'changepacks.exe' : 'changepacks',
@@ -57,25 +58,34 @@ export async function runChangepacks(
       {
         listeners: {
           stdout: (data) => {
-            debug(`stdout: ${data.toString()}`)
-            output += data.toString()
+            const s = data.toString()
+            debug(`stdout: ${s}`)
+            stdout += s
           },
           stderr: (data) => {
-            debug(`stderr: ${data.toString()}`)
-            output += data.toString()
+            const s = data.toString()
+            debug(`stderr: ${s}`)
+            stderr += s
           },
         },
         silent: !isDebug(),
       },
     )
   } catch (err: unknown) {
-    if (command !== 'publish' || !output) {
+    if (command !== 'publish' || !stdout) {
       throw err
     }
     // Publish may exit non-zero for partial failures while still emitting
-    // per-package JSON. Preserve that detail so only failed packages rollback.
+    // per-package JSON on stdout. Preserve stderr for debug visibility so
+    // we never feed human-readable error text into JSON.parse.
     warning(`changepacks publish exited with error: ${err}`)
+    if (stderr) {
+      warning(`changepacks stderr: ${stderr}`)
+    }
   }
-  debug(`changepacks output: ${output}`)
-  return JSON.parse(output)
+  debug(`changepacks stdout: ${stdout}`)
+  if (stderr) {
+    debug(`changepacks stderr: ${stderr}`)
+  }
+  return JSON.parse(stdout)
 }
