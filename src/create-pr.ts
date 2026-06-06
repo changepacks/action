@@ -103,7 +103,9 @@ export async function createPr(mainChangepacks: ChangepackResultMap) {
         },
       )
       debug(`commit changepacks`)
-      await exec('git', ['commit', '-m', 'Update Versions'], {
+      // --no-verify: automated version-bump commit must not trigger the host
+      // repo's pre-commit hooks (e.g. husky test/coverage gates)
+      await exec('git', ['commit', '-m', 'Update Versions', '--no-verify'], {
         silent: !isDebug(),
       })
       debug(`push branch: ${head}`)
