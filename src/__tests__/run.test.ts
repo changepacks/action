@@ -3062,7 +3062,7 @@ test('run calls rollbackReleases with publish result and release info when publi
   mock.module('@actions/exec', () => originalExec)
 })
 
-test('run rolls back releases and skips publish when dry-run reports per-package failure', async () => {
+test('run aborts before createRelease when dry-run reports per-package failure', async () => {
   const originalInstall = { ...(await import('../install-changepacks')) }
   const originalCheck = { ...(await import('../run-changepacks')) }
   const originalPast = { ...(await import('../check-past-changepacks')) }
@@ -3231,31 +3231,20 @@ test('run rolls back releases and skips publish when dry-run reports per-package
     '-p',
     'pkg/b',
   )
+  // Dry-run is a GATE: createRelease, sendSlackNotification, and the
+  // post-failure rollback path must ALL be skipped when dry-run reports a
+  // per-package failure. The whole run aborts before any GitHub release
+  // is created so the user never ends up with stale releases that block
+  // a rerun.
+  expect(createReleaseMock).not.toHaveBeenCalled()
+  expect(sendSlackMock).not.toHaveBeenCalled()
+  expect(rollbackMock).not.toHaveBeenCalled()
   // Success branch must log stdout when present.
   expect(infoMock).toHaveBeenCalledWith('pkg/a dry-run succeeded')
   expect(infoMock).toHaveBeenCalledWith('dry-run stdout: npm notice dry-run ok')
   // Failure branch falls back to stderr when error is null.
   expect(errorMock).toHaveBeenCalledWith(
     'pkg/b dry-run failed: EPUBLISHCONFLICT: package version already exists',
-  )
-  // Rollback marks ALL publish targets as failed (so partial releases get cleaned up).
-  expect(rollbackMock).toHaveBeenCalledWith(
-    {
-      'pkg/a': {
-        result: false,
-        error: 'dry-run failed: unknown error',
-        stderr: null,
-        stdout: 'npm notice dry-run ok',
-      },
-      'pkg/b': {
-        result: false,
-        error:
-          'dry-run failed: EPUBLISHCONFLICT: package version already exists',
-        stderr: 'EPUBLISHCONFLICT: package version already exists',
-        stdout: '',
-      },
-    },
-    releaseInfo,
   )
   expect(setFailedMock).toHaveBeenCalledWith(
     'pkg/b dry-run failed: EPUBLISHCONFLICT: package version already exists',
@@ -3276,7 +3265,7 @@ test('run rolls back releases and skips publish when dry-run reports per-package
   mock.module('@actions/exec', () => originalExec)
 })
 
-test('run rolls back releases and skips publish when dry-run crashes', async () => {
+test('run aborts before createRelease when dry-run crashes', async () => {
   const originalInstall = { ...(await import('../install-changepacks')) }
   const originalCheck = { ...(await import('../run-changepacks')) }
   const originalPast = { ...(await import('../check-past-changepacks')) }
@@ -3410,17 +3399,12 @@ test('run rolls back releases and skips publish when dry-run crashes', async () 
   expect(errorMock).toHaveBeenCalledWith(
     `publish --dry-run crashed: ${dryRunError}`,
   )
-  expect(rollbackMock).toHaveBeenCalledWith(
-    {
-      'pkg/a': {
-        result: false,
-        error: `dry-run crashed: ${String(dryRunError)}`,
-        stderr: null,
-        stdout: null,
-      },
-    },
-    releaseInfo,
-  )
+  // Dry-run is a GATE: a crash before createRelease aborts the entire run
+  // so no GitHub release / tag is created and there is nothing to roll
+  // back. sendSlackNotification is also skipped for the same reason.
+  expect(createReleaseMock).not.toHaveBeenCalled()
+  expect(sendSlackMock).not.toHaveBeenCalled()
+  expect(rollbackMock).not.toHaveBeenCalled()
   expect(setFailedMock).toHaveBeenCalledWith(dryRunError)
 
   mock.module('../install-changepacks', () => originalInstall)

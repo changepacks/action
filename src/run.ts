@@ -21,6 +21,45 @@ import { sendSlackNotification } from './send-slack-notification'
 import type { ChangepackPublishResult } from './types'
 import { updatePrComment } from './update-pr-comment'
 
+/**
+ * Resolve a human-readable failure message from a `changepacks publish`
+ * result. Falls back to `'unknown error'` so log lines never print
+ * `undefined` or `null` when both fields are missing.
+ */
+function formatPublishError(
+  res: Pick<ChangepackPublishResult, 'error' | 'stderr'> | undefined,
+): string {
+  return res?.error ?? res?.stderr ?? 'unknown error'
+}
+
+/**
+ * Build a uniform `Record<path, ChangepackPublishResult>` marking every
+ * publish target as failed, used to feed `rollbackReleases` when the
+ * publish pipeline must abort as a batch (dry-run failure, dry-run crash,
+ * actual publish crash). The `errorBuilder` callback lets each call site
+ * shape the per-package error message while reusing the rollback contract.
+ */
+function buildAllFailed(
+  publishTarget: string[],
+  errorBuilder: (res: ChangepackPublishResult | undefined) => string,
+  resultByPath: Record<string, ChangepackPublishResult> = {},
+): Record<string, ChangepackPublishResult> {
+  return Object.fromEntries(
+    publishTarget.map((path) => {
+      const res = resultByPath[path]
+      return [
+        path,
+        {
+          result: false,
+          error: errorBuilder(res),
+          stderr: res?.stderr ?? null,
+          stdout: res?.stdout ?? null,
+        },
+      ]
+    }),
+  )
+}
+
 export async function run() {
   try {
     await installChangepacks()
@@ -57,6 +96,52 @@ export async function run() {
           }),
         )
         if (Object.keys(filteredPastChangepacks).length > 0) {
+          const shouldPublish = getBooleanInput('publish')
+          const publishOptionsStr = getInput('publish_options')
+          const publishOptions = publishOptionsStr
+            ? publishOptionsStr.split(/\s+/).filter(Boolean)
+            : []
+          // GATE: when publish is requested, validate the publish pipeline
+          // with `changepacks publish --dry-run` BEFORE any GitHub release
+          // / tag is created. A dry-run failure must abort the entire run
+          // so the user does not end up with stale releases that block
+          // subsequent retries (the rerun would otherwise hit the
+          // "all releases already exist, skipping publish" branch and the
+          // original failure reason stays hidden).
+          if (shouldPublish) {
+            const dryRunTarget = Object.keys(filteredPastChangepacks)
+            try {
+              const dryRunResult = await runChangepacks(
+                'publish',
+                '--dry-run',
+                ...dryRunTarget.flatMap((path) => ['-p', path]),
+                ...publishOptions,
+              )
+              const dryRunErrors: string[] = []
+              for (const [path, res] of Object.entries(dryRunResult)) {
+                if (res.result) {
+                  info(`${path} dry-run succeeded`)
+                  if (res.stdout) {
+                    info(`dry-run stdout: ${res.stdout}`)
+                  }
+                } else {
+                  const msg = `${path} dry-run failed: ${formatPublishError(res)}`
+                  error(msg)
+                  dryRunErrors.push(msg)
+                }
+              }
+              if (dryRunErrors.length > 0) {
+                setFailed(dryRunErrors.join('\n'))
+                return
+              }
+            } catch (err: unknown) {
+              error(`publish --dry-run crashed: ${err}`)
+              setFailed(err instanceof Error ? err : String(err))
+              return
+            }
+          }
+          // Dry-run passed (or publish was not requested): create the
+          // GitHub releases and proceed with the actual publish step.
           const releaseResult = await createRelease(
             config,
             filteredPastChangepacks,
@@ -70,7 +155,6 @@ export async function run() {
             await sendSlackNotification(releasedChangepacks)
             let publishFailed = false
             const publishedChangepacks: string[] = []
-            const shouldPublish = getBooleanInput('publish')
             if (!shouldPublish) {
               const releasedChangepackPaths = Object.keys(releasedChangepacks)
               if (releasedChangepackPaths.length > 0) {
@@ -90,148 +174,79 @@ export async function run() {
                 setOutput('changepacks', publishedChangepacks)
                 info('all releases already exist, skipping publish')
               } else {
-                const publishOptionsStr = getInput('publish_options')
-                const publishOptions = publishOptionsStr
-                  ? publishOptionsStr.split(/\s+/).filter(Boolean)
-                  : []
-                // Run a dry-run pass first to verify the publish pipeline works
-                // before mutating any registry. Any per-package failure aborts
-                // the run and rolls back the releases we just created.
+                // Actual publish. Dry-run already validated the pipeline
+                // above, so any failure here is a real registry-side error
+                // and we still defensively roll back the releases we just
+                // created.
                 try {
-                  const dryRunResult = await runChangepacks(
+                  const result = await runChangepacks(
                     'publish',
-                    '--dry-run',
                     ...publishTarget.flatMap((path) => ['-p', path]),
                     ...publishOptions,
                   )
-                  const dryRunErrors: string[] = []
-                  for (const [path, res] of Object.entries(dryRunResult)) {
+                  const errors = []
+
+                  for (const [path, res] of Object.entries(result)) {
                     if (res.result) {
-                      info(`${path} dry-run succeeded`)
-                      if (res.stdout) {
-                        info(`dry-run stdout: ${res.stdout}`)
-                      }
+                      info(`${path} published successfully`)
+                      info(`stdout: ${res.stdout}`)
+                      publishedChangepacks.push(path)
                     } else {
-                      error(
-                        `${path} dry-run failed: ${res.error ?? res.stderr}`,
-                      )
-                      dryRunErrors.push(
-                        `${path} dry-run failed: ${res.error ?? res.stderr}`,
-                      )
+                      // Use `formatPublishError` so the same fallback chain
+                      // (error → stderr → 'unknown error') applies as the
+                      // dry-run failure path. Keeps the surfaced message
+                      // identical to the existing test expectation when
+                      // `res.error` is set, and avoids printing `null`
+                      // / `undefined` when only stderr is populated.
+                      const msg = `${path} published failed: ${formatPublishError(res)}`
+                      error(msg)
+                      errors.push(msg)
                     }
                   }
-                  if (dryRunErrors.length > 0) {
-                    const allFailed: Record<string, ChangepackPublishResult> =
-                      Object.fromEntries(
-                        publishTarget.map((path) => [
-                          path,
-                          {
-                            result: false,
-                            error: `dry-run failed: ${
-                              dryRunResult[path]?.error ??
-                              dryRunResult[path]?.stderr ??
-                              'unknown error'
-                            }`,
-                            stderr: dryRunResult[path]?.stderr ?? null,
-                            stdout: dryRunResult[path]?.stdout ?? null,
-                          },
-                        ]),
-                      )
-                    await rollbackReleases(allFailed, releaseResult)
-                    setFailed(dryRunErrors.join('\n'))
+                  // Targets in `publishTarget` that are missing from `result`
+                  // were filtered out by changepacks itself (typically via
+                  // `publish_options: -l <language>` or `language` input).
+                  // Their release tags were already created and the actual
+                  // publishing is expected to happen in downstream workflows
+                  // (e.g. npm/pypi publish jobs built from these tags), so
+                  // they must still appear in the `changepacks` output to
+                  // trigger those downstream jobs.
+                  const filteredOutTargets = publishTarget.filter(
+                    (path) => !(path in result),
+                  )
+                  if (filteredOutTargets.length > 0) {
+                    info(
+                      `not published by changepacks, delegated downstream: ${filteredOutTargets.join(
+                        ', ',
+                      )}`,
+                    )
+                    publishedChangepacks.push(...filteredOutTargets)
+                  }
+                  info(
+                    `published changepacks output: ${JSON.stringify(
+                      publishedChangepacks,
+                      null,
+                      2,
+                    )}`,
+                  )
+                  // Downstream jobs should run for every package that was
+                  // either published in this run or delegated to another
+                  // pipeline via a language filter. Reruns where releases
+                  // already existed are excluded earlier in the flow.
+                  setOutput('changepacks', publishedChangepacks)
+                  if (errors.length > 0) {
+                    await rollbackReleases(result, releaseResult)
+                    setFailed(errors.join('\n'))
                     publishFailed = true
                   }
                 } catch (err: unknown) {
-                  error(`publish --dry-run crashed: ${err}`)
-                  const allFailed: Record<string, ChangepackPublishResult> =
-                    Object.fromEntries(
-                      publishTarget.map((path) => [
-                        path,
-                        {
-                          result: false,
-                          error: `dry-run crashed: ${String(err)}`,
-                          stderr: null,
-                          stdout: null,
-                        },
-                      ]),
-                    )
-                  await rollbackReleases(allFailed, releaseResult)
-                  setFailed(err as Error)
+                  error(`publish crashed: ${err}`)
+                  await rollbackReleases(
+                    buildAllFailed(publishTarget, () => String(err)),
+                    releaseResult,
+                  )
+                  setFailed(err instanceof Error ? err : String(err))
                   publishFailed = true
-                }
-                if (!publishFailed) {
-                  try {
-                    const result = await runChangepacks(
-                      'publish',
-                      ...publishTarget.flatMap((path) => ['-p', path]),
-                      ...publishOptions,
-                    )
-                    const errors = []
-
-                    for (const [path, res] of Object.entries(result)) {
-                      if (res.result) {
-                        info(`${path} published successfully`)
-                        info(`stdout: ${res.stdout}`)
-                        publishedChangepacks.push(path)
-                      } else {
-                        error(`${path} published failed: ${res.error}`)
-                        errors.push(`${path} published failed: ${res.error}`)
-                      }
-                    }
-                    // Targets in `publishTarget` that are missing from `result`
-                    // were filtered out by changepacks itself (typically via
-                    // `publish_options: -l <language>` or `language` input).
-                    // Their release tags were already created and the actual
-                    // publishing is expected to happen in downstream workflows
-                    // (e.g. npm/pypi publish jobs built from these tags), so
-                    // they must still appear in the `changepacks` output to
-                    // trigger those downstream jobs.
-                    const filteredOutTargets = publishTarget.filter(
-                      (path) => !(path in result),
-                    )
-                    if (filteredOutTargets.length > 0) {
-                      info(
-                        `not published by changepacks, delegated downstream: ${filteredOutTargets.join(
-                          ', ',
-                        )}`,
-                      )
-                      publishedChangepacks.push(...filteredOutTargets)
-                    }
-                    info(
-                      `published changepacks output: ${JSON.stringify(
-                        publishedChangepacks,
-                        null,
-                        2,
-                      )}`,
-                    )
-                    // Downstream jobs should run for every package that was
-                    // either published in this run or delegated to another
-                    // pipeline via a language filter. Reruns where releases
-                    // already existed are excluded earlier in the flow.
-                    setOutput('changepacks', publishedChangepacks)
-                    if (errors.length > 0) {
-                      await rollbackReleases(result, releaseResult)
-                      setFailed(errors.join('\n'))
-                      publishFailed = true
-                    }
-                  } catch (err: unknown) {
-                    error(`publish crashed: ${err}`)
-                    const allFailed: Record<string, ChangepackPublishResult> =
-                      Object.fromEntries(
-                        publishTarget.map((path) => [
-                          path,
-                          {
-                            result: false,
-                            error: String(err),
-                            stderr: null,
-                            stdout: null,
-                          },
-                        ]),
-                      )
-                    await rollbackReleases(allFailed, releaseResult)
-                    setFailed(err as Error)
-                    publishFailed = true
-                  }
                 }
               }
             }
