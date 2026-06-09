@@ -94,69 +94,62 @@ export async function run() {
                 const publishOptions = publishOptionsStr
                   ? publishOptionsStr.split(/\s+/).filter(Boolean)
                   : []
+                // Run a dry-run pass first to verify the publish pipeline works
+                // before mutating any registry. Any per-package failure aborts
+                // the run and rolls back the releases we just created.
                 try {
-                  const result = await runChangepacks(
+                  const dryRunResult = await runChangepacks(
                     'publish',
+                    '--dry-run',
                     ...publishTarget.flatMap((path) => ['-p', path]),
                     ...publishOptions,
                   )
-                  const errors = []
-
-                  for (const [path, res] of Object.entries(result)) {
+                  const dryRunErrors: string[] = []
+                  for (const [path, res] of Object.entries(dryRunResult)) {
                     if (res.result) {
-                      info(`${path} published successfully`)
-                      info(`stdout: ${res.stdout}`)
-                      publishedChangepacks.push(path)
+                      info(`${path} dry-run succeeded`)
+                      if (res.stdout) {
+                        info(`dry-run stdout: ${res.stdout}`)
+                      }
                     } else {
-                      error(`${path} published failed: ${res.error}`)
-                      errors.push(`${path} published failed: ${res.error}`)
+                      error(
+                        `${path} dry-run failed: ${res.error ?? res.stderr}`,
+                      )
+                      dryRunErrors.push(
+                        `${path} dry-run failed: ${res.error ?? res.stderr}`,
+                      )
                     }
                   }
-                  // Targets in `publishTarget` that are missing from `result`
-                  // were filtered out by changepacks itself (typically via
-                  // `publish_options: -l <language>` or `language` input).
-                  // Their release tags were already created and the actual
-                  // publishing is expected to happen in downstream workflows
-                  // (e.g. npm/pypi publish jobs built from these tags), so
-                  // they must still appear in the `changepacks` output to
-                  // trigger those downstream jobs.
-                  const filteredOutTargets = publishTarget.filter(
-                    (path) => !(path in result),
-                  )
-                  if (filteredOutTargets.length > 0) {
-                    info(
-                      `not published by changepacks, delegated downstream: ${filteredOutTargets.join(
-                        ', ',
-                      )}`,
-                    )
-                    publishedChangepacks.push(...filteredOutTargets)
-                  }
-                  info(
-                    `published changepacks output: ${JSON.stringify(
-                      publishedChangepacks,
-                      null,
-                      2,
-                    )}`,
-                  )
-                  // Downstream jobs should run for every package that was
-                  // either published in this run or delegated to another
-                  // pipeline via a language filter. Reruns where releases
-                  // already existed are excluded earlier in the flow.
-                  setOutput('changepacks', publishedChangepacks)
-                  if (errors.length > 0) {
-                    await rollbackReleases(result, releaseResult)
-                    setFailed(errors.join('\n'))
+                  if (dryRunErrors.length > 0) {
+                    const allFailed: Record<string, ChangepackPublishResult> =
+                      Object.fromEntries(
+                        publishTarget.map((path) => [
+                          path,
+                          {
+                            result: false,
+                            error: `dry-run failed: ${
+                              dryRunResult[path]?.error ??
+                              dryRunResult[path]?.stderr ??
+                              'unknown error'
+                            }`,
+                            stderr: dryRunResult[path]?.stderr ?? null,
+                            stdout: dryRunResult[path]?.stdout ?? null,
+                          },
+                        ]),
+                      )
+                    await rollbackReleases(allFailed, releaseResult)
+                    setFailed(dryRunErrors.join('\n'))
                     publishFailed = true
                   }
                 } catch (err: unknown) {
-                  error(`publish crashed: ${err}`)
+                  error(`publish --dry-run crashed: ${err}`)
                   const allFailed: Record<string, ChangepackPublishResult> =
                     Object.fromEntries(
                       publishTarget.map((path) => [
                         path,
                         {
                           result: false,
-                          error: String(err),
+                          error: `dry-run crashed: ${String(err)}`,
                           stderr: null,
                           stdout: null,
                         },
@@ -165,6 +158,80 @@ export async function run() {
                   await rollbackReleases(allFailed, releaseResult)
                   setFailed(err as Error)
                   publishFailed = true
+                }
+                if (!publishFailed) {
+                  try {
+                    const result = await runChangepacks(
+                      'publish',
+                      ...publishTarget.flatMap((path) => ['-p', path]),
+                      ...publishOptions,
+                    )
+                    const errors = []
+
+                    for (const [path, res] of Object.entries(result)) {
+                      if (res.result) {
+                        info(`${path} published successfully`)
+                        info(`stdout: ${res.stdout}`)
+                        publishedChangepacks.push(path)
+                      } else {
+                        error(`${path} published failed: ${res.error}`)
+                        errors.push(`${path} published failed: ${res.error}`)
+                      }
+                    }
+                    // Targets in `publishTarget` that are missing from `result`
+                    // were filtered out by changepacks itself (typically via
+                    // `publish_options: -l <language>` or `language` input).
+                    // Their release tags were already created and the actual
+                    // publishing is expected to happen in downstream workflows
+                    // (e.g. npm/pypi publish jobs built from these tags), so
+                    // they must still appear in the `changepacks` output to
+                    // trigger those downstream jobs.
+                    const filteredOutTargets = publishTarget.filter(
+                      (path) => !(path in result),
+                    )
+                    if (filteredOutTargets.length > 0) {
+                      info(
+                        `not published by changepacks, delegated downstream: ${filteredOutTargets.join(
+                          ', ',
+                        )}`,
+                      )
+                      publishedChangepacks.push(...filteredOutTargets)
+                    }
+                    info(
+                      `published changepacks output: ${JSON.stringify(
+                        publishedChangepacks,
+                        null,
+                        2,
+                      )}`,
+                    )
+                    // Downstream jobs should run for every package that was
+                    // either published in this run or delegated to another
+                    // pipeline via a language filter. Reruns where releases
+                    // already existed are excluded earlier in the flow.
+                    setOutput('changepacks', publishedChangepacks)
+                    if (errors.length > 0) {
+                      await rollbackReleases(result, releaseResult)
+                      setFailed(errors.join('\n'))
+                      publishFailed = true
+                    }
+                  } catch (err: unknown) {
+                    error(`publish crashed: ${err}`)
+                    const allFailed: Record<string, ChangepackPublishResult> =
+                      Object.fromEntries(
+                        publishTarget.map((path) => [
+                          path,
+                          {
+                            result: false,
+                            error: String(err),
+                            stderr: null,
+                            stdout: null,
+                          },
+                        ]),
+                      )
+                    await rollbackReleases(allFailed, releaseResult)
+                    setFailed(err as Error)
+                    publishFailed = true
+                  }
                 }
               }
             }
