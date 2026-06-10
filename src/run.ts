@@ -1,4 +1,5 @@
 import {
+  endGroup,
   error,
   getBooleanInput,
   getInput,
@@ -6,6 +7,7 @@ import {
   isDebug,
   setFailed,
   setOutput,
+  startGroup,
 } from '@actions/core'
 import { exec } from '@actions/exec'
 import { context, getOctokit } from '@actions/github'
@@ -110,6 +112,10 @@ export async function run() {
           // original failure reason stays hidden).
           if (shouldPublish) {
             const dryRunTarget = Object.keys(filteredPastChangepacks)
+            info(`dry-run target: ${dryRunTarget.join(', ')}`)
+            const dryRunSuccesses: string[] = []
+            const dryRunMissing: string[] = []
+            startGroup('dry-run')
             try {
               const dryRunResult = await runChangepacks(
                 'publish',
@@ -121,6 +127,7 @@ export async function run() {
               for (const [path, res] of Object.entries(dryRunResult)) {
                 if (res.result) {
                   info(`${path} dry-run succeeded`)
+                  dryRunSuccesses.push(path)
                   if (res.stdout) {
                     info(`dry-run stdout: ${res.stdout}`)
                   }
@@ -130,14 +137,36 @@ export async function run() {
                   dryRunErrors.push(msg)
                 }
               }
+              // Surface targets the changepacks CLI did not return any result
+              // for (typically filtered out by `publish_options: -l <lang>`
+              // or `language` input). These get delegated to downstream
+              // workflows so they should not block the gate, but they MUST
+              // be visible so the user can tell which packages were actually
+              // validated by dry-run versus skipped.
+              for (const path of dryRunTarget) {
+                if (!(path in dryRunResult)) {
+                  dryRunMissing.push(path)
+                }
+              }
               if (dryRunErrors.length > 0) {
+                endGroup()
                 setFailed(dryRunErrors.join('\n'))
                 return
               }
             } catch (err: unknown) {
+              endGroup()
               error(`publish --dry-run crashed: ${err}`)
               setFailed(err instanceof Error ? err : String(err))
               return
+            }
+            endGroup()
+            info(
+              `dry-run summary: ${dryRunSuccesses.length}/${dryRunTarget.length} validated (${dryRunSuccesses.join(', ') || 'none'})`,
+            )
+            if (dryRunMissing.length > 0) {
+              info(
+                `dry-run skipped (delegated downstream): ${dryRunMissing.join(', ')}`,
+              )
             }
           }
           // Dry-run passed (or publish was not requested): create the
@@ -178,6 +207,8 @@ export async function run() {
                 // above, so any failure here is a real registry-side error
                 // and we still defensively roll back the releases we just
                 // created.
+                info(`publishing: ${publishTarget.join(', ')}`)
+                startGroup('publish')
                 try {
                   const result = await runChangepacks(
                     'publish',
@@ -189,7 +220,12 @@ export async function run() {
                   for (const [path, res] of Object.entries(result)) {
                     if (res.result) {
                       info(`${path} published successfully`)
-                      info(`stdout: ${res.stdout}`)
+                      if (res.stdout) {
+                        info(`publish stdout: ${res.stdout}`)
+                      }
+                      if (res.stderr) {
+                        info(`publish stderr: ${res.stderr}`)
+                      }
                       publishedChangepacks.push(path)
                     } else {
                       // Use `formatPublishError` so the same fallback chain
@@ -200,6 +236,17 @@ export async function run() {
                       // / `undefined` when only stderr is populated.
                       const msg = `${path} published failed: ${formatPublishError(res)}`
                       error(msg)
+                      // Surface the full child stdout / stderr so the user can
+                      // see the actual registry response (npm 401, cargo 5xx,
+                      // hung TLS handshake, etc.). Without this, a 15-minute
+                      // step timeout strips the only diagnostic that explains
+                      // why the publish failed.
+                      if (res.stdout) {
+                        error(`${path} publish stdout: ${res.stdout}`)
+                      }
+                      if (res.stderr) {
+                        error(`${path} publish stderr: ${res.stderr}`)
+                      }
                       errors.push(msg)
                     }
                   }
@@ -235,11 +282,18 @@ export async function run() {
                   // already existed are excluded earlier in the flow.
                   setOutput('changepacks', publishedChangepacks)
                   if (errors.length > 0) {
+                    endGroup()
                     await rollbackReleases(result, releaseResult)
                     setFailed(errors.join('\n'))
                     publishFailed = true
+                  } else {
+                    endGroup()
+                    info(
+                      `publish summary: ${publishedChangepacks.length}/${publishTarget.length} succeeded (${publishedChangepacks.join(', ') || 'none'})`,
+                    )
                   }
                 } catch (err: unknown) {
+                  endGroup()
                   error(`publish crashed: ${err}`)
                   await rollbackReleases(
                     buildAllFailed(publishTarget, () => String(err)),
