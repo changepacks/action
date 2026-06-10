@@ -1791,9 +1791,19 @@ test('run handles mixed publish results (some succeed, some fail)', async () => 
     'pkg/a/package.json': {
       result: true,
       error: null,
+      stdout: 'npm notice published @scope/a@1.0.0',
+      // Truthy stderr on success exercises the `info publish stderr: ...`
+      // branch so the operator sees warnings even when publish ultimately
+      // succeeded (e.g. npm deprecation notice, cargo registry retry).
+      stderr: 'npm warn deprecated dep@x',
     },
     'pkg/b/package.json': {
       result: false,
+      // Both stdout and stderr populated to surface the full child output
+      // on the failure path — the only diagnostic that explains why the
+      // publish failed when the action only has a 15-minute window.
+      stdout: 'npm notice tarball already uploaded',
+      stderr: 'E401 unauthorized',
       error: 'Publish failed',
     },
   }
