@@ -14,6 +14,7 @@ import { context, getOctokit } from '@actions/github'
 import { checkPastChangepacks } from './check-past-changepacks'
 import { createPr } from './create-pr'
 import { createRelease } from './create-release'
+import { detectWorkspaceInternalDeps } from './detect-workspace-internal-deps'
 import { fetchOrigin } from './fetch-origin'
 import { getChangepacksConfig } from './get-changepacks-config'
 import { installChangepacks } from './install-changepacks'
@@ -111,62 +112,85 @@ export async function run() {
           // "all releases already exist, skipping publish" branch and the
           // original failure reason stays hidden).
           if (shouldPublish) {
-            const dryRunTarget = Object.keys(filteredPastChangepacks)
-            info(`dry-run target: ${dryRunTarget.join(', ')}`)
+            const allTargets = Object.keys(filteredPastChangepacks)
+            info(`dry-run target: ${allTargets.join(', ')}`)
+            // Pre-filter Rust crates whose dependencies are also being
+            // bumped in this run. `cargo publish --dry-run` cannot resolve
+            // the not-yet-published version and would emit a false-positive
+            // `failed to select a version for the requirement` error. The
+            // real publish runs in topological order and succeeds; see
+            // rust-lang/cargo#1169.
+            const { filtered: dryRunTarget, skipped: workspaceInternalSkips } =
+              await detectWorkspaceInternalDeps(allTargets)
+            if (workspaceInternalSkips.length > 0) {
+              info(
+                `dry-run skipped (workspace-internal dep — rust-lang/cargo#1169): ${workspaceInternalSkips.join(', ')}`,
+              )
+            }
             const dryRunSuccesses: string[] = []
             const dryRunMissing: string[] = []
-            startGroup('dry-run')
-            try {
-              const dryRunResult = await runChangepacks(
-                'publish',
-                '--dry-run',
-                ...dryRunTarget.flatMap((path) => ['-p', path]),
-                ...publishOptions,
+            if (dryRunTarget.length === 0) {
+              // Every target was filtered out (e.g. a single Rust workspace
+              // bumping every member at once). There is nothing to validate
+              // beyond the already-logged skips, so skip the changepacks
+              // invocation entirely and proceed to createRelease.
+              info(
+                'dry-run summary: 0 validated (all targets skipped as workspace-internal deps)',
               )
-              const dryRunErrors: string[] = []
-              for (const [path, res] of Object.entries(dryRunResult)) {
-                if (res.result) {
-                  info(`${path} dry-run succeeded`)
-                  dryRunSuccesses.push(path)
-                  if (res.stdout) {
-                    info(`dry-run stdout: ${res.stdout}`)
+            } else {
+              startGroup('dry-run')
+              try {
+                const dryRunResult = await runChangepacks(
+                  'publish',
+                  '--dry-run',
+                  ...dryRunTarget.flatMap((path) => ['-p', path]),
+                  ...publishOptions,
+                )
+                const dryRunErrors: string[] = []
+                for (const [path, res] of Object.entries(dryRunResult)) {
+                  if (res.result) {
+                    info(`${path} dry-run succeeded`)
+                    dryRunSuccesses.push(path)
+                    if (res.stdout) {
+                      info(`dry-run stdout: ${res.stdout}`)
+                    }
+                  } else {
+                    const msg = `${path} dry-run failed: ${formatPublishError(res)}`
+                    error(msg)
+                    dryRunErrors.push(msg)
                   }
-                } else {
-                  const msg = `${path} dry-run failed: ${formatPublishError(res)}`
-                  error(msg)
-                  dryRunErrors.push(msg)
                 }
-              }
-              // Surface targets the changepacks CLI did not return any result
-              // for (typically filtered out by `publish_options: -l <lang>`
-              // or `language` input). These get delegated to downstream
-              // workflows so they should not block the gate, but they MUST
-              // be visible so the user can tell which packages were actually
-              // validated by dry-run versus skipped.
-              for (const path of dryRunTarget) {
-                if (!(path in dryRunResult)) {
-                  dryRunMissing.push(path)
+                // Surface targets the changepacks CLI did not return any result
+                // for (typically filtered out by `publish_options: -l <lang>`
+                // or `language` input). These get delegated to downstream
+                // workflows so they should not block the gate, but they MUST
+                // be visible so the user can tell which packages were actually
+                // validated by dry-run versus skipped.
+                for (const path of dryRunTarget) {
+                  if (!(path in dryRunResult)) {
+                    dryRunMissing.push(path)
+                  }
                 }
-              }
-              if (dryRunErrors.length > 0) {
+                if (dryRunErrors.length > 0) {
+                  endGroup()
+                  setFailed(dryRunErrors.join('\n'))
+                  return
+                }
+              } catch (err: unknown) {
                 endGroup()
-                setFailed(dryRunErrors.join('\n'))
+                error(`publish --dry-run crashed: ${err}`)
+                setFailed(err instanceof Error ? err : String(err))
                 return
               }
-            } catch (err: unknown) {
               endGroup()
-              error(`publish --dry-run crashed: ${err}`)
-              setFailed(err instanceof Error ? err : String(err))
-              return
-            }
-            endGroup()
-            info(
-              `dry-run summary: ${dryRunSuccesses.length}/${dryRunTarget.length} validated (${dryRunSuccesses.join(', ') || 'none'})`,
-            )
-            if (dryRunMissing.length > 0) {
               info(
-                `dry-run skipped (delegated downstream): ${dryRunMissing.join(', ')}`,
+                `dry-run summary: ${dryRunSuccesses.length}/${dryRunTarget.length} validated (${dryRunSuccesses.join(', ') || 'none'})`,
               )
+              if (dryRunMissing.length > 0) {
+                info(
+                  `dry-run skipped (delegated downstream): ${dryRunMissing.join(', ')}`,
+                )
+              }
             }
           }
           // Dry-run passed (or publish was not requested): create the

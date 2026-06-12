@@ -3431,3 +3431,400 @@ test('run aborts before createRelease when dry-run crashes', async () => {
   mock.module('../fetch-origin', () => originalFetch)
   mock.module('@actions/exec', () => originalExec)
 })
+
+test('run logs workspace-internal dep skips and continues dry-run for remaining targets', async () => {
+  const originalInstall = { ...(await import('../install-changepacks')) }
+  const originalCheck = { ...(await import('../run-changepacks')) }
+  const originalPast = { ...(await import('../check-past-changepacks')) }
+  const originalPr = { ...(await import('../create-pr')) }
+  const originalRel = { ...(await import('../create-release')) }
+  const originalRollback = { ...(await import('../rollback-releases')) }
+  const originalUpdatePr = { ...(await import('../update-pr-comment')) }
+  const originalSlack = { ...(await import('../send-slack-notification')) }
+  const originalCore = { ...(await import('@actions/core')) }
+  const originalGithub = { ...(await import('@actions/github')) }
+  const originalConfig = { ...(await import('../get-changepacks-config')) }
+  const originalFetch = { ...(await import('../fetch-origin')) }
+  const originalExec = { ...(await import('@actions/exec')) }
+  const originalDetect = {
+    ...(await import('../detect-workspace-internal-deps')),
+  }
+
+  const execMock = mock(async () => 0)
+  mock.module('@actions/exec', () => ({ exec: execMock }))
+
+  const installMock = mock()
+  mock.module('../install-changepacks', () => ({
+    installChangepacks: installMock,
+  }))
+
+  const config = { baseBranch: 'main', ignore: [], latestPackage: null }
+  const getConfigMock = mock(async () => config)
+  mock.module('../get-changepacks-config', () => ({
+    getChangepacksConfig: getConfigMock,
+  }))
+
+  const fetchOriginMock = mock()
+  mock.module('../fetch-origin', () => ({ fetchOrigin: fetchOriginMock }))
+
+  const checkMock = mock(async () => ({}))
+  // Both passes succeed when invoked. The point of the test is to verify
+  // that the skip log fires AND that the dry-run only sees the
+  // non-skipped path.
+  const runChangepacksMock = mock(
+    async (cmd: 'check' | 'publish', ...args: string[]) => {
+      if (cmd === 'check') {
+        return checkMock()
+      }
+      if (args.includes('--dry-run')) {
+        return {
+          'pkg/a/package.json': {
+            result: true,
+            error: null,
+            stdout: 'ok',
+            stderr: '',
+          },
+        }
+      }
+      return {
+        'pkg/a/package.json': {
+          result: true,
+          error: null,
+          stdout: 'published',
+          stderr: '',
+        },
+      }
+    },
+  )
+  mock.module('../run-changepacks', () => ({
+    runChangepacks: runChangepacksMock,
+  }))
+
+  const pastChangepacks = {
+    'pkg/a/package.json': {
+      logs: [],
+      version: '1.0.0',
+      nextVersion: '1.1.0',
+      name: 'pkg-a',
+      path: 'pkg/a/package.json',
+      changed: false,
+    },
+    'crates/parent/Cargo.toml': {
+      logs: [],
+      version: '1.0.0',
+      nextVersion: '1.1.0',
+      name: 'crate-parent',
+      path: 'crates/parent/Cargo.toml',
+      changed: false,
+    },
+  }
+  const checkPastMock = mock(async () => pastChangepacks)
+  mock.module('../check-past-changepacks', () => ({
+    checkPastChangepacks: checkPastMock,
+  }))
+
+  const createPrMock = mock()
+  mock.module('../create-pr', () => ({ createPr: createPrMock }))
+
+  const releaseInfo = {
+    'pkg/a/package.json': {
+      releaseId: 10,
+      tagName: 'pkg-a@1.1.0',
+      makeLatest: false,
+    },
+    'crates/parent/Cargo.toml': {
+      releaseId: 20,
+      tagName: 'crate-parent@1.1.0',
+      makeLatest: false,
+    },
+  }
+  const createReleaseMock = mock(async () => releaseInfo)
+  mock.module('../create-release', () => ({ createRelease: createReleaseMock }))
+
+  const rollbackMock = mock()
+  mock.module('../rollback-releases', () => ({
+    rollbackReleases: rollbackMock,
+  }))
+
+  const updatePrMock = mock()
+  mock.module('../update-pr-comment', () => ({
+    updatePrComment: updatePrMock,
+  }))
+
+  const sendSlackMock = mock()
+  mock.module('../send-slack-notification', () => ({
+    sendSlackNotification: sendSlackMock,
+  }))
+
+  // The crux of the test: the detector reports one skipped Rust target.
+  const detectMock = mock(async () => ({
+    filtered: ['pkg/a/package.json'],
+    skipped: ['crates/parent/Cargo.toml'],
+  }))
+  mock.module('../detect-workspace-internal-deps', () => ({
+    detectWorkspaceInternalDeps: detectMock,
+  }))
+
+  const getInputMock = mock()
+  const getBooleanInputMock = mock(() => true)
+  const infoMock = mock()
+  const errorMock = mock()
+  const setFailedMock = mock()
+  mock.module('@actions/core', () => ({
+    getInput: getInputMock,
+    getBooleanInput: getBooleanInputMock,
+    debug: mock(),
+    info: infoMock,
+    error: errorMock,
+    setFailed: setFailedMock,
+    setOutput: mock(),
+    startGroup: mock(),
+    endGroup: mock(),
+    isDebug: mock(() => false),
+  }))
+
+  const getOctokitMock = mock(() => ({
+    rest: { repos: { updateRelease: mock(async () => ({})) } },
+  }))
+  const contextMock = {
+    ...realContext,
+    ref: 'refs/heads/main',
+    repo: { owner: 'acme', repo: 'widgets' },
+    issue: { number: 1 },
+  }
+  mock.module('@actions/github', () => ({
+    context: contextMock,
+    getOctokit: getOctokitMock,
+  }))
+
+  const { run } = await import('../run')
+  await run()
+
+  // The detector must receive the full target list, not the filtered one.
+  expect(detectMock).toHaveBeenCalledWith([
+    'pkg/a/package.json',
+    'crates/parent/Cargo.toml',
+  ])
+  // The skip log must fire with the rust-lang/cargo#1169 reference so the
+  // operator can immediately understand why the path was excluded.
+  expect(infoMock).toHaveBeenCalledWith(
+    'dry-run skipped (workspace-internal dep — rust-lang/cargo#1169): crates/parent/Cargo.toml',
+  )
+  // The dry-run runChangepacks invocation must only include the filtered
+  // path; the skipped path must NOT be passed to changepacks.
+  expect(runChangepacksMock).toHaveBeenCalledWith(
+    'publish',
+    '--dry-run',
+    '-p',
+    'pkg/a/package.json',
+  )
+  expect(createReleaseMock).toHaveBeenCalled()
+  expect(setFailedMock).not.toHaveBeenCalled()
+
+  mock.module('../install-changepacks', () => originalInstall)
+  mock.module('../run-changepacks', () => originalCheck)
+  mock.module('../check-past-changepacks', () => originalPast)
+  mock.module('../create-pr', () => originalPr)
+  mock.module('../create-release', () => originalRel)
+  mock.module('../rollback-releases', () => originalRollback)
+  mock.module('../update-pr-comment', () => originalUpdatePr)
+  mock.module('../send-slack-notification', () => originalSlack)
+  mock.module('@actions/core', () => originalCore)
+  mock.module('@actions/github', () => originalGithub)
+  mock.module('../get-changepacks-config', () => originalConfig)
+  mock.module('../fetch-origin', () => originalFetch)
+  mock.module('@actions/exec', () => originalExec)
+  mock.module('../detect-workspace-internal-deps', () => originalDetect)
+})
+
+test('run skips changepacks publish --dry-run when every target is workspace-internal', async () => {
+  const originalInstall = { ...(await import('../install-changepacks')) }
+  const originalCheck = { ...(await import('../run-changepacks')) }
+  const originalPast = { ...(await import('../check-past-changepacks')) }
+  const originalPr = { ...(await import('../create-pr')) }
+  const originalRel = { ...(await import('../create-release')) }
+  const originalRollback = { ...(await import('../rollback-releases')) }
+  const originalUpdatePr = { ...(await import('../update-pr-comment')) }
+  const originalSlack = { ...(await import('../send-slack-notification')) }
+  const originalCore = { ...(await import('@actions/core')) }
+  const originalGithub = { ...(await import('@actions/github')) }
+  const originalConfig = { ...(await import('../get-changepacks-config')) }
+  const originalFetch = { ...(await import('../fetch-origin')) }
+  const originalExec = { ...(await import('@actions/exec')) }
+  const originalDetect = {
+    ...(await import('../detect-workspace-internal-deps')),
+  }
+
+  const execMock = mock(async () => 0)
+  mock.module('@actions/exec', () => ({ exec: execMock }))
+
+  const installMock = mock()
+  mock.module('../install-changepacks', () => ({
+    installChangepacks: installMock,
+  }))
+
+  const config = { baseBranch: 'main', ignore: [], latestPackage: null }
+  const getConfigMock = mock(async () => config)
+  mock.module('../get-changepacks-config', () => ({
+    getChangepacksConfig: getConfigMock,
+  }))
+
+  const fetchOriginMock = mock()
+  mock.module('../fetch-origin', () => ({ fetchOrigin: fetchOriginMock }))
+
+  const checkMock = mock(async () => ({}))
+  // When every target is skipped, `changepacks publish --dry-run` must
+  // NEVER be invoked. Throw from the dry-run branch so the test fails
+  // loudly if that contract is ever violated.
+  const runChangepacksMock = mock(
+    async (cmd: 'check' | 'publish', ...args: string[]) => {
+      if (cmd === 'check') {
+        return checkMock()
+      }
+      if (args.includes('--dry-run')) {
+        throw new Error('dry-run must not run when all targets are skipped')
+      }
+      return {
+        'crates/a/Cargo.toml': {
+          result: true,
+          error: null,
+          stdout: 'published',
+          stderr: '',
+        },
+        'crates/b/Cargo.toml': {
+          result: true,
+          error: null,
+          stdout: 'published',
+          stderr: '',
+        },
+      }
+    },
+  )
+  mock.module('../run-changepacks', () => ({
+    runChangepacks: runChangepacksMock,
+  }))
+
+  const pastChangepacks = {
+    'crates/a/Cargo.toml': {
+      logs: [],
+      version: '1.0.0',
+      nextVersion: '1.1.0',
+      name: 'crate-a',
+      path: 'crates/a/Cargo.toml',
+      changed: false,
+    },
+    'crates/b/Cargo.toml': {
+      logs: [],
+      version: '1.0.0',
+      nextVersion: '1.1.0',
+      name: 'crate-b',
+      path: 'crates/b/Cargo.toml',
+      changed: false,
+    },
+  }
+  const checkPastMock = mock(async () => pastChangepacks)
+  mock.module('../check-past-changepacks', () => ({
+    checkPastChangepacks: checkPastMock,
+  }))
+
+  const createPrMock = mock()
+  mock.module('../create-pr', () => ({ createPr: createPrMock }))
+
+  const releaseInfo = {
+    'crates/a/Cargo.toml': {
+      releaseId: 10,
+      tagName: 'crate-a@1.1.0',
+      makeLatest: false,
+    },
+    'crates/b/Cargo.toml': {
+      releaseId: 20,
+      tagName: 'crate-b@1.1.0',
+      makeLatest: false,
+    },
+  }
+  const createReleaseMock = mock(async () => releaseInfo)
+  mock.module('../create-release', () => ({ createRelease: createReleaseMock }))
+
+  const rollbackMock = mock()
+  mock.module('../rollback-releases', () => ({
+    rollbackReleases: rollbackMock,
+  }))
+
+  const updatePrMock = mock()
+  mock.module('../update-pr-comment', () => ({
+    updatePrComment: updatePrMock,
+  }))
+
+  const sendSlackMock = mock()
+  mock.module('../send-slack-notification', () => ({
+    sendSlackNotification: sendSlackMock,
+  }))
+
+  // Both targets get skipped: filtered is empty, skipped lists both.
+  const detectMock = mock(async () => ({
+    filtered: [],
+    skipped: ['crates/a/Cargo.toml', 'crates/b/Cargo.toml'],
+  }))
+  mock.module('../detect-workspace-internal-deps', () => ({
+    detectWorkspaceInternalDeps: detectMock,
+  }))
+
+  const getInputMock = mock()
+  const getBooleanInputMock = mock(() => true)
+  const infoMock = mock()
+  const errorMock = mock()
+  const setFailedMock = mock()
+  mock.module('@actions/core', () => ({
+    getInput: getInputMock,
+    getBooleanInput: getBooleanInputMock,
+    debug: mock(),
+    info: infoMock,
+    error: errorMock,
+    setFailed: setFailedMock,
+    setOutput: mock(),
+    startGroup: mock(),
+    endGroup: mock(),
+    isDebug: mock(() => false),
+  }))
+
+  const getOctokitMock = mock(() => ({
+    rest: { repos: { updateRelease: mock(async () => ({})) } },
+  }))
+  const contextMock = {
+    ...realContext,
+    ref: 'refs/heads/main',
+    repo: { owner: 'acme', repo: 'widgets' },
+    issue: { number: 1 },
+  }
+  mock.module('@actions/github', () => ({
+    context: contextMock,
+    getOctokit: getOctokitMock,
+  }))
+
+  const { run } = await import('../run')
+  await run()
+
+  // The 0-validated summary must fire so the operator can confirm the
+  // skip was intentional rather than a missed call.
+  expect(infoMock).toHaveBeenCalledWith(
+    'dry-run summary: 0 validated (all targets skipped as workspace-internal deps)',
+  )
+  // createRelease still runs since nothing failed the gate.
+  expect(createReleaseMock).toHaveBeenCalled()
+  expect(setFailedMock).not.toHaveBeenCalled()
+
+  mock.module('../install-changepacks', () => originalInstall)
+  mock.module('../run-changepacks', () => originalCheck)
+  mock.module('../check-past-changepacks', () => originalPast)
+  mock.module('../create-pr', () => originalPr)
+  mock.module('../create-release', () => originalRel)
+  mock.module('../rollback-releases', () => originalRollback)
+  mock.module('../update-pr-comment', () => originalUpdatePr)
+  mock.module('../send-slack-notification', () => originalSlack)
+  mock.module('@actions/core', () => originalCore)
+  mock.module('@actions/github', () => originalGithub)
+  mock.module('../get-changepacks-config', () => originalConfig)
+  mock.module('../fetch-origin', () => originalFetch)
+  mock.module('@actions/exec', () => originalExec)
+  mock.module('../detect-workspace-internal-deps', () => originalDetect)
+})
