@@ -32,6 +32,7 @@ export async function createRelease(
       return {}
     }
 
+    const shouldPublish = getBooleanInput('publish')
     const octokit = getOctokit(getInput('token'))
     // A shallow checkout (actions/checkout defaults to fetch-depth 1) cannot
     // push its boundary commits: GitHub rejects the tag push with "shallow
@@ -55,6 +56,10 @@ export async function createRelease(
         const makeLatest =
           config.latestPackage === projectPath ||
           Object.keys(changepacks).length === 1
+        // When the action publishes (and finalizes) the release itself, create
+        // it as a draft. Otherwise publish it immediately as a public,
+        // latest-aware release.
+        const makeLatestValue = !shouldPublish && makeLatest ? 'true' : 'false'
         let releaseTargetSha = sourceSha
         try {
           let tagAlreadyExisted = false
@@ -137,9 +142,9 @@ export async function createRelease(
                 name: tagName,
                 body: createBody(changepack),
                 tag_name: tagName,
-                make_latest: 'false',
+                make_latest: makeLatestValue,
                 target_commitish: releaseTargetSha,
-                draft: true,
+                draft: shouldPublish,
               },
               null,
               2,
@@ -151,9 +156,9 @@ export async function createRelease(
             name: tagName,
             body: createBody(changepack),
             tag_name: tagName,
-            make_latest: 'false',
+            make_latest: makeLatestValue,
             target_commitish: releaseTargetSha,
-            draft: true,
+            draft: shouldPublish,
           })
           info(`created release: ${tagName} ${release.data.id}`)
           return [

@@ -192,14 +192,16 @@ test('getChangepacksConfig uses silent=false when isDebug is true', async () => 
   mock.module('@actions/core', () => originalCore)
 })
 
-test('createRelease always passes make_latest false to API', async () => {
+test('createRelease keeps draft releases at make_latest false when publishing', async () => {
   const originalCore = { ...(await import('@actions/core')) }
   const originalExec = { ...(await import('@actions/exec')) }
   const originalGithub = { ...(await import('@actions/github')) }
 
   const setOutputMock = mock(() => {})
   const getInputMock = mock((name: string) => (name === 'token' ? 'T' : ''))
-  const getBooleanInputMock = mock((name: string) => name === 'create_release')
+  const getBooleanInputMock = mock(
+    (name: string) => name === 'create_release' || name === 'publish',
+  )
   mock.module('@actions/core', () => ({
     setOutput: setOutputMock,
     getInput: getInputMock,

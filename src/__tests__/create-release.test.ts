@@ -162,7 +162,7 @@ test('createRelease pushes source SHA tags through git before creating releases'
     tag_name: 'a(packages/a/package.json)@1.1.0',
     make_latest: 'false',
     target_commitish: 'source-sha',
-    draft: true,
+    draft: false,
   })
   expect(createReleaseMock).toHaveBeenCalledWith({
     owner: 'acme',
@@ -172,7 +172,7 @@ test('createRelease pushes source SHA tags through git before creating releases'
     tag_name: 'b(packages/b/package.json)@2.0.1',
     make_latest: 'false',
     target_commitish: 'source-sha',
-    draft: true,
+    draft: false,
   })
 
   mock.module('@actions/core', () => originalCore)
@@ -585,9 +585,9 @@ test('createRelease returns makeLatest true when changepacks has only 1 item eve
     name: 'a(packages/a/package.json)@1.1.0',
     body: createBody(changepacks['packages/a/package.json']),
     tag_name: 'a(packages/a/package.json)@1.1.0',
-    make_latest: 'false',
+    make_latest: 'true',
     target_commitish: 'abc123def456',
-    draft: true,
+    draft: false,
   })
 
   mock.module('@actions/core', () => originalCore)
@@ -778,9 +778,9 @@ test('createRelease creates release when tag exists but release lookup fails', a
     name: 'a(packages/a/package.json)@1.1.0',
     body: createBody(changepacks['packages/a/package.json']),
     tag_name: 'a(packages/a/package.json)@1.1.0',
-    make_latest: 'false',
+    make_latest: 'true',
     target_commitish: 'abc123def456',
-    draft: true,
+    draft: false,
   })
 
   mock.module('@actions/core', () => originalCore)
