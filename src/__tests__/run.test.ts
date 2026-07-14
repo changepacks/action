@@ -47,7 +47,9 @@ test('run creates PR when current changepacks exist', async () => {
   const createReleaseMock = mock()
   mock.module('../create-release', () => ({ createRelease: createReleaseMock }))
 
-  const getOctokitMock = mock()
+  const getOctokitMock = mock(() => ({
+    rest: { repos: { updateRelease: mock() } },
+  }))
   const contextMock = {
     ...realContext,
     ref: 'refs/heads/main',
@@ -231,7 +233,10 @@ test('run creates releases from past changepacks when current is empty', async (
   const pastChangepacks = {
     'pkg/b': { logs: [], version: '2.0.0', nextVersion: '2.1.0', name: 'b' },
   }
-  const checkPastMock = mock(async () => pastChangepacks)
+  const checkPastMock = mock(async () => ({
+    changepacks: pastChangepacks,
+    sourceSha: 'release-source-sha',
+  }))
   mock.module('../check-past-changepacks', () => ({
     checkPastChangepacks: checkPastMock,
   }))
@@ -242,7 +247,9 @@ test('run creates releases from past changepacks when current is empty', async (
   const createReleaseMock = mock()
   mock.module('../create-release', () => ({ createRelease: createReleaseMock }))
 
-  const getOctokitMock = mock()
+  const getOctokitMock = mock(() => ({
+    rest: { repos: { updateRelease: mock() } },
+  }))
   const contextMock = {
     ...realContext,
     ref: 'refs/heads/main',
@@ -261,7 +268,11 @@ test('run creates releases from past changepacks when current is empty', async (
   expect(getConfigMock).toHaveBeenCalled()
   expect(checkMock).toHaveBeenCalledWith('check')
   expect(checkPastMock).toHaveBeenCalled()
-  expect(createReleaseMock).toHaveBeenCalledWith(config, pastChangepacks)
+  expect(createReleaseMock).toHaveBeenCalledWith(
+    config,
+    pastChangepacks,
+    'release-source-sha',
+  )
   expect(createPrMock).not.toHaveBeenCalled()
 
   mock.module('../install-changepacks', () => originalInstall)
@@ -467,7 +478,7 @@ test('run posts PR comment before base branch release logic when pull_request pa
   mock.module('@actions/exec', () => originalExec)
 })
 
-test('run does not create release when past changepacks is empty', async () => {
+test('run does not create release when no past release exists', async () => {
   const originalInstall = { ...(await import('../install-changepacks')) }
   const originalCheck = { ...(await import('../run-changepacks')) }
   const originalPast = { ...(await import('../check-past-changepacks')) }
@@ -515,7 +526,9 @@ test('run does not create release when past changepacks is empty', async () => {
     setFailed: mock(),
   }))
 
-  const getOctokitMock = mock()
+  const getOctokitMock = mock(() => ({
+    rest: { repos: { updateRelease: mock() } },
+  }))
   const contextMock = {
     ...realContext,
     ref: 'refs/heads/main',
@@ -527,7 +540,7 @@ test('run does not create release when past changepacks is empty', async () => {
     getOctokit: getOctokitMock,
   }))
 
-  const checkPastMock = mock(async () => ({}))
+  const checkPastMock = mock(async () => null)
   mock.module('../check-past-changepacks', () => ({
     checkPastChangepacks: checkPastMock,
   }))
@@ -750,7 +763,9 @@ test('run filters past changepacks when current changepack version matches past 
     setFailed: mock(),
   }))
 
-  const getOctokitMock = mock()
+  const getOctokitMock = mock(() => ({
+    rest: { repos: { updateRelease: mock() } },
+  }))
   const contextMock = {
     ...realContext,
     ref: 'refs/heads/main',
@@ -870,7 +885,9 @@ test('run filters past changepacks when nextVersion is null', async () => {
     setFailed: mock(),
   }))
 
-  const getOctokitMock = mock()
+  const getOctokitMock = mock(() => ({
+    rest: { repos: { updateRelease: mock() } },
+  }))
   const contextMock = {
     ...realContext,
     ref: 'refs/heads/main',
@@ -989,7 +1006,9 @@ test('run filters past changepacks when current changepack version differs from 
     setFailed: mock(),
   }))
 
-  const getOctokitMock = mock()
+  const getOctokitMock = mock(() => ({
+    rest: { repos: { updateRelease: mock() } },
+  }))
   const contextMock = {
     ...realContext,
     ref: 'refs/heads/main',
@@ -1256,7 +1275,12 @@ test('run calls runChangepacks publish when publish option is true', async () =>
   mock.module('../create-pr', () => ({ createPr: createPrMock }))
 
   const releaseInfo = {
-    'pkg/b': { releaseId: 1, tagName: 'b(pkg/b)@2.1.0', makeLatest: false },
+    'pkg/b': {
+      releaseId: 1,
+      tagName: 'b(pkg/b)@2.1.0',
+      makeLatest: false,
+      status: 'pending',
+    },
   }
   const createReleaseMock = mock(async () => releaseInfo)
   mock.module('../create-release', () => ({ createRelease: createReleaseMock }))
@@ -1380,7 +1404,12 @@ test('run sets changepacks output from releases when publish option is false', a
   mock.module('../create-pr', () => ({ createPr: createPrMock }))
 
   const releaseInfo = {
-    'pkg/b': { releaseId: 1, tagName: 'b(pkg/b)@2.1.0', makeLatest: false },
+    'pkg/b': {
+      releaseId: 1,
+      tagName: 'b(pkg/b)@2.1.0',
+      makeLatest: false,
+      status: 'pending',
+    },
   }
   const createReleaseMock = mock(async () => releaseInfo)
   mock.module('../create-release', () => ({ createRelease: createReleaseMock }))
@@ -1508,7 +1537,12 @@ test('run calls info when publish succeeds', async () => {
   mock.module('../create-pr', () => ({ createPr: createPrMock }))
 
   const releaseInfo = {
-    'pkg/b': { releaseId: 1, tagName: 'b(pkg/b)@2.1.0', makeLatest: true },
+    'pkg/b': {
+      releaseId: 1,
+      tagName: 'b(pkg/b)@2.1.0',
+      makeLatest: true,
+      status: 'pending',
+    },
   }
   const createReleaseMock = mock(async () => releaseInfo)
   mock.module('../create-release', () => ({ createRelease: createReleaseMock }))
@@ -1570,15 +1604,8 @@ test('run calls info when publish succeeds', async () => {
   expect(errorMock).not.toHaveBeenCalled()
   expect(setFailedMock).not.toHaveBeenCalled()
   expect(createPrMock).not.toHaveBeenCalled()
-  expect(getOctokitMock).toHaveBeenCalled()
-  expect(infoMock).toHaveBeenCalledWith('updating latest: b(pkg/b)@2.1.0')
-  expect(updateReleaseMock).toHaveBeenCalledWith({
-    owner: 'acme',
-    repo: 'widgets',
-    release_id: 1,
-    make_latest: 'true',
-  })
-  expect(infoMock).toHaveBeenCalledWith('updated latest: b(pkg/b)@2.1.0')
+  expect(getOctokitMock).not.toHaveBeenCalled()
+  expect(updateReleaseMock).not.toHaveBeenCalled()
 
   mock.module('../install-changepacks', () => originalInstall)
   mock.module('../run-changepacks', () => originalCheck)
@@ -1673,7 +1700,12 @@ test('run calls error and setFailed when publish fails', async () => {
   mock.module('../create-pr', () => ({ createPr: createPrMock }))
 
   const releaseInfo = {
-    'pkg/b': { releaseId: 1, tagName: 'b(pkg/b)@2.1.0', makeLatest: false },
+    'pkg/b': {
+      releaseId: 1,
+      tagName: 'b(pkg/b)@2.1.0',
+      makeLatest: false,
+      status: 'pending',
+    },
   }
   const createReleaseMock = mock(async () => releaseInfo)
   mock.module('../create-release', () => ({ createRelease: createReleaseMock }))
@@ -1709,7 +1741,9 @@ test('run calls error and setFailed when publish fails', async () => {
     setOutput: setOutputMock,
   }))
 
-  const getOctokitMock = mock()
+  const getOctokitMock = mock(() => ({
+    rest: { repos: { updateRelease: mock() } },
+  }))
   const contextMock = {
     ...realContext,
     ref: 'refs/heads/main',
@@ -1730,7 +1764,7 @@ test('run calls error and setFailed when publish fails', async () => {
   expect(errorMock).toHaveBeenCalledWith(
     'pkg/b published failed: Publish failed: network error',
   )
-  expect(rollbackMock).toHaveBeenCalledWith(publishResult, releaseInfo)
+  expect(rollbackMock).not.toHaveBeenCalled()
   expect(setOutputMock).toHaveBeenCalledWith('changepacks', [])
   expect(setFailedMock).toHaveBeenCalledWith(
     'pkg/b published failed: Publish failed: network error',
@@ -1868,11 +1902,13 @@ test('run handles mixed publish results (some succeed, some fail)', async () => 
       releaseId: 1,
       tagName: 'a(pkg/a/package.json)@1.0.1',
       makeLatest: false,
+      status: 'pending',
     },
     'pkg/b/package.json': {
       releaseId: 2,
       tagName: 'b(pkg/b/package.json)@2.1.0',
       makeLatest: false,
+      status: 'pending',
     },
   }
   const createReleaseMock = mock(async () => releaseInfo)
@@ -1909,7 +1945,9 @@ test('run handles mixed publish results (some succeed, some fail)', async () => 
     setOutput: setOutputMock,
   }))
 
-  const getOctokitMock = mock()
+  const getOctokitMock = mock(() => ({
+    rest: { repos: { updateRelease: mock() } },
+  }))
   const contextMock = {
     ...realContext,
     ref: 'refs/heads/main',
@@ -1939,7 +1977,7 @@ test('run handles mixed publish results (some succeed, some fail)', async () => 
   expect(errorMock).toHaveBeenCalledWith(
     'pkg/b/package.json published failed: Publish failed',
   )
-  expect(rollbackMock).toHaveBeenCalledWith(publishResult, releaseInfo)
+  expect(rollbackMock).not.toHaveBeenCalled()
   expect(setOutputMock).toHaveBeenCalledWith('changepacks', [
     'pkg/a/package.json',
   ])
@@ -2060,16 +2098,19 @@ test('run includes filtered-out publish targets in changepacks output', async ()
       releaseId: 1,
       tagName: 'rust-crate(crates/rust/Cargo.toml)@0.1.1',
       makeLatest: false,
+      status: 'pending',
     },
     'bridge/node/package.json': {
       releaseId: 2,
       tagName: '@scope/node(bridge/node/package.json)@0.1.1',
       makeLatest: false,
+      status: 'pending',
     },
     'bridge/python/pyproject.toml': {
       releaseId: 3,
       tagName: 'scope-python(bridge/python/pyproject.toml)@0.1.1',
       makeLatest: false,
+      status: 'pending',
     },
   }
   const createReleaseMock = mock(async () => releaseInfo)
@@ -2302,6 +2343,7 @@ test('run passes only filtered project paths to publish command', async () => {
   const originalConfig = { ...(await import('../get-changepacks-config')) }
   const originalFetch = { ...(await import('../fetch-origin')) }
   const originalExec = { ...(await import('@actions/exec')) }
+  const originalFinalize = { ...(await import('../finalize-releases')) }
 
   const execMock = mock(async () => 0)
   mock.module('@actions/exec', () => ({ exec: execMock }))
@@ -2388,6 +2430,7 @@ test('run passes only filtered project paths to publish command', async () => {
   const checkMock = mock(async () => currentChangepacks)
   const publishResult = {
     'pkg/a': { result: true, error: null },
+    'pkg/c': { result: true, error: null },
   }
   const runChangepacksMock = mock(async (cmd: 'check' | 'publish') => {
     if (cmd === 'check') {
@@ -2408,12 +2451,17 @@ test('run passes only filtered project paths to publish command', async () => {
   mock.module('../create-pr', () => ({ createPr: createPrMock }))
 
   const releaseInfo = {
-    'pkg/a': { releaseId: 1, tagName: 'a(pkg/a)@1.1.0', makeLatest: false },
+    'pkg/a': {
+      releaseId: 1,
+      tagName: 'a(pkg/a)@1.1.0',
+      makeLatest: false,
+      status: 'pending',
+    },
     'pkg/c': {
       releaseId: 2,
       tagName: 'c(pkg/c)@3.0.0',
       makeLatest: false,
-      alreadyExisted: true,
+      status: 'pending',
     },
   }
   const createReleaseMock = mock(async () => releaseInfo)
@@ -2427,6 +2475,11 @@ test('run passes only filtered project paths to publish command', async () => {
   const sendSlackMock = mock()
   mock.module('../send-slack-notification', () => ({
     sendSlackNotification: sendSlackMock,
+  }))
+  const finalizeReleasesMock = mock()
+  mock.module('../finalize-releases', () => ({
+    finalizeReleases: finalizeReleasesMock,
+    parseFinalizeReleasesInput: mock(),
   }))
 
   const getInputMock = mock()
@@ -2461,13 +2514,22 @@ test('run passes only filtered project paths to publish command', async () => {
     config,
     filteredPastChangepacks,
   )
-  // Should only pass pkg/a. pkg/c is filtered in, but skipped because its
-  // release already exists from a previous run.
-  expect(runChangepacksMock).toHaveBeenCalledWith('publish', '-p', 'pkg/a')
+  // Existing drafts remain pending and must be retried.
+  expect(runChangepacksMock).toHaveBeenCalledWith(
+    'publish',
+    '-p',
+    'pkg/a',
+    '-p',
+    'pkg/c',
+  )
   // Should NOT include pkg/b
-  expect(infoMock).toHaveBeenCalledWith('publish target: pkg/a')
+  expect(infoMock).toHaveBeenCalledWith('publish target: pkg/a, pkg/c')
   expect(infoMock).toHaveBeenCalledWith('pkg/a published successfully')
-  expect(infoMock).not.toHaveBeenCalledWith('pkg/c published successfully')
+  expect(infoMock).toHaveBeenCalledWith('pkg/c published successfully')
+  expect(finalizeReleasesMock).toHaveBeenCalledWith({
+    'pkg/a': releaseInfo['pkg/a'],
+    'pkg/c': releaseInfo['pkg/c'],
+  })
 
   mock.module('../install-changepacks', () => originalInstall)
   mock.module('../run-changepacks', () => originalCheck)
@@ -2481,9 +2543,10 @@ test('run passes only filtered project paths to publish command', async () => {
   mock.module('../get-changepacks-config', () => originalConfig)
   mock.module('../fetch-origin', () => originalFetch)
   mock.module('@actions/exec', () => originalExec)
+  mock.module('../finalize-releases', () => originalFinalize)
 })
 
-test('run skips publish when all releases already exist on rerun', async () => {
+test('run skips publish when all releases are already published', async () => {
   const originalInstall = { ...(await import('../install-changepacks')) }
   const originalCheck = { ...(await import('../run-changepacks')) }
   const originalPast = { ...(await import('../check-past-changepacks')) }
@@ -2533,7 +2596,7 @@ test('run skips publish when all releases already exist on rerun', async () => {
         releaseId: 1,
         tagName: 'a(pkg/a)@1.1.0',
         makeLatest: true,
-        alreadyExisted: true,
+        status: 'published',
       },
     })),
   }))
@@ -2570,8 +2633,8 @@ test('run skips publish when all releases already exist on rerun', async () => {
 
   expect(runChangepacksMock).not.toHaveBeenCalledWith('publish')
   expect(setOutputMock).toHaveBeenCalledWith('changepacks', [])
-  expect(infoMock).toHaveBeenCalledWith(
-    'all releases already exist, skipping publish',
+  expect(infoMock).not.toHaveBeenCalledWith(
+    'all releases are published, skipping publish',
   )
 
   mock.module('../install-changepacks', () => originalInstall)
@@ -2651,7 +2714,12 @@ test('run passes publish_options to runChangepacks publish command', async () =>
   mock.module('../create-pr', () => ({ createPr: createPrMock }))
 
   const releaseInfo = {
-    'pkg/b': { releaseId: 1, tagName: 'b(pkg/b)@2.1.0', makeLatest: false },
+    'pkg/b': {
+      releaseId: 1,
+      tagName: 'b(pkg/b)@2.1.0',
+      makeLatest: false,
+      status: 'pending',
+    },
   }
   const createReleaseMock = mock(async () => releaseInfo)
   mock.module('../create-release', () => ({ createRelease: createReleaseMock }))
@@ -2680,7 +2748,9 @@ test('run passes publish_options to runChangepacks publish command', async () =>
     setFailed: mock(),
   }))
 
-  const getOctokitMock = mock()
+  const getOctokitMock = mock(() => ({
+    rest: { repos: { updateRelease: mock() } },
+  }))
   const contextMock = {
     ...realContext,
     ref: 'refs/heads/main',
@@ -2717,7 +2787,7 @@ test('run passes publish_options to runChangepacks publish command', async () =>
   mock.module('@actions/exec', () => originalExec)
 })
 
-test('run rolls back all releases when publish command crashes (exit code 1)', async () => {
+test('run preserves pending releases when publish command crashes', async () => {
   const originalInstall = { ...(await import('../install-changepacks')) }
   const originalCheck = { ...(await import('../run-changepacks')) }
   const originalPast = { ...(await import('../check-past-changepacks')) }
@@ -2804,11 +2874,13 @@ test('run rolls back all releases when publish command crashes (exit code 1)', a
       releaseId: 10,
       tagName: 'a(pkg/a)@1.1.0',
       makeLatest: true,
+      status: 'pending',
     },
     'pkg/b': {
       releaseId: 20,
       tagName: 'b(pkg/b)@2.1.0',
       makeLatest: false,
+      status: 'pending',
     },
   }
   const createReleaseMock = mock(async () => releaseInfo)
@@ -2843,7 +2915,9 @@ test('run rolls back all releases when publish command crashes (exit code 1)', a
     setFailed: setFailedMock,
   }))
 
-  const getOctokitMock = mock()
+  const getOctokitMock = mock(() => ({
+    rest: { repos: { updateRelease: mock() } },
+  }))
   const contextMock = {
     ...realContext,
     ref: 'refs/heads/main',
@@ -2868,24 +2942,7 @@ test('run rolls back all releases when publish command crashes (exit code 1)', a
     'pkg/b',
   )
   expect(errorMock).toHaveBeenCalledWith(`publish crashed: ${publishError}`)
-  // rollback should be called with all paths marked as failed
-  expect(rollbackMock).toHaveBeenCalledWith(
-    {
-      'pkg/a': {
-        result: false,
-        error: String(publishError),
-        stderr: null,
-        stdout: null,
-      },
-      'pkg/b': {
-        result: false,
-        error: String(publishError),
-        stderr: null,
-        stdout: null,
-      },
-    },
-    releaseInfo,
-  )
+  expect(rollbackMock).not.toHaveBeenCalled()
   expect(setFailedMock).toHaveBeenCalledWith(publishError)
 
   mock.module('../install-changepacks', () => originalInstall)
@@ -2903,7 +2960,7 @@ test('run rolls back all releases when publish command crashes (exit code 1)', a
   mock.module('@actions/exec', () => originalExec)
 })
 
-test('run calls rollbackReleases with publish result and release info when publish fails', async () => {
+test('run preserves failed release drafts when one package publish fails', async () => {
   const originalInstall = { ...(await import('../install-changepacks')) }
   const originalCheck = { ...(await import('../run-changepacks')) }
   const originalPast = { ...(await import('../check-past-changepacks')) }
@@ -2993,11 +3050,13 @@ test('run calls rollbackReleases with publish result and release info when publi
       releaseId: 10,
       tagName: 'a(pkg/a)@1.1.0',
       makeLatest: false,
+      status: 'pending',
     },
     'pkg/b': {
       releaseId: 20,
       tagName: 'b(pkg/b)@2.1.0',
       makeLatest: false,
+      status: 'pending',
     },
   }
   const createReleaseMock = mock(async () => releaseInfo)
@@ -3032,7 +3091,9 @@ test('run calls rollbackReleases with publish result and release info when publi
     setFailed: setFailedMock,
   }))
 
-  const getOctokitMock = mock()
+  const getOctokitMock = mock(() => ({
+    rest: { repos: { updateRelease: mock() } },
+  }))
   const contextMock = {
     ...realContext,
     ref: 'refs/heads/main',
@@ -3052,7 +3113,7 @@ test('run calls rollbackReleases with publish result and release info when publi
   expect(errorMock).toHaveBeenCalledWith(
     'pkg/b published failed: npm publish failed',
   )
-  expect(rollbackMock).toHaveBeenCalledWith(publishResult, releaseInfo)
+  expect(rollbackMock).not.toHaveBeenCalled()
   expect(setFailedMock).toHaveBeenCalledWith(
     'pkg/b published failed: npm publish failed',
   )
@@ -3072,7 +3133,7 @@ test('run calls rollbackReleases with publish result and release info when publi
   mock.module('@actions/exec', () => originalExec)
 })
 
-test('run aborts before createRelease when dry-run reports per-package failure', async () => {
+test('run preserves release receipts when dry-run reports per-package failure', async () => {
   const originalInstall = { ...(await import('../install-changepacks')) }
   const originalCheck = { ...(await import('../run-changepacks')) }
   const originalPast = { ...(await import('../check-past-changepacks')) }
@@ -3171,11 +3232,13 @@ test('run aborts before createRelease when dry-run reports per-package failure',
       releaseId: 10,
       tagName: 'a(pkg/a)@1.1.0',
       makeLatest: true,
+      status: 'pending',
     },
     'pkg/b': {
       releaseId: 20,
       tagName: 'b(pkg/b)@2.1.0',
       makeLatest: false,
+      status: 'pending',
     },
   }
   const createReleaseMock = mock(async () => releaseInfo)
@@ -3241,12 +3304,9 @@ test('run aborts before createRelease when dry-run reports per-package failure',
     '-p',
     'pkg/b',
   )
-  // Dry-run is a GATE: createRelease, sendSlackNotification, and the
-  // post-failure rollback path must ALL be skipped when dry-run reports a
-  // per-package failure. The whole run aborts before any GitHub release
-  // is created so the user never ends up with stale releases that block
-  // a rerun.
-  expect(createReleaseMock).not.toHaveBeenCalled()
+  // The durable release receipt is created before validation, while Slack
+  // notification and publishing remain blocked by the failed dry-run.
+  expect(createReleaseMock).toHaveBeenCalledWith(config, pastChangepacks)
   expect(sendSlackMock).not.toHaveBeenCalled()
   expect(rollbackMock).not.toHaveBeenCalled()
   // Success branch must log stdout when present.
@@ -3275,7 +3335,7 @@ test('run aborts before createRelease when dry-run reports per-package failure',
   mock.module('@actions/exec', () => originalExec)
 })
 
-test('run aborts before createRelease when dry-run crashes', async () => {
+test('run preserves release receipts when dry-run crashes', async () => {
   const originalInstall = { ...(await import('../install-changepacks')) }
   const originalCheck = { ...(await import('../run-changepacks')) }
   const originalPast = { ...(await import('../check-past-changepacks')) }
@@ -3349,6 +3409,7 @@ test('run aborts before createRelease when dry-run crashes', async () => {
       releaseId: 10,
       tagName: 'a(pkg/a)@1.1.0',
       makeLatest: false,
+      status: 'pending',
     },
   }
   const createReleaseMock = mock(async () => releaseInfo)
@@ -3409,10 +3470,9 @@ test('run aborts before createRelease when dry-run crashes', async () => {
   expect(errorMock).toHaveBeenCalledWith(
     `publish --dry-run crashed: ${dryRunError}`,
   )
-  // Dry-run is a GATE: a crash before createRelease aborts the entire run
-  // so no GitHub release / tag is created and there is nothing to roll
-  // back. sendSlackNotification is also skipped for the same reason.
-  expect(createReleaseMock).not.toHaveBeenCalled()
+  // The durable release receipt is created before validation, while Slack
+  // notification and publishing remain blocked by the crashed dry-run.
+  expect(createReleaseMock).toHaveBeenCalledWith(config, pastChangepacks)
   expect(sendSlackMock).not.toHaveBeenCalled()
   expect(rollbackMock).not.toHaveBeenCalled()
   expect(setFailedMock).toHaveBeenCalledWith(dryRunError)
@@ -3531,11 +3591,13 @@ test('run logs workspace-internal dep skips and continues dry-run for remaining 
       releaseId: 10,
       tagName: 'pkg-a@1.1.0',
       makeLatest: false,
+      status: 'pending',
     },
     'crates/parent/Cargo.toml': {
       releaseId: 20,
       tagName: 'crate-parent@1.1.0',
       makeLatest: false,
+      status: 'pending',
     },
   }
   const createReleaseMock = mock(async () => releaseInfo)
@@ -3735,11 +3797,13 @@ test('run skips changepacks publish --dry-run when every target is workspace-int
       releaseId: 10,
       tagName: 'crate-a@1.1.0',
       makeLatest: false,
+      status: 'pending',
     },
     'crates/b/Cargo.toml': {
       releaseId: 20,
       tagName: 'crate-b@1.1.0',
       makeLatest: false,
+      status: 'pending',
     },
   }
   const createReleaseMock = mock(async () => releaseInfo)

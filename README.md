@@ -53,6 +53,7 @@ jobs:
     outputs:
       changepacks: ${{ steps.changepacks.outputs.changepacks }}
       release_assets_urls: ${{ steps.changepacks.outputs.release_assets_urls }}
+      pending_releases: ${{ steps.changepacks.outputs.pending_releases }}
 ```
 
 ### Using Outputs
@@ -93,6 +94,7 @@ jobs:
 | `token` | GitHub token for API operations | Yes | `${{ github.token }}` |
 | `create_release` | Whether to create releases when changepacks are ready | No | `true` |
 | `publish` | Whether to publish the package | No | `false` |
+| `finalize_releases` | JSON receipt from `pending_releases`; publishes those draft releases after downstream publication succeeds | No | `''` |
 | `publish_options` | Additional CLI options passed to `changepacks publish` | No | `''` |
 | `language` | Language filter passed to changepacks commands that support `-l/--language` | No | `''` |
 | `slack_webhook_url` | Slack webhook URL for release notifications | No | - |
@@ -103,6 +105,7 @@ jobs:
 |--------|-------------|
 | `changepacks` | JSON array of successfully released or published project paths (e.g., `["bridge/node/package.json"]`) |
 | `release_assets_urls` | JSON object mapping project paths to release asset upload URLs |
+| `pending_releases` | JSON object mapping project paths to draft release IDs, tags, and latest-release intent |
 
 ## How It Works
 
@@ -134,9 +137,33 @@ When the action runs on a push to the base branch:
 
 When creating releases:
 - Creates a git tag for each package with a new version
-- Creates a GitHub release with changelog body
-- Sets the latest release based on `latestPackage` config
+- Creates a draft GitHub release as a durable pending receipt
+- Retries existing draft releases, while published releases are treated as complete
+- Finalizes successful built-in publishes immediately
+- Outputs unresolved drafts in `pending_releases` for downstream jobs to pass back through `finalize_releases`
+- Sets the latest release when the draft is finalized
 - Outputs release asset URLs for further processing
+
+### Finalize Releases After Downstream Publishing
+
+When another job publishes artifacts, finalize the matching draft releases only
+after that job succeeds:
+
+```yaml
+- uses: changepacks/action@main
+  with:
+    token: ${{ secrets.GITHUB_TOKEN }}
+    finalize_releases: ${{ needs.changepacks.outputs.pending_releases }}
+```
+
+The finalize-only invocation does not install changepacks or run repository
+cleanup, so it can run without an `actions/checkout` step.
+
+If built-in registry publication succeeds but GitHub release finalization
+fails, the action fails while preserving the affected drafts in
+`pending_releases`. After confirming the artifacts were published, retry with
+that receipt through `finalize_releases`; do not rerun the normal publish flow,
+which would attempt to publish the same registry version again.
 
 ## Configuration
 

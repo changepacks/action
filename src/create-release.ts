@@ -20,6 +20,7 @@ import type {
 export async function createRelease(
   config: ChangepackConfig,
   changepacks: ChangepackResultMap,
+  sourceSha: string = context.sha,
 ): Promise<Record<string, ReleaseInfo> | false> {
   startGroup(`createRelease`)
 
@@ -55,7 +56,7 @@ export async function createRelease(
             await octokit.rest.git.createRef({
               ...context.repo,
               ref: refPath,
-              sha: context.sha,
+              sha: sourceSha,
             })
             createdTagName = tagName
             info(`created ref: ${tagName}`)
@@ -76,7 +77,7 @@ export async function createRelease(
                 tagName,
                 existingRelease.data.upload_url,
                 makeLatest,
-                true,
+                existingRelease.data.draft ? 'pending' : 'published',
               ] as const
             } catch (err: unknown) {
               info(`release does not exist for existing ref: ${tagName} ${err}`)
@@ -92,7 +93,8 @@ export async function createRelease(
                 body: createBody(changepack),
                 tag_name: tagName,
                 make_latest: 'false',
-                target_commitish: context.ref,
+                target_commitish: sourceSha,
+                draft: true,
               },
               null,
               2,
@@ -105,8 +107,8 @@ export async function createRelease(
             body: createBody(changepack),
             tag_name: tagName,
             make_latest: 'false',
-            target_commitish: context.ref,
-            draft: false,
+            target_commitish: sourceSha,
+            draft: true,
           })
           info(`created release: ${tagName} ${release.data.id}`)
           return [
@@ -115,7 +117,7 @@ export async function createRelease(
             tagName,
             release.data.upload_url,
             makeLatest,
-            false,
+            'pending',
           ] as const
         } catch (err: unknown) {
           error(`create release failed: ${tagName} ${err}`)
@@ -154,15 +156,28 @@ export async function createRelease(
       tagName,
       _uploadUrl,
       makeLatest,
-      alreadyExisted,
+      status,
     ] of releaseResults) {
       releaseInfoMap[projectPath] = {
         releaseId,
         tagName,
         makeLatest,
-        ...(alreadyExisted ? { alreadyExisted } : {}),
+        status,
       }
     }
+    const pendingReleases = Object.fromEntries(
+      Object.entries(releaseInfoMap)
+        .filter(([_, release]) => release.status === 'pending')
+        .map(([projectPath, release]) => [
+          projectPath,
+          {
+            releaseId: release.releaseId,
+            tagName: release.tagName,
+            makeLatest: release.makeLatest,
+          },
+        ]),
+    )
+    setOutput('pending_releases', pendingReleases)
     return releaseInfoMap
   } finally {
     endGroup()

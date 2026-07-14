@@ -307,7 +307,9 @@ test('checkPastChangepacks returns {} and setsFailed when later step throws (out
     installChangepacks: installChangepacksMock,
   }))
 
-  const checkChangepacksMock = mock()
+  const checkChangepacksMock = mock(async () => {
+    throw new Error('check failed')
+  })
   mock.module('../run-changepacks', () => ({
     runChangepacks: checkChangepacksMock,
   }))
@@ -325,7 +327,7 @@ test('checkPastChangepacks returns {} and setsFailed when later step throws (out
   mock.module('../run-changepacks', () => originalRunChangepacks)
 })
 
-test('checkPastChangepacks continues when fetch fails', async () => {
+test('checkPastChangepacks fails when fallback history fetch fails', async () => {
   const originalExec = { ...(await import('@actions/exec')) }
   const originalCore = { ...(await import('@actions/core')) }
   const originalGithub = { ...(await import('@actions/github')) }
@@ -380,7 +382,7 @@ test('checkPastChangepacks continues when fetch fails', async () => {
   const { checkPastChangepacks } = await import('../check-past-changepacks')
   const result = await checkPastChangepacks()
   expect(result).toEqual({})
-  expect(setFailedMock).not.toHaveBeenCalled()
+  expect(setFailedMock).toHaveBeenCalledWith(expect.any(Error))
   expect(debugMock).toHaveBeenCalledWith(
     expect.stringContaining('Failed to fetch'),
   )
@@ -801,6 +803,7 @@ test('checkPastChangepacks uses Update Versions PR SHA when found', async () => 
     merged_at: '2024-01-01T00:00:00Z',
     merge_commit_sha: pastSha,
     head: { sha: 'head123' },
+    base: { ref: 'main', sha: 'base123' },
   }
   const pullsListMock = mock(async () => ({
     data: [updateVersionsPr],
@@ -846,21 +849,21 @@ test('checkPastChangepacks uses Update Versions PR SHA when found', async () => 
 
   expect(result).toEqual(payload)
   expect(debugMock).toHaveBeenCalledWith(
-    `Found closed Update Versions PR #42, SHA: ${pastSha}~1`,
+    'Found closed Update Versions PR #42, SHA: base123',
   )
   expect(execMock).toHaveBeenCalledWith(
     'git',
-    ['fetch', '--deepen=1', 'origin', pastSha],
+    ['fetch', '--no-tags', '--depth=1', 'origin', 'base123'],
     expect.objectContaining({ silent: true }),
   )
   expect(execMock).toHaveBeenCalledWith(
     'git',
-    ['diff', `${pastSha}~1`, 'HEAD', '--name-only', '--', '.changepacks/'],
+    ['diff', 'base123', pastSha, '--name-only', '--', '.changepacks/'],
     expect.objectContaining({ silent: true }),
   )
   expect(execMock).toHaveBeenCalledWith(
     'git',
-    ['checkout', `${pastSha}~1`],
+    ['checkout', 'base123'],
     expect.objectContaining({ silent: true }),
   )
   expect(installChangepacksMock).toHaveBeenCalled()
@@ -879,7 +882,7 @@ test('checkPastChangepacks uses Update Versions PR SHA when found', async () => 
   mock.module('@actions/github', () => originalGithub)
 })
 
-test('checkPastChangepacks uses head.sha when Update Versions PR has no merge_commit_sha', async () => {
+test('checkPastChangepacks uses the PR base when merge_commit_sha is absent', async () => {
   const originalExec = { ...(await import('@actions/exec')) }
   const originalCore = { ...(await import('@actions/core')) }
   const originalGithub = { ...(await import('@actions/github')) }
@@ -930,6 +933,7 @@ test('checkPastChangepacks uses head.sha when Update Versions PR has no merge_co
     merged_at: '2024-01-01T00:00:00Z',
     merge_commit_sha: null,
     head: { sha: headSha },
+    base: { ref: 'main', sha: 'base456' },
   }
   const pullsListMock = mock(async () => ({
     data: [updateVersionsPr],
@@ -975,21 +979,21 @@ test('checkPastChangepacks uses head.sha when Update Versions PR has no merge_co
 
   expect(result).toEqual(payload)
   expect(debugMock).toHaveBeenCalledWith(
-    `Found closed Update Versions PR #42, SHA: ${headSha}`,
+    'Found closed Update Versions PR #42, SHA: base456',
   )
   expect(execMock).toHaveBeenCalledWith(
     'git',
-    ['fetch', '--deepen=1', 'origin', headSha],
+    ['fetch', '--no-tags', '--depth=1', 'origin', 'base456'],
     expect.objectContaining({ silent: true }),
   )
   expect(execMock).toHaveBeenCalledWith(
     'git',
-    ['diff', headSha, 'HEAD', '--name-only', '--', '.changepacks/'],
+    ['diff', 'base456', headSha, '--name-only', '--', '.changepacks/'],
     expect.objectContaining({ silent: true }),
   )
   expect(execMock).toHaveBeenCalledWith(
     'git',
-    ['checkout', headSha],
+    ['checkout', 'base456'],
     expect.objectContaining({ silent: true }),
   )
   expect(execMock).toHaveBeenCalledWith(
@@ -1111,7 +1115,7 @@ test('checkPastChangepacks handles GitHub API failure gracefully', async () => {
   mock.module('@actions/github', () => originalGithub)
 })
 
-test('checkPastChangepacks continues when fetch original SHA fails', async () => {
+test('checkPastChangepacks fails when the exact PR base cannot be fetched', async () => {
   const originalExec = { ...(await import('@actions/exec')) }
   const originalCore = { ...(await import('@actions/core')) }
   const originalGithub = { ...(await import('@actions/github')) }
@@ -1122,6 +1126,7 @@ test('checkPastChangepacks continues when fetch original SHA fails', async () =>
 
   const diffOutput = '.changepacks/a.md\n'
   const pastSha = 'abc123def456'
+  const baseSha = 'base123def456'
   const execMock = mock(
     async (
       _cmd: string,
@@ -1133,8 +1138,7 @@ test('checkPastChangepacks continues when fetch original SHA fails', async () =>
         }
       },
     ) => {
-      if (args?.[0] === 'fetch' && args?.[3] === pastSha) {
-        // fetch --deepen=1 origin <sha> fails
+      if (args?.[0] === 'fetch' && args?.[4] === baseSha) {
         throw new Error('fetch failed')
       } else if (args?.[0] === 'diff') {
         options?.listeners?.stdout?.(Buffer.from(diffOutput))
@@ -1163,6 +1167,7 @@ test('checkPastChangepacks continues when fetch original SHA fails', async () =>
     merged_at: '2024-01-01T00:00:00Z',
     merge_commit_sha: pastSha,
     head: { sha: 'head123' },
+    base: { ref: 'main', sha: baseSha },
   }
   const pullsListMock = mock(async () => ({
     data: [updateVersionsPr],
@@ -1206,24 +1211,21 @@ test('checkPastChangepacks continues when fetch original SHA fails', async () =>
   const { checkPastChangepacks } = await import('../check-past-changepacks')
   const result = await checkPastChangepacks()
 
-  expect(result).toEqual(payload)
+  expect(result).toEqual({})
   expect(debugMock).toHaveBeenCalledWith(
-    `Found closed Update Versions PR #42, SHA: ${pastSha}~1`,
+    `Found closed Update Versions PR #42, SHA: ${baseSha}`,
   )
   expect(debugMock).toHaveBeenCalledWith(
-    expect.stringContaining('Failed to fetch original SHA'),
+    expect.stringContaining('Failed to fetch Update Versions base SHA'),
   )
   expect(execMock).toHaveBeenCalledWith(
     'git',
-    ['fetch', '--deepen=1', 'origin', pastSha],
+    ['fetch', '--no-tags', '--depth=1', 'origin', baseSha],
     expect.objectContaining({ silent: true }),
   )
-  expect(execMock).toHaveBeenCalledWith(
-    'git',
-    ['diff', `${pastSha}~1`, 'HEAD', '--name-only', '--', '.changepacks/'],
-    expect.objectContaining({ silent: true }),
-  )
-  expect(setFailedMock).not.toHaveBeenCalled()
+  expect(setFailedMock).toHaveBeenCalledWith(expect.any(Error))
+  expect(installChangepacksMock).not.toHaveBeenCalled()
+  expect(checkChangepacksMock).not.toHaveBeenCalled()
 
   mock.module('../install-changepacks', () => originalInstallChangepacks)
   mock.module('../run-changepacks', () => originalRunChangepacks)
@@ -1297,7 +1299,7 @@ test('checkPastChangepacks setsFailed when git diff throws non-revision error', 
   mock.module('@actions/github', () => originalGithub)
 })
 
-test('checkPastChangepacks continues when rev-list count is within threshold', async () => {
+test('checkPastChangepacks recovers without a commit-distance cutoff', async () => {
   const originalExec = { ...(await import('@actions/exec')) }
   const originalCore = { ...(await import('@actions/core')) }
   const originalGithub = { ...(await import('@actions/github')) }
@@ -1355,6 +1357,7 @@ test('checkPastChangepacks continues when rev-list count is within threshold', a
         merged_at: '2024-01-01T00:00:00Z',
         merge_commit_sha: 'abc123',
         head: { sha: 'headsha' },
+        base: { ref: 'main', sha: 'base123' },
         number: 99,
       },
     ],
@@ -1398,7 +1401,7 @@ test('checkPastChangepacks continues when rev-list count is within threshold', a
   expect(runChangepacksMock).toHaveBeenCalledWith('check')
   expect(execMock).toHaveBeenCalledWith(
     'git',
-    ['rev-list', '--count', 'abc123~1..HEAD'],
+    ['diff', 'base123', 'abc123', '--name-only', '--', '.changepacks/'],
     expect.objectContaining({ silent: true }),
   )
 
@@ -1409,7 +1412,7 @@ test('checkPastChangepacks continues when rev-list count is within threshold', a
   mock.module('../run-changepacks', () => originalRunChangepacks)
 })
 
-test('checkPastChangepacks uses rev-list stdout to return {} when count > 3', async () => {
+test('checkPastChangepacks does not discard releases after three commits', async () => {
   const originalExec = { ...(await import('@actions/exec')) }
   const originalCore = { ...(await import('@actions/core')) }
   const originalGithub = { ...(await import('@actions/github')) }
@@ -1434,7 +1437,9 @@ test('checkPastChangepacks uses rev-list stdout to return {} when count > 3', as
         options?.listeners?.stdout?.(Buffer.from('4'))
         return 0
       }
-      options?.listeners?.stdout?.(Buffer.from(''))
+      if (args?.[0] === 'diff') {
+        options?.listeners?.stdout?.(Buffer.from('.changepacks/example.json'))
+      }
       return 0
     },
   )
@@ -1460,6 +1465,7 @@ test('checkPastChangepacks uses rev-list stdout to return {} when count > 3', as
         merged_at: '2024-01-01T00:00:00Z',
         merge_commit_sha: 'abc123',
         head: { sha: 'headsha' },
+        base: { ref: 'main', sha: 'base123' },
         number: 5,
       },
     ],
@@ -1475,11 +1481,21 @@ test('checkPastChangepacks uses rev-list stdout to return {} when count > 3', as
     context: contextMock,
   }))
 
-  const installMock = mock()
+  const installMock = mock(async () => undefined)
   mock.module('../install-changepacks', () => ({
     installChangepacks: installMock,
   }))
-  const runChangepacksMock = mock()
+  const changepacksResult = {
+    'packages/example/package.json': {
+      logs: [],
+      version: '1.0.0',
+      nextVersion: '1.0.1',
+      name: '@acme/example',
+      changed: true,
+      path: 'packages/example/package.json',
+    },
+  }
+  const runChangepacksMock = mock(async () => changepacksResult)
   mock.module('../run-changepacks', () => ({
     runChangepacks: runChangepacksMock,
   }))
@@ -1487,13 +1503,13 @@ test('checkPastChangepacks uses rev-list stdout to return {} when count > 3', as
   const { checkPastChangepacks } = await import('../check-past-changepacks')
   const result = await checkPastChangepacks()
 
-  expect(result).toEqual({})
+  expect(result).toEqual(changepacksResult)
   expect(setFailedMock).not.toHaveBeenCalled()
-  expect(installMock).not.toHaveBeenCalled()
-  expect(runChangepacksMock).not.toHaveBeenCalled()
+  expect(installMock).toHaveBeenCalled()
+  expect(runChangepacksMock).toHaveBeenCalledWith('check')
   expect(execMock).toHaveBeenCalledWith(
     'git',
-    ['rev-list', '--count', 'abc123~1..HEAD'],
+    ['diff', 'base123', 'abc123', '--name-only', '--', '.changepacks/'],
     expect.objectContaining({ silent: true }),
   )
 
@@ -1504,7 +1520,7 @@ test('checkPastChangepacks uses rev-list stdout to return {} when count > 3', as
   mock.module('../run-changepacks', () => originalRunChangepacks)
 })
 
-test('checkPastChangepacks returns {} when rev-list count is greater than 3', async () => {
+test('checkPastChangepacks keeps retrying pending releases on later pushes', async () => {
   const originalExec = { ...(await import('@actions/exec')) }
   const originalCore = { ...(await import('@actions/core')) }
   const originalGithub = { ...(await import('@actions/github')) }
@@ -1529,7 +1545,9 @@ test('checkPastChangepacks returns {} when rev-list count is greater than 3', as
         options?.listeners?.stdout?.(Buffer.from('5'))
         return 0
       }
-      options?.listeners?.stdout?.(Buffer.from(''))
+      if (args?.[0] === 'diff') {
+        options?.listeners?.stdout?.(Buffer.from('.changepacks/example.json'))
+      }
       return 0
     },
   )
@@ -1555,6 +1573,7 @@ test('checkPastChangepacks returns {} when rev-list count is greater than 3', as
         merged_at: '2024-01-01T00:00:00Z',
         merge_commit_sha: 'abc123',
         head: { sha: 'headsha' },
+        base: { ref: 'main', sha: 'base123' },
         number: 5,
       },
     ],
@@ -1570,11 +1589,21 @@ test('checkPastChangepacks returns {} when rev-list count is greater than 3', as
     context: contextMock,
   }))
 
-  const installMock = mock()
+  const installMock = mock(async () => undefined)
   mock.module('../install-changepacks', () => ({
     installChangepacks: installMock,
   }))
-  const runChangepacksMock = mock()
+  const changepacksResult = {
+    'packages/example/package.json': {
+      logs: [],
+      version: '1.0.0',
+      nextVersion: '1.0.1',
+      name: '@acme/example',
+      changed: true,
+      path: 'packages/example/package.json',
+    },
+  }
+  const runChangepacksMock = mock(async () => changepacksResult)
   mock.module('../run-changepacks', () => ({
     runChangepacks: runChangepacksMock,
   }))
@@ -1582,13 +1611,13 @@ test('checkPastChangepacks returns {} when rev-list count is greater than 3', as
   const { checkPastChangepacks } = await import('../check-past-changepacks')
   const result = await checkPastChangepacks()
 
-  expect(result).toEqual({})
+  expect(result).toEqual(changepacksResult)
   expect(setFailedMock).not.toHaveBeenCalled()
-  expect(installMock).not.toHaveBeenCalled()
-  expect(runChangepacksMock).not.toHaveBeenCalled()
+  expect(installMock).toHaveBeenCalled()
+  expect(runChangepacksMock).toHaveBeenCalledWith('check')
   expect(execMock).toHaveBeenCalledWith(
     'git',
-    ['rev-list', '--count', 'abc123~1..HEAD'],
+    ['diff', 'base123', 'abc123', '--name-only', '--', '.changepacks/'],
     expect.objectContaining({ silent: true }),
   )
 
@@ -1599,7 +1628,7 @@ test('checkPastChangepacks returns {} when rev-list count is greater than 3', as
   mock.module('../run-changepacks', () => originalRunChangepacks)
 })
 
-test('checkPastChangepacks returns {} when rev-list throws error', async () => {
+test('checkPastChangepacks never invokes rev-list during recovery', async () => {
   const originalExec = { ...(await import('@actions/exec')) }
   const originalCore = { ...(await import('@actions/core')) }
   const originalGithub = { ...(await import('@actions/github')) }
@@ -1637,6 +1666,7 @@ test('checkPastChangepacks returns {} when rev-list throws error', async () => {
         merged_at: '2024-01-01T00:00:00Z',
         merge_commit_sha: 'abc123',
         head: { sha: 'headsha' },
+        base: { ref: 'main', sha: 'base123' },
         number: 5,
       },
     ],
@@ -1666,11 +1696,222 @@ test('checkPastChangepacks returns {} when rev-list throws error', async () => {
 
   expect(result).toEqual({})
   expect(setFailedMock).not.toHaveBeenCalled()
-  expect(debugMock).toHaveBeenCalledWith(
-    expect.stringContaining('Failed to get commit count'),
+  expect(execMock).not.toHaveBeenCalledWith(
+    'git',
+    ['rev-list', '--count', 'abc123~1..HEAD'],
+    expect.objectContaining({ silent: true }),
   )
   expect(installMock).not.toHaveBeenCalled()
   expect(runChangepacksMock).not.toHaveBeenCalled()
+
+  mock.module('@actions/exec', () => originalExec)
+  mock.module('@actions/core', () => originalCore)
+  mock.module('@actions/github', () => originalGithub)
+  mock.module('../install-changepacks', () => originalInstall)
+  mock.module('../run-changepacks', () => originalRunChangepacks)
+})
+
+test('checkPastChangepacks fetches the exact PR base SHA for shallow recovery', async () => {
+  const originalExec = { ...(await import('@actions/exec')) }
+  const originalCore = { ...(await import('@actions/core')) }
+  const originalGithub = { ...(await import('@actions/github')) }
+  const originalInstall = { ...(await import('../install-changepacks')) }
+  const originalRunChangepacks = { ...(await import('../run-changepacks')) }
+
+  const baseSha = 'base123'
+  const mergeSha = 'merge456'
+  const execMock = mock(
+    async (
+      _cmd: string,
+      args?: string[],
+      options?: {
+        listeners?: {
+          stdout?: (data: Buffer) => void
+          stderr?: (data: Buffer) => void
+        }
+      },
+    ) => {
+      if (args?.[0] === 'diff') {
+        options?.listeners?.stdout?.(Buffer.from('.changepacks/release.json\n'))
+      }
+      return 0
+    },
+  )
+  mock.module('@actions/exec', () => ({ exec: execMock }))
+
+  const setFailedMock = mock()
+  mock.module('@actions/core', () => ({
+    debug: mock(),
+    getInput: mock(() => 'TOKEN'),
+    isDebug: mock(() => false),
+    setFailed: setFailedMock,
+  }))
+
+  mock.module('@actions/github', () => ({
+    context: {
+      ref: 'refs/heads/main',
+      repo: { owner: 'acme', repo: 'widgets' },
+      sha: 'head789',
+    },
+    getOctokit: mock(() => ({
+      rest: {
+        pulls: {
+          list: mock(async () => ({
+            data: [
+              {
+                base: { ref: 'main', sha: baseSha },
+                head: { sha: 'head456' },
+                merge_commit_sha: mergeSha,
+                merged_at: '2026-07-14T00:00:00Z',
+                number: 172,
+                title: 'Update Versions',
+              },
+            ],
+          })),
+        },
+      },
+    })),
+  }))
+
+  const changepacks = {
+    'packages/a/package.json': {
+      changed: false,
+      logs: [{ note: 'release', type: 'Patch' as const }],
+      name: 'a',
+      nextVersion: '1.0.1',
+      path: 'packages/a/package.json',
+      version: '1.0.0',
+    },
+  }
+  mock.module('../install-changepacks', () => ({
+    installChangepacks: mock(async () => undefined),
+  }))
+  mock.module('../run-changepacks', () => ({
+    runChangepacks: mock(async () => changepacks),
+  }))
+
+  const { checkPastChangepacks } = await import('../check-past-changepacks')
+  const result = await checkPastChangepacks({ includeSource: true })
+
+  expect(result).toEqual({ changepacks, sourceSha: mergeSha })
+  expect(execMock).toHaveBeenCalledWith(
+    'git',
+    ['fetch', '--no-tags', '--depth=1', 'origin', baseSha],
+    expect.objectContaining({ silent: true }),
+  )
+  expect(execMock).toHaveBeenCalledWith(
+    'git',
+    ['diff', baseSha, mergeSha, '--name-only', '--', '.changepacks/'],
+    expect.objectContaining({ silent: true }),
+  )
+  expect(setFailedMock).not.toHaveBeenCalled()
+
+  mock.module('@actions/exec', () => originalExec)
+  mock.module('@actions/core', () => originalCore)
+  mock.module('@actions/github', () => originalGithub)
+  mock.module('../install-changepacks', () => originalInstall)
+  mock.module('../run-changepacks', () => originalRunChangepacks)
+})
+
+test('checkPastChangepacks fetches the exact PR base when the checkout is shallow', async () => {
+  const originalExec = { ...(await import('@actions/exec')) }
+  const originalCore = { ...(await import('@actions/core')) }
+  const originalGithub = { ...(await import('@actions/github')) }
+  const originalInstall = { ...(await import('../install-changepacks')) }
+  const originalRunChangepacks = { ...(await import('../run-changepacks')) }
+
+  const baseSha = 'base123'
+  const mergeSha = 'merge456'
+  const execMock = mock(
+    async (
+      _cmd: string,
+      args?: string[],
+      options?: {
+        listeners?: {
+          stdout?: (data: Buffer) => void
+          stderr?: (data: Buffer) => void
+        }
+      },
+    ) => {
+      if (args?.[0] === 'rev-list') {
+        throw new Error('shallow merge parent is unavailable')
+      }
+      if (args?.[0] === 'diff') {
+        options?.listeners?.stdout?.(Buffer.from('.changepacks/release.json\n'))
+      }
+      return 0
+    },
+  )
+  mock.module('@actions/exec', () => ({ exec: execMock }))
+
+  const setFailedMock = mock()
+  mock.module('@actions/core', () => ({
+    setFailed: setFailedMock,
+    debug: mock(),
+    isDebug: mock(() => false),
+    getInput: mock((name: string) => (name === 'token' ? 'TEST_TOKEN' : '')),
+  }))
+
+  const octokit = {
+    rest: {
+      pulls: {
+        list: mock(async () => ({
+          data: [
+            {
+              title: 'Update Versions',
+              merged_at: '2026-07-14T00:25:35Z',
+              merge_commit_sha: mergeSha,
+              head: { sha: 'head789' },
+              base: { ref: 'main', sha: baseSha },
+              number: 172,
+            },
+          ],
+        })),
+      },
+    },
+  }
+  mock.module('@actions/github', () => ({
+    getOctokit: mock(() => octokit),
+    context: {
+      repo: { owner: 'acme', repo: 'widgets' },
+      ref: 'refs/heads/main',
+    },
+  }))
+
+  const installMock = mock(async () => undefined)
+  mock.module('../install-changepacks', () => ({
+    installChangepacks: installMock,
+  }))
+  const changepacksResult: ChangepackResultMap = {
+    'packages/a/package.json': {
+      logs: [{ type: 'Patch', note: 'fix' }],
+      version: '1.0.0',
+      nextVersion: '1.0.1',
+      name: 'a',
+      path: 'packages/a/package.json',
+      changed: true,
+    },
+  }
+  const runChangepacksMock = mock(async () => changepacksResult)
+  mock.module('../run-changepacks', () => ({
+    runChangepacks: runChangepacksMock,
+  }))
+
+  const { checkPastChangepacks } = await import('../check-past-changepacks')
+  const result = await checkPastChangepacks()
+
+  expect(result).toEqual(changepacksResult)
+  expect(execMock).toHaveBeenCalledWith(
+    'git',
+    ['fetch', '--no-tags', '--depth=1', 'origin', baseSha],
+    expect.objectContaining({ silent: true }),
+  )
+  expect(execMock).toHaveBeenCalledWith(
+    'git',
+    ['diff', baseSha, mergeSha, '--name-only', '--', '.changepacks/'],
+    expect.objectContaining({ silent: true }),
+  )
+  expect(setFailedMock).not.toHaveBeenCalled()
 
   mock.module('@actions/exec', () => originalExec)
   mock.module('@actions/core', () => originalCore)

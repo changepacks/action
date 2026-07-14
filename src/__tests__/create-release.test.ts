@@ -65,9 +65,41 @@ test('createRelease sets release asset URLs and creates releases per project', a
       latestPackage: null,
     },
     changepacks,
+    'source-sha',
   )
 
   expect(result).toEqual({
+    'packages/a/package.json': {
+      releaseId: 1,
+      tagName: 'a(packages/a/package.json)@1.1.0',
+      makeLatest: false,
+      status: 'pending',
+    },
+    'packages/b/package.json': {
+      releaseId: 1,
+      tagName: 'b(packages/b/package.json)@2.0.1',
+      makeLatest: false,
+      status: 'pending',
+    },
+  })
+
+  expect(setOutputMock).toHaveBeenCalledWith('release_assets_urls', {
+    'packages/a/package.json': expect.any(String),
+    'packages/b/package.json': expect.any(String),
+  })
+  expect(setOutputMock).toHaveBeenCalledWith('pending_releases', {
+    'packages/a/package.json': {
+      releaseId: 1,
+      tagName: 'a(packages/a/package.json)@1.1.0',
+      makeLatest: false,
+    },
+    'packages/b/package.json': {
+      releaseId: 1,
+      tagName: 'b(packages/b/package.json)@2.0.1',
+      makeLatest: false,
+    },
+  })
+  expect(setOutputMock).toHaveBeenCalledWith('pending_releases', {
     'packages/a/package.json': {
       releaseId: 1,
       tagName: 'a(packages/a/package.json)@1.1.0',
@@ -80,22 +112,17 @@ test('createRelease sets release asset URLs and creates releases per project', a
     },
   })
 
-  expect(setOutputMock).toHaveBeenCalledWith('release_assets_urls', {
-    'packages/a/package.json': expect.any(String),
-    'packages/b/package.json': expect.any(String),
-  })
-
   expect(createRefMock).toHaveBeenCalledWith({
     owner: 'acme',
     repo: 'widgets',
     ref: 'refs/tags/a(packages/a/package.json)@1.1.0',
-    sha: 'abc123def456',
+    sha: 'source-sha',
   })
   expect(createRefMock).toHaveBeenCalledWith({
     owner: 'acme',
     repo: 'widgets',
     ref: 'refs/tags/b(packages/b/package.json)@2.0.1',
-    sha: 'abc123def456',
+    sha: 'source-sha',
   })
 
   expect(createReleaseMock).toHaveBeenCalledWith({
@@ -105,8 +132,8 @@ test('createRelease sets release asset URLs and creates releases per project', a
     body: createBody(changepacks['packages/a/package.json']),
     tag_name: 'a(packages/a/package.json)@1.1.0',
     make_latest: 'false',
-    target_commitish: 'refs/heads/main',
-    draft: false,
+    target_commitish: 'source-sha',
+    draft: true,
   })
   expect(createReleaseMock).toHaveBeenCalledWith({
     owner: 'acme',
@@ -115,8 +142,8 @@ test('createRelease sets release asset URLs and creates releases per project', a
     body: createBody(changepacks['packages/b/package.json']),
     tag_name: 'b(packages/b/package.json)@2.0.1',
     make_latest: 'false',
-    target_commitish: 'refs/heads/main',
-    draft: false,
+    target_commitish: 'source-sha',
+    draft: true,
   })
 
   mock.module('@actions/core', () => originalCore)
@@ -328,6 +355,7 @@ test('createRelease deletes created releases when error occurs after some releas
       releaseId: 123,
       tagName: 'a(packages/a/package.json)@1.1.0',
       makeLatest: false,
+      status: 'pending',
     },
   })
 
@@ -412,6 +440,7 @@ test('createRelease returns makeLatest true when changepacks has only 1 item eve
       releaseId: 1,
       tagName: 'a(packages/a/package.json)@1.1.0',
       makeLatest: true,
+      status: 'pending',
     },
   })
 
@@ -422,8 +451,8 @@ test('createRelease returns makeLatest true when changepacks has only 1 item eve
     body: createBody(changepacks['packages/a/package.json']),
     tag_name: 'a(packages/a/package.json)@1.1.0',
     make_latest: 'false',
-    target_commitish: 'refs/heads/main',
-    draft: false,
+    target_commitish: 'abc123def456',
+    draft: true,
   })
 
   mock.module('@actions/core', () => originalCore)
@@ -448,7 +477,11 @@ test('createRelease skips creating ref when tag already exists', async () => {
   const getRefMock = mock()
   const createRefMock = mock()
   const getReleaseByTagMock = mock(async (_params: unknown) => ({
-    data: { id: 1, upload_url: 'https://example.com/upload/a.zip' },
+    data: {
+      id: 1,
+      upload_url: 'https://example.com/upload/a.zip',
+      draft: true,
+    },
   }))
   const createReleaseMock = mock()
   const octokit = {
@@ -497,7 +530,7 @@ test('createRelease skips creating ref when tag already exists', async () => {
       releaseId: 1,
       tagName: 'a(packages/a/package.json)@1.1.0',
       makeLatest: true,
-      alreadyExisted: true,
+      status: 'pending',
     },
   })
 
@@ -589,6 +622,7 @@ test('createRelease creates release when tag exists but release lookup fails', a
       releaseId: 2,
       tagName: 'a(packages/a/package.json)@1.1.0',
       makeLatest: true,
+      status: 'pending',
     },
   })
   expect(infoMock).toHaveBeenCalledWith(
@@ -602,8 +636,8 @@ test('createRelease creates release when tag exists but release lookup fails', a
     body: createBody(changepacks['packages/a/package.json']),
     tag_name: 'a(packages/a/package.json)@1.1.0',
     make_latest: 'false',
-    target_commitish: 'refs/heads/main',
-    draft: false,
+    target_commitish: 'abc123def456',
+    draft: true,
   })
 
   mock.module('@actions/core', () => originalCore)

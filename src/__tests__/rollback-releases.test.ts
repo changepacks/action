@@ -116,6 +116,7 @@ test('rollbackReleases logs publish output as an error when publish fails', asyn
       releaseId: 123,
       tagName: 'a(packages/a/package.json)@1.0.0',
       makeLatest: false,
+      status: 'pending',
     },
   }
 
@@ -174,6 +175,7 @@ test('rollbackReleases deletes release and tag when path fails and not latest', 
       releaseId: 123,
       tagName: 'a(packages/a/package.json)@1.0.0',
       makeLatest: false,
+      status: 'pending',
     },
   }
 
@@ -243,6 +245,7 @@ test('rollbackReleases still deletes tag when deleteRelease fails', async () => 
       releaseId: 123,
       tagName: 'a(packages/a/package.json)@1.0.0',
       makeLatest: false,
+      status: 'pending',
     },
   }
 
@@ -304,6 +307,7 @@ test('rollbackReleases handles deleteRef error', async () => {
       releaseId: 123,
       tagName: 'a(packages/a/package.json)@1.0.0',
       makeLatest: false,
+      status: 'pending',
     },
   }
 
@@ -371,16 +375,19 @@ test('rollbackReleases handles multiple failed paths correctly', async () => {
       releaseId: 123,
       tagName: 'a(packages/a/package.json)@1.0.0',
       makeLatest: true,
+      status: 'pending',
     },
     'packages/b/package.json': {
       releaseId: 456,
       tagName: 'b(packages/b/package.json)@2.0.0',
       makeLatest: false,
+      status: 'pending',
     },
     'packages/c/package.json': {
       releaseId: 789,
       tagName: 'c(packages/c/package.json)@3.0.0',
       makeLatest: false,
+      status: 'pending',
     },
   }
 

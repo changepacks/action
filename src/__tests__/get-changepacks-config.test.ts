@@ -264,8 +264,8 @@ test('createRelease always passes make_latest false to API', async () => {
     body: createBody(changepacks['packages/a/package.json']),
     tag_name: 'a(packages/a/package.json)@1.1.0',
     make_latest: 'false',
-    target_commitish: 'refs/heads/main',
-    draft: false,
+    target_commitish: 'abc123def456',
+    draft: true,
   })
   expect(createReleaseMock).toHaveBeenCalledWith({
     owner: 'acme',
@@ -274,8 +274,8 @@ test('createRelease always passes make_latest false to API', async () => {
     body: createBody(changepacks['packages/b/package.json']),
     tag_name: 'b(packages/b/package.json)@2.0.1',
     make_latest: 'false',
-    target_commitish: 'refs/heads/main',
-    draft: false,
+    target_commitish: 'abc123def456',
+    draft: true,
   })
 
   mock.module('@actions/core', () => originalCore)

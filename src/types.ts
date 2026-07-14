@@ -24,7 +24,7 @@ export interface ReleaseInfo {
   releaseId: number
   tagName: string
   makeLatest: boolean
-  alreadyExisted?: boolean
+  status: 'pending' | 'published'
 }
 
 export interface ChangepackConfig {
