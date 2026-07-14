@@ -194,6 +194,7 @@ test('getChangepacksConfig uses silent=false when isDebug is true', async () => 
 
 test('createRelease always passes make_latest false to API', async () => {
   const originalCore = { ...(await import('@actions/core')) }
+  const originalExec = { ...(await import('@actions/exec')) }
   const originalGithub = { ...(await import('@actions/github')) }
 
   const setOutputMock = mock(() => {})
@@ -203,8 +204,13 @@ test('createRelease always passes make_latest false to API', async () => {
     setOutput: setOutputMock,
     getInput: getInputMock,
     getBooleanInput: getBooleanInputMock,
+    isDebug: mock(() => false),
   }))
+  mock.module('@actions/exec', () => ({ exec: mock(async () => 0) }))
 
+  const getRefMock = mock(async () => {
+    throw Object.assign(new Error('ref not found'), { status: 404 })
+  })
   const createRefMock = mock(async (_params: unknown) => ({
     data: { ref: 'refs/tags/a@1.1.0' },
   }))
@@ -213,7 +219,7 @@ test('createRelease always passes make_latest false to API', async () => {
   }))
   const octokit = {
     rest: {
-      git: { createRef: createRefMock },
+      git: { getRef: getRefMock, createRef: createRefMock },
       repos: { createRelease: createReleaseMock },
     },
   }
@@ -279,5 +285,6 @@ test('createRelease always passes make_latest false to API', async () => {
   })
 
   mock.module('@actions/core', () => originalCore)
+  mock.module('@actions/exec', () => originalExec)
   mock.module('@actions/github', () => originalGithub)
 })

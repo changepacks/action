@@ -5,10 +5,12 @@ import {
   getBooleanInput,
   getInput,
   info,
+  isDebug,
   setFailed,
   setOutput,
   startGroup,
 } from '@actions/core'
+import { exec } from '@actions/exec'
 import { context, getOctokit } from '@actions/github'
 import { createBody } from './create-body'
 import type {
@@ -39,8 +41,6 @@ export async function createRelease(
         const makeLatest =
           config.latestPackage === projectPath ||
           Object.keys(changepacks).length === 1
-        let createdTagName: string | null = null
-
         try {
           let tagAlreadyExisted = false
           try {
@@ -52,14 +52,16 @@ export async function createRelease(
             tagAlreadyExisted = true
             info(`ref already exists: ${tagName}`)
           } catch (err: unknown) {
+            if (
+              !(err instanceof Error && 'status' in err && err.status === 404)
+            ) {
+              throw err
+            }
             info(`create ref: ${refPath} ${err}`)
-            await octokit.rest.git.createRef({
-              ...context.repo,
-              ref: refPath,
-              sha: sourceSha,
+            await exec('git', ['push', 'origin', `${sourceSha}:${refPath}`], {
+              silent: !isDebug(),
             })
-            createdTagName = tagName
-            info(`created ref: ${tagName}`)
+            info(`pushed ref: ${tagName}`)
           }
 
           if (tagAlreadyExisted) {
@@ -123,19 +125,6 @@ export async function createRelease(
           error(`create release failed: ${tagName} ${err}`)
           setFailed(err as Error)
 
-          // A failure for one package should not delete releases that were
-          // already created for other packages. Only clean artifacts created
-          // for this package in the current attempt.
-          if (createdTagName) {
-            try {
-              await octokit.rest.git.deleteRef({
-                ...context.repo,
-                ref: `tags/${createdTagName}`,
-              })
-            } catch (deleteErr: unknown) {
-              error(`failed to delete tag ${createdTagName}: ${deleteErr}`)
-            }
-          }
           return null
         }
       })

@@ -2,8 +2,12 @@ import { expect, mock, test } from 'bun:test'
 import { createBody } from '../create-body'
 import type { ChangepackResultMap } from '../types'
 
-test('createRelease sets release asset URLs and creates releases per project', async () => {
+const missingRefError = () =>
+  Object.assign(new Error('ref not found'), { status: 404 })
+
+test('createRelease pushes source SHA tags through git before creating releases', async () => {
   const originalCore = { ...(await import('@actions/core')) }
+  const originalExec = { ...(await import('@actions/exec')) }
   const originalGithub = { ...(await import('@actions/github')) }
 
   const setOutputMock = mock(() => {})
@@ -13,8 +17,15 @@ test('createRelease sets release asset URLs and creates releases per project', a
     setOutput: setOutputMock,
     getInput: getInputMock,
     getBooleanInput: getBooleanInputMock,
+    isDebug: mock(() => false),
   }))
 
+  const execMock = mock(async () => 0)
+  mock.module('@actions/exec', () => ({ exec: execMock }))
+
+  const getRefMock = mock(async () => {
+    throw missingRefError()
+  })
   const createRefMock = mock(async (_params: unknown) => ({
     data: { ref: 'refs/tags/a@1.1.0' },
   }))
@@ -23,7 +34,7 @@ test('createRelease sets release asset URLs and creates releases per project', a
   }))
   const octokit = {
     rest: {
-      git: { createRef: createRefMock },
+      git: { getRef: getRefMock, createRef: createRefMock },
       repos: { createRelease: createReleaseMock },
     },
   }
@@ -112,18 +123,21 @@ test('createRelease sets release asset URLs and creates releases per project', a
     },
   })
 
-  expect(createRefMock).toHaveBeenCalledWith({
-    owner: 'acme',
-    repo: 'widgets',
-    ref: 'refs/tags/a(packages/a/package.json)@1.1.0',
-    sha: 'source-sha',
-  })
-  expect(createRefMock).toHaveBeenCalledWith({
-    owner: 'acme',
-    repo: 'widgets',
-    ref: 'refs/tags/b(packages/b/package.json)@2.0.1',
-    sha: 'source-sha',
-  })
+  expect(execMock).toHaveBeenCalledWith(
+    'git',
+    ['push', 'origin', 'source-sha:refs/tags/a(packages/a/package.json)@1.1.0'],
+    {
+      silent: true,
+    },
+  )
+  expect(execMock).toHaveBeenCalledWith(
+    'git',
+    ['push', 'origin', 'source-sha:refs/tags/b(packages/b/package.json)@2.0.1'],
+    {
+      silent: true,
+    },
+  )
+  expect(createRefMock).not.toHaveBeenCalled()
 
   expect(createReleaseMock).toHaveBeenCalledWith({
     owner: 'acme',
@@ -147,6 +161,7 @@ test('createRelease sets release asset URLs and creates releases per project', a
   })
 
   mock.module('@actions/core', () => originalCore)
+  mock.module('@actions/exec', () => originalExec)
   mock.module('@actions/github', () => originalGithub)
 })
 
@@ -188,8 +203,9 @@ test('createRelease does not set outputs when create_release=false', async () =>
   mock.module('@actions/core', () => originalCore)
 })
 
-test('createRelease logs error and sets failed on API failure', async () => {
+test('createRelease preserves a pushed tag when release creation fails', async () => {
   const originalCore = { ...(await import('@actions/core')) }
+  const originalExec = { ...(await import('@actions/exec')) }
   const originalGithub = { ...(await import('@actions/github')) }
 
   const setOutputMock = mock()
@@ -202,9 +218,14 @@ test('createRelease logs error and sets failed on API failure', async () => {
     getInput: getInputMock,
     getBooleanInput: getBooleanInputMock,
     error: errorMock,
+    isDebug: mock(() => false),
     setFailed: setFailedMock,
   }))
+  mock.module('@actions/exec', () => ({ exec: mock(async () => 0) }))
 
+  const getRefMock = mock(async () => {
+    throw missingRefError()
+  })
   const createRefMock = mock(async (_params: unknown) => ({
     data: { ref: 'refs/tags/a(packages/a/package.json)@1.1.0' },
   }))
@@ -216,7 +237,11 @@ test('createRelease logs error and sets failed on API failure', async () => {
   }))
   const octokit = {
     rest: {
-      git: { createRef: createRefMock, deleteRef: deleteRefMock },
+      git: {
+        getRef: getRefMock,
+        createRef: createRefMock,
+        deleteRef: deleteRefMock,
+      },
       repos: { createRelease: createReleaseMock },
     },
   }
@@ -260,13 +285,78 @@ test('createRelease logs error and sets failed on API failure', async () => {
     expect.stringContaining('create release failed'),
   )
   expect(setFailedMock).toHaveBeenCalled()
+  expect(deleteRefMock).not.toHaveBeenCalled()
 
   mock.module('@actions/core', () => originalCore)
+  mock.module('@actions/exec', () => originalExec)
   mock.module('@actions/github', () => originalGithub)
 })
 
-test('createRelease deletes created releases when error occurs after some releases are created', async () => {
+test('createRelease does not push when tag lookup fails with non-404', async () => {
   const originalCore = { ...(await import('@actions/core')) }
+  const originalExec = { ...(await import('@actions/exec')) }
+  const originalGithub = { ...(await import('@actions/github')) }
+
+  const lookupError = Object.assign(new Error('forbidden'), { status: 403 })
+  const setFailedMock = mock()
+  const execMock = mock(async () => 0)
+  const createReleaseMock = mock()
+  mock.module('@actions/core', () => ({
+    error: mock(),
+    getBooleanInput: mock((name: string) => name === 'create_release'),
+    getInput: mock((name: string) => (name === 'token' ? 'T' : '')),
+    info: mock(),
+    isDebug: mock(() => false),
+    setFailed: setFailedMock,
+    setOutput: mock(),
+  }))
+  mock.module('@actions/exec', () => ({ exec: execMock }))
+  mock.module('@actions/github', () => ({
+    context: {
+      repo: { owner: 'acme', repo: 'widgets' },
+      ref: 'refs/heads/main',
+      sha: 'abc123def456',
+    },
+    getOctokit: mock(() => ({
+      rest: {
+        git: {
+          getRef: mock(async () => {
+            throw lookupError
+          }),
+        },
+        repos: { createRelease: createReleaseMock },
+      },
+    })),
+  }))
+
+  const { createRelease } = await import('../create-release')
+  const result = await createRelease(
+    { ignore: [], baseBranch: 'main', latestPackage: null },
+    {
+      'packages/a/package.json': {
+        logs: [],
+        version: '1.0.0',
+        nextVersion: '1.1.0',
+        name: 'a',
+        path: 'packages/a/package.json',
+        changed: false,
+      },
+    },
+  )
+
+  expect(result).toEqual({})
+  expect(execMock).not.toHaveBeenCalled()
+  expect(createReleaseMock).not.toHaveBeenCalled()
+  expect(setFailedMock).toHaveBeenCalledWith(lookupError)
+
+  mock.module('@actions/core', () => originalCore)
+  mock.module('@actions/exec', () => originalExec)
+  mock.module('@actions/github', () => originalGithub)
+})
+
+test('createRelease preserves pushed tags when one release creation fails', async () => {
+  const originalCore = { ...(await import('@actions/core')) }
+  const originalExec = { ...(await import('@actions/exec')) }
   const originalGithub = { ...(await import('@actions/github')) }
 
   const setOutputMock = mock()
@@ -282,9 +372,21 @@ test('createRelease deletes created releases when error occurs after some releas
     error: errorMock,
     setFailed: setFailedMock,
     debug: debugMock,
+    isDebug: mock(() => false),
+  }))
+  mock.module('@actions/exec', () => ({
+    exec: mock(async () => 0),
+    getExecOutput: mock(async () => ({
+      exitCode: 0,
+      stdout: '*\tsource:refs/tags/release\t[new tag]\n',
+      stderr: '',
+    })),
   }))
 
   let callCount = 0
+  const getRefMock = mock(async () => {
+    throw missingRefError()
+  })
   const createRefMock = mock(async (_params: unknown) => ({
     data: { ref: 'refs/tags/test' },
   }))
@@ -303,7 +405,11 @@ test('createRelease deletes created releases when error occurs after some releas
   }))
   const octokit = {
     rest: {
-      git: { createRef: createRefMock, deleteRef: deleteRefMock },
+      git: {
+        getRef: getRefMock,
+        createRef: createRefMock,
+        deleteRef: deleteRefMock,
+      },
       repos: {
         createRelease: createReleaseMock,
         deleteRelease: deleteReleaseMock,
@@ -364,22 +470,20 @@ test('createRelease deletes created releases when error occurs after some releas
   })
   expect(createReleaseMock).toHaveBeenCalledTimes(2)
   expect(deleteReleaseMock).not.toHaveBeenCalled()
-  expect(deleteRefMock).toHaveBeenCalledWith({
-    owner: 'acme',
-    repo: 'widgets',
-    ref: 'tags/b(packages/b/package.json)@2.0.1',
-  })
+  expect(deleteRefMock).not.toHaveBeenCalled()
   expect(errorMock).toHaveBeenCalledWith(
     expect.stringContaining('create release failed'),
   )
   expect(setFailedMock).toHaveBeenCalled()
 
   mock.module('@actions/core', () => originalCore)
+  mock.module('@actions/exec', () => originalExec)
   mock.module('@actions/github', () => originalGithub)
 })
 
 test('createRelease returns makeLatest true when changepacks has only 1 item even if latestPackage does not match', async () => {
   const originalCore = { ...(await import('@actions/core')) }
+  const originalExec = { ...(await import('@actions/exec')) }
   const originalGithub = { ...(await import('@actions/github')) }
 
   const setOutputMock = mock(() => {})
@@ -389,8 +493,13 @@ test('createRelease returns makeLatest true when changepacks has only 1 item eve
     setOutput: setOutputMock,
     getInput: getInputMock,
     getBooleanInput: getBooleanInputMock,
+    isDebug: mock(() => false),
   }))
+  mock.module('@actions/exec', () => ({ exec: mock(async () => 0) }))
 
+  const getRefMock = mock(async () => {
+    throw missingRefError()
+  })
   const createRefMock = mock(async (_params: unknown) => ({
     data: { ref: 'refs/tags/a@1.1.0' },
   }))
@@ -399,7 +508,7 @@ test('createRelease returns makeLatest true when changepacks has only 1 item eve
   }))
   const octokit = {
     rest: {
-      git: { createRef: createRefMock },
+      git: { getRef: getRefMock, createRef: createRefMock },
       repos: { createRelease: createReleaseMock },
     },
   }
@@ -456,6 +565,7 @@ test('createRelease returns makeLatest true when changepacks has only 1 item eve
   })
 
   mock.module('@actions/core', () => originalCore)
+  mock.module('@actions/exec', () => originalExec)
   mock.module('@actions/github', () => originalGithub)
 })
 
@@ -644,8 +754,9 @@ test('createRelease creates release when tag exists but release lookup fails', a
   mock.module('@actions/github', () => originalGithub)
 })
 
-test('createRelease logs cleanup error when deleting created tag fails', async () => {
+test('createRelease does not roll back a newly pushed tag', async () => {
   const originalCore = { ...(await import('@actions/core')) }
+  const originalExec = { ...(await import('@actions/exec')) }
   const originalGithub = { ...(await import('@actions/github')) }
 
   const errorMock = mock()
@@ -656,20 +767,23 @@ test('createRelease logs cleanup error when deleting created tag fails', async (
     debug: mock(),
     info: mock(),
     error: errorMock,
+    isDebug: mock(() => false),
     setFailed: mock(),
   }))
+  mock.module('@actions/exec', () => ({ exec: mock(async () => 0) }))
 
-  const deleteError = new Error('delete ref failed')
+  const getRefMock = mock(async () => {
+    throw missingRefError()
+  })
   const createRefMock = mock(async (_params: unknown) => ({ data: {} }))
   const createReleaseMock = mock(async () => {
     throw new Error('create release failed')
   })
-  const deleteRefMock = mock(async () => {
-    throw deleteError
-  })
+  const deleteRefMock = mock()
   const octokit = {
     rest: {
       git: {
+        getRef: getRefMock,
         createRef: createRefMock,
         deleteRef: deleteRefMock,
       },
@@ -707,15 +821,12 @@ test('createRelease logs cleanup error when deleting created tag fails', async (
   )
 
   expect(result).toEqual({})
-  expect(deleteRefMock).toHaveBeenCalledWith({
-    owner: 'acme',
-    repo: 'widgets',
-    ref: 'tags/a(packages/a/package.json)@1.1.0',
-  })
+  expect(deleteRefMock).not.toHaveBeenCalled()
   expect(errorMock).toHaveBeenCalledWith(
-    `failed to delete tag a(packages/a/package.json)@1.1.0: ${deleteError}`,
+    expect.stringContaining('create release failed'),
   )
 
   mock.module('@actions/core', () => originalCore)
+  mock.module('@actions/exec', () => originalExec)
   mock.module('@actions/github', () => originalGithub)
 })
