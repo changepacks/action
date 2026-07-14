@@ -55,6 +55,7 @@ export async function createRelease(
         const makeLatest =
           config.latestPackage === projectPath ||
           Object.keys(changepacks).length === 1
+        let releaseTargetSha = sourceSha
         try {
           let tagAlreadyExisted = false
           try {
@@ -72,11 +73,32 @@ export async function createRelease(
               throw err
             }
             info(`create ref: ${refPath} ${err}`)
-            const pushResult = await getExecOutput(
+            let pushResult = await getExecOutput(
               'git',
               ['push', 'origin', `${sourceSha}:${refPath}`],
               { ignoreReturnCode: true, silent: !isDebug() },
             )
+            // The default GITHUB_TOKEN (a GitHub App) cannot create a ref at a
+            // commit whose workflow files differ from the default branch HEAD.
+            // Fall back to tagging HEAD, which carries the same released
+            // versions.
+            if (
+              pushResult.exitCode !== 0 &&
+              sourceSha !== context.sha &&
+              /refusing to allow a github app to create or update workflow/i.test(
+                pushResult.stderr,
+              )
+            ) {
+              info(
+                `workflow-protected push rejected, retrying at HEAD: ${tagName}`,
+              )
+              releaseTargetSha = context.sha
+              pushResult = await getExecOutput(
+                'git',
+                ['push', 'origin', `${context.sha}:${refPath}`],
+                { ignoreReturnCode: true, silent: !isDebug() },
+              )
+            }
             if (pushResult.exitCode !== 0) {
               throw new Error(
                 `git push failed: ${pushResult.stderr.trim() || pushResult.stdout.trim()}`,
@@ -116,7 +138,7 @@ export async function createRelease(
                 body: createBody(changepack),
                 tag_name: tagName,
                 make_latest: 'false',
-                target_commitish: sourceSha,
+                target_commitish: releaseTargetSha,
                 draft: true,
               },
               null,
@@ -130,7 +152,7 @@ export async function createRelease(
             body: createBody(changepack),
             tag_name: tagName,
             make_latest: 'false',
-            target_commitish: sourceSha,
+            target_commitish: releaseTargetSha,
             draft: true,
           })
           info(`created release: ${tagName} ${release.data.id}`)

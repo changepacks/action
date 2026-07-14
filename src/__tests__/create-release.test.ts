@@ -1022,3 +1022,104 @@ test('createRelease surfaces git push stderr when the push is rejected', async (
   mock.module('@actions/exec', () => originalExec)
   mock.module('@actions/github', () => originalGithub)
 })
+
+test('createRelease falls back to HEAD when source SHA push needs workflows permission', async () => {
+  const originalCore = { ...(await import('@actions/core')) }
+  const originalExec = { ...(await import('@actions/exec')) }
+  const originalGithub = { ...(await import('@actions/github')) }
+
+  const createReleaseMock = mock(async () => ({
+    data: { id: 7, upload_url: 'https://example.com/upload/a.zip' },
+  }))
+  const getExecOutputMock = mock(async (_cmd: string, args: string[] = []) => {
+    if (args.includes('--is-shallow-repository')) {
+      return { exitCode: 0, stdout: 'false\n', stderr: '' }
+    }
+    const refspec = args[2] ?? ''
+    if (refspec.startsWith('source-sha:')) {
+      return {
+        exitCode: 1,
+        stdout: '',
+        stderr:
+          '! [remote rejected] source-sha -> tag (refusing to allow a GitHub App to create or update workflow `.github/workflows/publish.yml` without `workflows` permission)',
+      }
+    }
+    return { exitCode: 0, stdout: '', stderr: '' }
+  })
+  mock.module('@actions/core', () => ({
+    setOutput: mock(),
+    getInput: mock((name: string) => (name === 'token' ? 'T' : '')),
+    getBooleanInput: mock((name: string) => name === 'create_release'),
+    info: mock(),
+    debug: mock(),
+    isDebug: mock(() => false),
+    error: mock(),
+    setFailed: mock(),
+  }))
+  mock.module('@actions/exec', () => ({
+    exec: mock(async () => 0),
+    getExecOutput: getExecOutputMock,
+  }))
+  mock.module('@actions/github', () => ({
+    context: {
+      repo: { owner: 'acme', repo: 'widgets' },
+      ref: 'refs/heads/main',
+      sha: 'head-sha',
+    },
+    getOctokit: mock(() => ({
+      rest: {
+        git: {
+          getRef: mock(async () => {
+            throw missingRefError()
+          }),
+        },
+        repos: { createRelease: createReleaseMock },
+      },
+    })),
+  }))
+
+  const { createRelease } = await import('../create-release')
+  const result = await createRelease(
+    { ignore: [], baseBranch: 'main', latestPackage: null },
+    {
+      'packages/a/package.json': {
+        logs: [],
+        version: '1.0.0',
+        nextVersion: '1.1.0',
+        name: 'a',
+        path: 'packages/a/package.json',
+        changed: false,
+      },
+    },
+    'source-sha',
+  )
+
+  expect(getExecOutputMock).toHaveBeenCalledWith(
+    'git',
+    ['push', 'origin', 'source-sha:refs/tags/a(packages/a/package.json)@1.1.0'],
+    { ignoreReturnCode: true, silent: true },
+  )
+  expect(getExecOutputMock).toHaveBeenCalledWith(
+    'git',
+    ['push', 'origin', 'head-sha:refs/tags/a(packages/a/package.json)@1.1.0'],
+    { ignoreReturnCode: true, silent: true },
+  )
+  expect(createReleaseMock).toHaveBeenCalledWith(
+    expect.objectContaining({
+      tag_name: 'a(packages/a/package.json)@1.1.0',
+      target_commitish: 'head-sha',
+    }),
+  )
+  expect(result).toEqual({
+    'packages/a/package.json': {
+      releaseId: 7,
+      tagName: 'a(packages/a/package.json)@1.1.0',
+      makeLatest: true,
+      status: 'pending',
+    },
+  })
+
+  mock.module('@actions/core', () => originalCore)
+  mock.module('@actions/exec', () => originalExec)
+  mock.module('@actions/github', () => originalGithub)
+})
