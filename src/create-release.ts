@@ -10,7 +10,7 @@ import {
   setOutput,
   startGroup,
 } from '@actions/core'
-import { exec } from '@actions/exec'
+import { exec, getExecOutput } from '@actions/exec'
 import { context, getOctokit } from '@actions/github'
 import { createBody } from './create-body'
 import type {
@@ -33,6 +33,20 @@ export async function createRelease(
     }
 
     const octokit = getOctokit(getInput('token'))
+    // A shallow checkout (actions/checkout defaults to fetch-depth 1) cannot
+    // push its boundary commits: GitHub rejects the tag push with "shallow
+    // update not allowed". Restore full history before pushing any tag.
+    if (
+      (
+        await getExecOutput('git', ['rev-parse', '--is-shallow-repository'], {
+          silent: !isDebug(),
+        })
+      ).stdout.trim() === 'true'
+    ) {
+      await exec('git', ['fetch', '--unshallow', 'origin'], {
+        silent: !isDebug(),
+      })
+    }
     const releasePromises = Object.entries(changepacks)
       .filter(([_, changepack]) => !!changepack.nextVersion)
       .map(async ([projectPath, changepack]) => {
@@ -58,9 +72,16 @@ export async function createRelease(
               throw err
             }
             info(`create ref: ${refPath} ${err}`)
-            await exec('git', ['push', 'origin', `${sourceSha}:${refPath}`], {
-              silent: !isDebug(),
-            })
+            const pushResult = await getExecOutput(
+              'git',
+              ['push', 'origin', `${sourceSha}:${refPath}`],
+              { ignoreReturnCode: true, silent: !isDebug() },
+            )
+            if (pushResult.exitCode !== 0) {
+              throw new Error(
+                `git push failed: ${pushResult.stderr.trim() || pushResult.stdout.trim()}`,
+              )
+            }
             info(`pushed ref: ${tagName}`)
           }
 

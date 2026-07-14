@@ -206,7 +206,14 @@ test('createRelease always passes make_latest false to API', async () => {
     getBooleanInput: getBooleanInputMock,
     isDebug: mock(() => false),
   }))
-  mock.module('@actions/exec', () => ({ exec: mock(async () => 0) }))
+  mock.module('@actions/exec', () => ({
+    exec: mock(async () => 0),
+    getExecOutput: mock(async (_cmd: string, args: string[] = []) =>
+      args.includes('--is-shallow-repository')
+        ? { exitCode: 0, stdout: 'false\n', stderr: '' }
+        : { exitCode: 0, stdout: '', stderr: '' },
+    ),
+  }))
 
   const getRefMock = mock(async () => {
     throw Object.assign(new Error('ref not found'), { status: 404 })

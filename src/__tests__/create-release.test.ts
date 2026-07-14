@@ -5,6 +5,18 @@ import type { ChangepackResultMap } from '../types'
 const missingRefError = () =>
   Object.assign(new Error('ref not found'), { status: 404 })
 
+// A non-shallow repository so createRelease skips `git fetch --unshallow` and
+// pushes tags directly. Use a bespoke mock when a test asserts on the
+// exec/getExecOutput calls.
+const notShallowExec = () => ({
+  exec: mock(async () => 0),
+  getExecOutput: mock(async (_cmd: string, args: string[] = []) =>
+    args.includes('--is-shallow-repository')
+      ? { exitCode: 0, stdout: 'false\n', stderr: '' }
+      : { exitCode: 0, stdout: '', stderr: '' },
+  ),
+})
+
 test('createRelease pushes source SHA tags through git before creating releases', async () => {
   const originalCore = { ...(await import('@actions/core')) }
   const originalExec = { ...(await import('@actions/exec')) }
@@ -20,8 +32,15 @@ test('createRelease pushes source SHA tags through git before creating releases'
     isDebug: mock(() => false),
   }))
 
-  const execMock = mock(async () => 0)
-  mock.module('@actions/exec', () => ({ exec: execMock }))
+  const getExecOutputMock = mock(async (_cmd: string, args: string[] = []) =>
+    args.includes('--is-shallow-repository')
+      ? { exitCode: 0, stdout: 'false\n', stderr: '' }
+      : { exitCode: 0, stdout: '', stderr: '' },
+  )
+  mock.module('@actions/exec', () => ({
+    exec: mock(async () => 0),
+    getExecOutput: getExecOutputMock,
+  }))
 
   const getRefMock = mock(async () => {
     throw missingRefError()
@@ -123,19 +142,15 @@ test('createRelease pushes source SHA tags through git before creating releases'
     },
   })
 
-  expect(execMock).toHaveBeenCalledWith(
+  expect(getExecOutputMock).toHaveBeenCalledWith(
     'git',
     ['push', 'origin', 'source-sha:refs/tags/a(packages/a/package.json)@1.1.0'],
-    {
-      silent: true,
-    },
+    { ignoreReturnCode: true, silent: true },
   )
-  expect(execMock).toHaveBeenCalledWith(
+  expect(getExecOutputMock).toHaveBeenCalledWith(
     'git',
     ['push', 'origin', 'source-sha:refs/tags/b(packages/b/package.json)@2.0.1'],
-    {
-      silent: true,
-    },
+    { ignoreReturnCode: true, silent: true },
   )
   expect(createRefMock).not.toHaveBeenCalled()
 
@@ -221,7 +236,7 @@ test('createRelease preserves a pushed tag when release creation fails', async (
     isDebug: mock(() => false),
     setFailed: setFailedMock,
   }))
-  mock.module('@actions/exec', () => ({ exec: mock(async () => 0) }))
+  mock.module('@actions/exec', notShallowExec)
 
   const getRefMock = mock(async () => {
     throw missingRefError()
@@ -300,6 +315,11 @@ test('createRelease does not push when tag lookup fails with non-404', async () 
   const lookupError = Object.assign(new Error('forbidden'), { status: 403 })
   const setFailedMock = mock()
   const execMock = mock(async () => 0)
+  const getExecOutputMock = mock(async (_cmd: string, args: string[] = []) =>
+    args.includes('--is-shallow-repository')
+      ? { exitCode: 0, stdout: 'false\n', stderr: '' }
+      : { exitCode: 0, stdout: '', stderr: '' },
+  )
   const createReleaseMock = mock()
   mock.module('@actions/core', () => ({
     error: mock(),
@@ -310,7 +330,10 @@ test('createRelease does not push when tag lookup fails with non-404', async () 
     setFailed: setFailedMock,
     setOutput: mock(),
   }))
-  mock.module('@actions/exec', () => ({ exec: execMock }))
+  mock.module('@actions/exec', () => ({
+    exec: execMock,
+    getExecOutput: getExecOutputMock,
+  }))
   mock.module('@actions/github', () => ({
     context: {
       repo: { owner: 'acme', repo: 'widgets' },
@@ -346,6 +369,9 @@ test('createRelease does not push when tag lookup fails with non-404', async () 
 
   expect(result).toEqual({})
   expect(execMock).not.toHaveBeenCalled()
+  expect(
+    getExecOutputMock.mock.calls.every((call) => !call[1]?.includes('push')),
+  ).toBe(true)
   expect(createReleaseMock).not.toHaveBeenCalled()
   expect(setFailedMock).toHaveBeenCalledWith(lookupError)
 
@@ -495,7 +521,7 @@ test('createRelease returns makeLatest true when changepacks has only 1 item eve
     getBooleanInput: getBooleanInputMock,
     isDebug: mock(() => false),
   }))
-  mock.module('@actions/exec', () => ({ exec: mock(async () => 0) }))
+  mock.module('@actions/exec', notShallowExec)
 
   const getRefMock = mock(async () => {
     throw missingRefError()
@@ -571,6 +597,7 @@ test('createRelease returns makeLatest true when changepacks has only 1 item eve
 
 test('createRelease skips creating ref when tag already exists', async () => {
   const originalCore = { ...(await import('@actions/core')) }
+  const originalExec = { ...(await import('@actions/exec')) }
   const originalGithub = { ...(await import('@actions/github')) }
 
   const setOutputMock = mock(() => {})
@@ -582,7 +609,9 @@ test('createRelease skips creating ref when tag already exists', async () => {
     getInput: getInputMock,
     getBooleanInput: getBooleanInputMock,
     debug: debugMock,
+    isDebug: mock(() => false),
   }))
+  mock.module('@actions/exec', notShallowExec)
 
   const getRefMock = mock()
   const createRefMock = mock()
@@ -658,11 +687,13 @@ test('createRelease skips creating ref when tag already exists', async () => {
   expect(createReleaseMock).not.toHaveBeenCalled()
 
   mock.module('@actions/core', () => originalCore)
+  mock.module('@actions/exec', () => originalExec)
   mock.module('@actions/github', () => originalGithub)
 })
 
 test('createRelease creates release when tag exists but release lookup fails', async () => {
   const originalCore = { ...(await import('@actions/core')) }
+  const originalExec = { ...(await import('@actions/exec')) }
   const originalGithub = { ...(await import('@actions/github')) }
 
   const setOutputMock = mock(() => {})
@@ -675,7 +706,9 @@ test('createRelease creates release when tag exists but release lookup fails', a
     getBooleanInput: getBooleanInputMock,
     debug: mock(),
     info: infoMock,
+    isDebug: mock(() => false),
   }))
+  mock.module('@actions/exec', notShallowExec)
 
   const lookupError = new Error('release not found')
   const getRefMock = mock(async () => ({ data: { ref: 'refs/tags/test' } }))
@@ -751,6 +784,7 @@ test('createRelease creates release when tag exists but release lookup fails', a
   })
 
   mock.module('@actions/core', () => originalCore)
+  mock.module('@actions/exec', () => originalExec)
   mock.module('@actions/github', () => originalGithub)
 })
 
@@ -770,7 +804,7 @@ test('createRelease does not roll back a newly pushed tag', async () => {
     isDebug: mock(() => false),
     setFailed: mock(),
   }))
-  mock.module('@actions/exec', () => ({ exec: mock(async () => 0) }))
+  mock.module('@actions/exec', notShallowExec)
 
   const getRefMock = mock(async () => {
     throw missingRefError()
@@ -825,6 +859,164 @@ test('createRelease does not roll back a newly pushed tag', async () => {
   expect(errorMock).toHaveBeenCalledWith(
     expect.stringContaining('create release failed'),
   )
+
+  mock.module('@actions/core', () => originalCore)
+  mock.module('@actions/exec', () => originalExec)
+  mock.module('@actions/github', () => originalGithub)
+})
+
+test('createRelease unshallows a shallow checkout before pushing tags', async () => {
+  const originalCore = { ...(await import('@actions/core')) }
+  const originalExec = { ...(await import('@actions/exec')) }
+  const originalGithub = { ...(await import('@actions/github')) }
+
+  const calls: string[] = []
+  const trackedExec = mock(async (_cmd: string, args: string[] = []) => {
+    calls.push(args.join(' '))
+    return 0
+  })
+  const getExecOutputMock = mock(async (_cmd: string, args: string[] = []) => {
+    calls.push(args.join(' '))
+    return args.includes('--is-shallow-repository')
+      ? { exitCode: 0, stdout: 'true\n', stderr: '' }
+      : { exitCode: 0, stdout: '', stderr: '' }
+  })
+  mock.module('@actions/core', () => ({
+    setOutput: mock(),
+    getInput: mock((name: string) => (name === 'token' ? 'T' : '')),
+    getBooleanInput: mock((name: string) => name === 'create_release'),
+    info: mock(),
+    debug: mock(),
+    isDebug: mock(() => false),
+  }))
+  mock.module('@actions/exec', () => ({
+    exec: trackedExec,
+    getExecOutput: getExecOutputMock,
+  }))
+  mock.module('@actions/github', () => ({
+    context: {
+      repo: { owner: 'acme', repo: 'widgets' },
+      ref: 'refs/heads/main',
+      sha: 'abc123def456',
+    },
+    getOctokit: mock(() => ({
+      rest: {
+        git: {
+          getRef: mock(async () => {
+            throw missingRefError()
+          }),
+        },
+        repos: {
+          createRelease: mock(async () => ({
+            data: { id: 1, upload_url: 'https://example.com/upload/a.zip' },
+          })),
+        },
+      },
+    })),
+  }))
+
+  const { createRelease } = await import('../create-release')
+  await createRelease(
+    { ignore: [], baseBranch: 'main', latestPackage: null },
+    {
+      'packages/a/package.json': {
+        logs: [],
+        version: '1.0.0',
+        nextVersion: '1.1.0',
+        name: 'a',
+        path: 'packages/a/package.json',
+        changed: false,
+      },
+    },
+    'source-sha',
+  )
+
+  expect(trackedExec).toHaveBeenCalledWith(
+    'git',
+    ['fetch', '--unshallow', 'origin'],
+    { silent: true },
+  )
+  const unshallowIndex = calls.indexOf('fetch --unshallow origin')
+  const pushIndex = calls.findIndex((entry) => entry.startsWith('push origin'))
+  expect(unshallowIndex).toBeGreaterThanOrEqual(0)
+  expect(pushIndex).toBeGreaterThan(unshallowIndex)
+
+  mock.module('@actions/core', () => originalCore)
+  mock.module('@actions/exec', () => originalExec)
+  mock.module('@actions/github', () => originalGithub)
+})
+
+test('createRelease surfaces git push stderr when the push is rejected', async () => {
+  const originalCore = { ...(await import('@actions/core')) }
+  const originalExec = { ...(await import('@actions/exec')) }
+  const originalGithub = { ...(await import('@actions/github')) }
+
+  const errorMock = mock()
+  const setFailedMock = mock()
+  mock.module('@actions/core', () => ({
+    setOutput: mock(),
+    getInput: mock((name: string) => (name === 'token' ? 'T' : '')),
+    getBooleanInput: mock((name: string) => name === 'create_release'),
+    info: mock(),
+    debug: mock(),
+    isDebug: mock(() => false),
+    error: errorMock,
+    setFailed: setFailedMock,
+  }))
+  mock.module('@actions/exec', () => ({
+    exec: mock(async () => 0),
+    getExecOutput: mock(async (_cmd: string, args: string[] = []) =>
+      args.includes('--is-shallow-repository')
+        ? { exitCode: 0, stdout: 'false\n', stderr: '' }
+        : {
+            exitCode: 1,
+            stdout: '',
+            stderr:
+              '! [remote rejected] source-sha -> tag (shallow update not allowed)',
+          },
+    ),
+  }))
+  const createReleaseMock = mock()
+  mock.module('@actions/github', () => ({
+    context: {
+      repo: { owner: 'acme', repo: 'widgets' },
+      ref: 'refs/heads/main',
+      sha: 'abc123def456',
+    },
+    getOctokit: mock(() => ({
+      rest: {
+        git: {
+          getRef: mock(async () => {
+            throw missingRefError()
+          }),
+        },
+        repos: { createRelease: createReleaseMock },
+      },
+    })),
+  }))
+
+  const { createRelease } = await import('../create-release')
+  const result = await createRelease(
+    { ignore: [], baseBranch: 'main', latestPackage: null },
+    {
+      'packages/a/package.json': {
+        logs: [],
+        version: '1.0.0',
+        nextVersion: '1.1.0',
+        name: 'a',
+        path: 'packages/a/package.json',
+        changed: false,
+      },
+    },
+    'source-sha',
+  )
+
+  expect(result).toEqual({})
+  expect(createReleaseMock).not.toHaveBeenCalled()
+  expect(errorMock).toHaveBeenCalledWith(
+    expect.stringContaining('shallow update not allowed'),
+  )
+  expect(setFailedMock).toHaveBeenCalled()
 
   mock.module('@actions/core', () => originalCore)
   mock.module('@actions/exec', () => originalExec)
