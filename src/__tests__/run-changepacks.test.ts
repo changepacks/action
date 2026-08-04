@@ -1015,9 +1015,44 @@ test('runChangepacks publish throws when stdout is empty and only stderr was pro
 
   const { runChangepacks } = await import('../run-changepacks')
 
-  await expect(runChangepacks('publish')).rejects.toThrow(
-    'Process failed with exit code 1',
+  // the exec failure alone only says "exit code 1", so the stderr text has to
+  // reach the caller
+  const caught = await runChangepacks('publish').catch(
+    (err: unknown) => err as Error,
   )
+  expect(caught.message).toBe(
+    'changepacks publish failed: Error: Failed to publish 1 project(s): foo',
+  )
+  expect(caught.cause).toBe(publishError)
+
+  mock.module('@actions/exec', () => originalExec)
+  mock.module('@actions/core', () => originalCore)
+  mock.module('../run-changepacks', () => originalRunChangepacks)
+})
+
+test('runChangepacks rethrows the raw error when the process produced no output', async () => {
+  const originalExec = { ...(await import('@actions/exec')) }
+  const originalCore = { ...(await import('@actions/core')) }
+  const originalRunChangepacks = { ...(await import('../run-changepacks')) }
+
+  const publishError = new Error('Process failed with exit code 1')
+  const execMock = mock(async () => {
+    throw publishError
+  })
+  mock.module('@actions/exec', () => ({ exec: execMock }))
+  mock.module('@actions/core', () => ({
+    debug: mock(),
+    warning: mock(),
+    isDebug: mock(() => false),
+    getInput: mock(() => ''),
+  }))
+
+  const { runChangepacks } = await import('../run-changepacks')
+
+  const caught = await runChangepacks('check').catch(
+    (err: unknown) => err as Error,
+  )
+  expect(caught).toBe(publishError)
 
   mock.module('@actions/exec', () => originalExec)
   mock.module('@actions/core', () => originalCore)

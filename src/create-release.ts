@@ -9,6 +9,7 @@ import {
   setFailed,
   setOutput,
   startGroup,
+  warning,
 } from '@actions/core'
 import { exec, getExecOutput } from '@actions/exec'
 import { context, getOctokit } from '@actions/github'
@@ -18,6 +19,58 @@ import type {
   ChangepackResultMap,
   ReleaseInfo,
 } from './types'
+
+const RELEASE_PAGE_SIZE = 100
+const MAX_RELEASE_PAGES = 5
+
+interface DraftRelease {
+  readonly id: number
+  readonly uploadUrl: string
+}
+
+// `GET /releases/tags/{tag}` never returns draft releases, so a draft left
+// behind by an earlier run stays invisible there and every re-run piles up
+// another duplicate. Index drafts from the release list instead. Loading is
+// lazy and shared because it only matters once a tag already exists.
+function createDraftIndex(octokit: ReturnType<typeof getOctokit>) {
+  const load = async () => {
+    const drafts = new Map<string, DraftRelease[]>()
+    try {
+      for (let page = 1; page <= MAX_RELEASE_PAGES; page++) {
+        const { data } = await octokit.rest.repos.listReleases({
+          ...context.repo,
+          per_page: RELEASE_PAGE_SIZE,
+          page,
+        })
+        for (const release of data) {
+          if (!release.draft) {
+            continue
+          }
+          const bucket = drafts.get(release.tag_name)
+          const draft = { id: release.id, uploadUrl: release.upload_url }
+          if (bucket) {
+            bucket.push(draft)
+          } else {
+            drafts.set(release.tag_name, [draft])
+          }
+        }
+        if (data.length < RELEASE_PAGE_SIZE) {
+          break
+        }
+      }
+    } catch (err: unknown) {
+      // Losing the index only costs deduplication, so keep releasing.
+      warning(`failed to list existing draft releases: ${err}`)
+    }
+    return drafts
+  }
+
+  let pending: Promise<Map<string, DraftRelease[]>> | null = null
+  return async (tagName: string) => {
+    pending ??= load()
+    return (await pending).get(tagName) ?? []
+  }
+}
 
 export async function createRelease(
   config: ChangepackConfig,
@@ -34,6 +87,7 @@ export async function createRelease(
 
     const shouldPublish = getBooleanInput('publish')
     const octokit = getOctokit(getInput('token'))
+    const findDrafts = createDraftIndex(octokit)
     // A shallow checkout (actions/checkout defaults to fetch-depth 1) cannot
     // push its boundary commits: GitHub rejects the tag push with "shallow
     // update not allowed". Restore full history before pushing any tag.
@@ -131,6 +185,36 @@ export async function createRelease(
               ] as const
             } catch (err: unknown) {
               info(`release does not exist for existing ref: ${tagName} ${err}`)
+            }
+
+            // Drafts are invisible above, so reuse one of them and drop the
+            // duplicates earlier runs left behind.
+            const [reused, ...duplicates] = await findDrafts(tagName)
+            for (const duplicate of duplicates) {
+              try {
+                await octokit.rest.repos.deleteRelease({
+                  ...context.repo,
+                  release_id: duplicate.id,
+                })
+                info(
+                  `deleted duplicate draft release: ${tagName} ${duplicate.id}`,
+                )
+              } catch (err: unknown) {
+                warning(
+                  `failed to delete duplicate draft release: ${tagName} ${duplicate.id} ${err}`,
+                )
+              }
+            }
+            if (reused) {
+              info(`draft release already exists: ${tagName} ${reused.id}`)
+              return [
+                projectPath,
+                reused.id,
+                tagName,
+                reused.uploadUrl,
+                makeLatest,
+                'pending',
+              ] as const
             }
           }
 

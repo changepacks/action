@@ -724,6 +724,7 @@ test('createRelease creates release when tag exists but release lookup fails', a
       git: { getRef: getRefMock, createRef: createRefMock },
       repos: {
         getReleaseByTag: getReleaseByTagMock,
+        listReleases: mock(async () => ({ data: [] })),
         createRelease: createReleaseMock,
       },
     },
@@ -1114,6 +1115,290 @@ test('createRelease falls back to HEAD when source SHA push needs workflows perm
     'packages/a/package.json': {
       releaseId: 7,
       tagName: 'a(packages/a/package.json)@1.1.0',
+      makeLatest: true,
+      status: 'pending',
+    },
+  })
+
+  mock.module('@actions/core', () => originalCore)
+  mock.module('@actions/exec', () => originalExec)
+  mock.module('@actions/github', () => originalGithub)
+})
+
+const draftTag = 'a(packages/a/package.json)@1.1.0'
+const singleChangepack: ChangepackResultMap = {
+  'packages/a/package.json': {
+    logs: [{ type: 'Minor', note: 'feat A' }],
+    version: '1.0.0',
+    nextVersion: '1.1.0',
+    name: 'a',
+    path: 'packages/a/package.json',
+    changed: false,
+  },
+}
+
+// GitHub hides drafts from `GET /releases/tags/{tag}`, so an existing draft can
+// only be found by listing releases.
+const draftInvisibleByTag = () => ({
+  getRef: mock(async () => ({ data: { ref: `refs/tags/${draftTag}` } })),
+  getReleaseByTag: mock(async () => {
+    throw missingRefError()
+  }),
+})
+
+test('createRelease reuses an existing draft and deletes duplicates', async () => {
+  const originalCore = { ...(await import('@actions/core')) }
+  const originalExec = { ...(await import('@actions/exec')) }
+  const originalGithub = { ...(await import('@actions/github')) }
+
+  const setOutputMock = mock(() => {})
+  const infoMock = mock()
+  const warningMock = mock()
+  mock.module('@actions/core', () => ({
+    setOutput: setOutputMock,
+    getInput: mock((name: string) => (name === 'token' ? 'T' : '')),
+    getBooleanInput: mock((name: string) => name === 'create_release'),
+    debug: mock(),
+    info: infoMock,
+    warning: warningMock,
+    isDebug: mock(() => false),
+  }))
+  mock.module('@actions/exec', notShallowExec)
+
+  // a full first page forces a second request, and the published release with
+  // the same tag must not be mistaken for a draft
+  const firstPage = Array.from({ length: 99 }, (_, index) => ({
+    id: 1000 + index,
+    tag_name: `other(packages/other/package.json)@0.${index}.0`,
+    draft: true,
+    upload_url: `https://example.com/upload/other-${index}.zip`,
+  })).concat([
+    {
+      id: 9999,
+      tag_name: draftTag,
+      draft: false,
+      upload_url: 'https://example.com/upload/published.zip',
+    },
+  ])
+  const secondPage = [
+    {
+      id: 11,
+      tag_name: draftTag,
+      draft: true,
+      upload_url: 'https://example.com/upload/newest.zip',
+    },
+    {
+      id: 12,
+      tag_name: draftTag,
+      draft: true,
+      upload_url: 'https://example.com/upload/older.zip',
+    },
+    {
+      id: 13,
+      tag_name: draftTag,
+      draft: true,
+      upload_url: 'https://example.com/upload/oldest.zip',
+    },
+  ]
+  const listReleasesMock = mock(async ({ page }: { page: number }) => ({
+    data: page === 1 ? firstPage : secondPage,
+  }))
+  const deleteReleaseMock = mock(async (_params: unknown) => ({}))
+  const createReleaseMock = mock()
+  mock.module('@actions/github', () => ({
+    context: {
+      repo: { owner: 'acme', repo: 'widgets' },
+      ref: 'refs/heads/main',
+      sha: 'abc123def456',
+    },
+    getOctokit: mock(() => ({
+      rest: {
+        git: { getRef: draftInvisibleByTag().getRef, createRef: mock() },
+        repos: {
+          getReleaseByTag: draftInvisibleByTag().getReleaseByTag,
+          listReleases: listReleasesMock,
+          deleteRelease: deleteReleaseMock,
+          createRelease: createReleaseMock,
+        },
+      },
+    })),
+  }))
+
+  const { createRelease } = await import('../create-release')
+  const result = await createRelease(
+    { ignore: [], baseBranch: 'main', latestPackage: null },
+    singleChangepack,
+  )
+
+  expect(listReleasesMock).toHaveBeenCalledTimes(2)
+  expect(createReleaseMock).not.toHaveBeenCalled()
+  expect(deleteReleaseMock).toHaveBeenCalledTimes(2)
+  expect(deleteReleaseMock).toHaveBeenCalledWith({
+    owner: 'acme',
+    repo: 'widgets',
+    release_id: 12,
+  })
+  expect(deleteReleaseMock).toHaveBeenCalledWith({
+    owner: 'acme',
+    repo: 'widgets',
+    release_id: 13,
+  })
+  expect(infoMock).toHaveBeenCalledWith(
+    `draft release already exists: ${draftTag} 11`,
+  )
+  expect(setOutputMock).toHaveBeenCalledWith('release_assets_urls', {
+    'packages/a/package.json': 'https://example.com/upload/newest.zip',
+  })
+  expect(result).toEqual({
+    'packages/a/package.json': {
+      releaseId: 11,
+      tagName: draftTag,
+      makeLatest: true,
+      status: 'pending',
+    },
+  })
+
+  mock.module('@actions/core', () => originalCore)
+  mock.module('@actions/exec', () => originalExec)
+  mock.module('@actions/github', () => originalGithub)
+})
+
+test('createRelease still reuses the draft when deleting a duplicate fails', async () => {
+  const originalCore = { ...(await import('@actions/core')) }
+  const originalExec = { ...(await import('@actions/exec')) }
+  const originalGithub = { ...(await import('@actions/github')) }
+
+  const warningMock = mock()
+  mock.module('@actions/core', () => ({
+    setOutput: mock(),
+    getInput: mock((name: string) => (name === 'token' ? 'T' : '')),
+    getBooleanInput: mock((name: string) => name === 'create_release'),
+    debug: mock(),
+    info: mock(),
+    warning: warningMock,
+    isDebug: mock(() => false),
+  }))
+  mock.module('@actions/exec', notShallowExec)
+
+  const deleteError = new Error('boom')
+  const deleteReleaseMock = mock(async () => {
+    throw deleteError
+  })
+  const createReleaseMock = mock()
+  mock.module('@actions/github', () => ({
+    context: {
+      repo: { owner: 'acme', repo: 'widgets' },
+      ref: 'refs/heads/main',
+      sha: 'abc123def456',
+    },
+    getOctokit: mock(() => ({
+      rest: {
+        git: { getRef: draftInvisibleByTag().getRef, createRef: mock() },
+        repos: {
+          getReleaseByTag: draftInvisibleByTag().getReleaseByTag,
+          listReleases: mock(async () => ({
+            data: [
+              {
+                id: 21,
+                tag_name: draftTag,
+                draft: true,
+                upload_url: 'https://example.com/upload/keep.zip',
+              },
+              {
+                id: 22,
+                tag_name: draftTag,
+                draft: true,
+                upload_url: 'https://example.com/upload/drop.zip',
+              },
+            ],
+          })),
+          deleteRelease: deleteReleaseMock,
+          createRelease: createReleaseMock,
+        },
+      },
+    })),
+  }))
+
+  const { createRelease } = await import('../create-release')
+  const result = await createRelease(
+    { ignore: [], baseBranch: 'main', latestPackage: null },
+    singleChangepack,
+  )
+
+  expect(warningMock).toHaveBeenCalledWith(
+    `failed to delete duplicate draft release: ${draftTag} 22 ${deleteError}`,
+  )
+  expect(createReleaseMock).not.toHaveBeenCalled()
+  expect(result).toEqual({
+    'packages/a/package.json': {
+      releaseId: 21,
+      tagName: draftTag,
+      makeLatest: true,
+      status: 'pending',
+    },
+  })
+
+  mock.module('@actions/core', () => originalCore)
+  mock.module('@actions/exec', () => originalExec)
+  mock.module('@actions/github', () => originalGithub)
+})
+
+test('createRelease creates a release when listing drafts fails', async () => {
+  const originalCore = { ...(await import('@actions/core')) }
+  const originalExec = { ...(await import('@actions/exec')) }
+  const originalGithub = { ...(await import('@actions/github')) }
+
+  const warningMock = mock()
+  mock.module('@actions/core', () => ({
+    setOutput: mock(),
+    getInput: mock((name: string) => (name === 'token' ? 'T' : '')),
+    getBooleanInput: mock((name: string) => name === 'create_release'),
+    debug: mock(),
+    info: mock(),
+    warning: warningMock,
+    isDebug: mock(() => false),
+  }))
+  mock.module('@actions/exec', notShallowExec)
+
+  const listError = new Error('rate limited')
+  const createReleaseMock = mock(async (_params: unknown) => ({
+    data: { id: 31, upload_url: 'https://example.com/upload/new.zip' },
+  }))
+  mock.module('@actions/github', () => ({
+    context: {
+      repo: { owner: 'acme', repo: 'widgets' },
+      ref: 'refs/heads/main',
+      sha: 'abc123def456',
+    },
+    getOctokit: mock(() => ({
+      rest: {
+        git: { getRef: draftInvisibleByTag().getRef, createRef: mock() },
+        repos: {
+          getReleaseByTag: draftInvisibleByTag().getReleaseByTag,
+          listReleases: mock(async () => {
+            throw listError
+          }),
+          deleteRelease: mock(),
+          createRelease: createReleaseMock,
+        },
+      },
+    })),
+  }))
+
+  const { createRelease } = await import('../create-release')
+  const result = await createRelease(
+    { ignore: [], baseBranch: 'main', latestPackage: null },
+    singleChangepack,
+  )
+
+  expect(warningMock).toHaveBeenCalledWith(
+    `failed to list existing draft releases: ${listError}`,
+  )
+  expect(createReleaseMock).toHaveBeenCalled()
+  expect(result).toEqual({
+    'packages/a/package.json': {
+      releaseId: 31,
+      tagName: draftTag,
       makeLatest: true,
       status: 'pending',
     },

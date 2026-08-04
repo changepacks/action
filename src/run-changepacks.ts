@@ -73,7 +73,12 @@ export async function runChangepacks(
     )
   } catch (err: unknown) {
     if (command !== 'publish' || !stdout) {
-      throw err
+      // A fatal CLI failure is reported as plain text on stderr with no JSON on
+      // stdout, so surface that text instead of a bare "exit code 1".
+      const detail = stderr.trim() || stdout.trim()
+      throw detail
+        ? new Error(`changepacks ${command} failed: ${detail}`, { cause: err })
+        : err
     }
     // Publish may exit non-zero for partial failures while still emitting
     // per-package JSON on stdout. Preserve stderr for debug visibility so
