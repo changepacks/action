@@ -1,5 +1,5 @@
 import { debug, getInput, isDebug, setFailed } from '@actions/core'
-import { exec } from '@actions/exec'
+import { exec, getExecOutput } from '@actions/exec'
 import { context, getOctokit } from '@actions/github'
 import { installChangepacks } from './install-changepacks'
 import { runChangepacks } from './run-changepacks'
@@ -61,8 +61,26 @@ export async function checkPastChangepacks(
 
   try {
     if (foundUpdateVersionsPr) {
+      // actions/checkout defaults to a shallow (depth=1) clone. Fetching
+      // compareSha/sourceSha independently with --depth=1 grabs each commit
+      // as its own disconnected shallow graft, sharing no history with each
+      // other or with the currently checked out commit. `changepacks check`
+      // later needs a merge-base against them, which fails in that
+      // disconnected graph ("Could not find a merge-base..."). Restore full
+      // history first so every commit is properly connected, same as the
+      // shallow-repo handling in create-release.ts.
+      const { stdout: isShallowOutput } = await getExecOutput(
+        'git',
+        ['rev-parse', '--is-shallow-repository'],
+        { silent: !isDebug() },
+      )
+      if (isShallowOutput.trim() === 'true') {
+        await exec('git', ['fetch', '--unshallow', 'origin'], {
+          silent: !isDebug(),
+        })
+      }
       for (const sha of new Set([compareSha, sourceSha])) {
-        await exec('git', ['fetch', '--no-tags', '--depth=1', 'origin', sha], {
+        await exec('git', ['fetch', '--no-tags', 'origin', sha], {
           silent: !isDebug(),
         })
       }

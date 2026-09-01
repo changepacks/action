@@ -26,7 +26,14 @@ test('checkPastChangepacks returns empty when no .changepacks diff', async () =>
       return 0
     },
   )
-  mock.module('@actions/exec', () => ({ exec: execMock }))
+  mock.module('@actions/exec', () => ({
+    exec: execMock,
+    getExecOutput: mock(async () => ({
+      stdout: 'false',
+      stderr: '',
+      exitCode: 0,
+    })),
+  }))
 
   const setFailedMock = mock()
   const debugMock = mock()
@@ -101,7 +108,14 @@ test('checkPastChangepacks rollbacks, reads, and restores when diff exists', asy
       return 0
     },
   )
-  mock.module('@actions/exec', () => ({ exec: execMock }))
+  mock.module('@actions/exec', () => ({
+    exec: execMock,
+    getExecOutput: mock(async () => ({
+      stdout: 'false',
+      stderr: '',
+      exitCode: 0,
+    })),
+  }))
 
   const setFailedMock = mock()
   const debugMock = mock()
@@ -201,7 +215,14 @@ test('checkPastChangepacks returns {} and setsFailed when git diff errors', asyn
     }
     throw new Error('diff failed')
   })
-  mock.module('@actions/exec', () => ({ exec: execMock }))
+  mock.module('@actions/exec', () => ({
+    exec: execMock,
+    getExecOutput: mock(async () => ({
+      stdout: 'false',
+      stderr: '',
+      exitCode: 0,
+    })),
+  }))
 
   const setFailedMock = mock()
   const debugMock = mock()
@@ -272,7 +293,14 @@ test('checkPastChangepacks returns {} and setsFailed when later step throws (out
       return 0
     },
   )
-  mock.module('@actions/exec', () => ({ exec: execMock }))
+  mock.module('@actions/exec', () => ({
+    exec: execMock,
+    getExecOutput: mock(async () => ({
+      stdout: 'false',
+      stderr: '',
+      exitCode: 0,
+    })),
+  }))
 
   const setFailedMock = mock()
   const debugMock = mock()
@@ -352,7 +380,14 @@ test('checkPastChangepacks fails when fallback history fetch fails', async () =>
       return 0
     },
   )
-  mock.module('@actions/exec', () => ({ exec: execMock }))
+  mock.module('@actions/exec', () => ({
+    exec: execMock,
+    getExecOutput: mock(async () => ({
+      stdout: 'false',
+      stderr: '',
+      exitCode: 0,
+    })),
+  }))
   const setFailedMock = mock()
   const debugMock = mock()
   const isDebugMock = mock(() => false)
@@ -422,7 +457,14 @@ test('checkPastChangepacks returns {} when git diff outputs bad revision to stde
       return 0
     },
   )
-  mock.module('@actions/exec', () => ({ exec: execMock }))
+  mock.module('@actions/exec', () => ({
+    exec: execMock,
+    getExecOutput: mock(async () => ({
+      stdout: 'false',
+      stderr: '',
+      exitCode: 0,
+    })),
+  }))
   const setFailedMock = mock()
   const debugMock = mock()
   const isDebugMock = mock(() => false)
@@ -487,7 +529,14 @@ test('checkPastChangepacks returns {} when git diff outputs unknown revision to 
       return 0
     },
   )
-  mock.module('@actions/exec', () => ({ exec: execMock }))
+  mock.module('@actions/exec', () => ({
+    exec: execMock,
+    getExecOutput: mock(async () => ({
+      stdout: 'false',
+      stderr: '',
+      exitCode: 0,
+    })),
+  }))
   const setFailedMock = mock()
   const debugMock = mock()
   const isDebugMock = mock(() => false)
@@ -552,7 +601,14 @@ test('checkPastChangepacks returns {} when git diff outputs ambiguous argument',
       return 0
     },
   )
-  mock.module('@actions/exec', () => ({ exec: execMock }))
+  mock.module('@actions/exec', () => ({
+    exec: execMock,
+    getExecOutput: mock(async () => ({
+      stdout: 'false',
+      stderr: '',
+      exitCode: 0,
+    })),
+  }))
   const setFailedMock = mock()
   const debugMock = mock()
   const isDebugMock = mock(() => false)
@@ -617,7 +673,14 @@ test('checkPastChangepacks returns {} when git diff outputs bad object', async (
       return 0
     },
   )
-  mock.module('@actions/exec', () => ({ exec: execMock }))
+  mock.module('@actions/exec', () => ({
+    exec: execMock,
+    getExecOutput: mock(async () => ({
+      stdout: 'false',
+      stderr: '',
+      exitCode: 0,
+    })),
+  }))
   const setFailedMock = mock()
   const debugMock = mock()
   const isDebugMock = mock(() => false)
@@ -686,7 +749,14 @@ test('checkPastChangepacks filters empty lines from diff output', async () => {
       return 0
     },
   )
-  mock.module('@actions/exec', () => ({ exec: execMock }))
+  mock.module('@actions/exec', () => ({
+    exec: execMock,
+    getExecOutput: mock(async () => ({
+      stdout: 'false',
+      stderr: '',
+      exitCode: 0,
+    })),
+  }))
 
   const setFailedMock = mock()
   const debugMock = mock()
@@ -782,7 +852,14 @@ test('checkPastChangepacks uses Update Versions PR SHA when found', async () => 
       return 0
     },
   )
-  mock.module('@actions/exec', () => ({ exec: execMock }))
+  mock.module('@actions/exec', () => ({
+    exec: execMock,
+    getExecOutput: mock(async () => ({
+      stdout: 'false',
+      stderr: '',
+      exitCode: 0,
+    })),
+  }))
 
   const setFailedMock = mock()
   const debugMock = mock()
@@ -853,7 +930,7 @@ test('checkPastChangepacks uses Update Versions PR SHA when found', async () => 
   )
   expect(execMock).toHaveBeenCalledWith(
     'git',
-    ['fetch', '--no-tags', '--depth=1', 'origin', 'base123'],
+    ['fetch', '--no-tags', 'origin', 'base123'],
     expect.objectContaining({ silent: true }),
   )
   expect(execMock).toHaveBeenCalledWith(
@@ -871,6 +948,132 @@ test('checkPastChangepacks uses Update Versions PR SHA when found', async () => 
   expect(execMock).toHaveBeenCalledWith(
     'git',
     ['checkout', 'main'],
+    expect.objectContaining({ silent: true }),
+  )
+  expect(setFailedMock).not.toHaveBeenCalled()
+
+  mock.module('../install-changepacks', () => originalInstallChangepacks)
+  mock.module('../run-changepacks', () => originalRunChangepacks)
+  mock.module('@actions/exec', () => originalExec)
+  mock.module('@actions/core', () => originalCore)
+  mock.module('@actions/github', () => originalGithub)
+})
+
+test('checkPastChangepacks unshallows before fetching a past PR SHA on a shallow checkout', async () => {
+  const originalExec = { ...(await import('@actions/exec')) }
+  const originalCore = { ...(await import('@actions/core')) }
+  const originalGithub = { ...(await import('@actions/github')) }
+  const originalRunChangepacks = { ...(await import('../run-changepacks')) }
+  const originalInstallChangepacks = {
+    ...(await import('../install-changepacks')),
+  }
+
+  const diffOutput = '.changepacks/a.md\n'
+  const pastSha = 'abc123def456'
+  const baseSha = 'base123'
+  const execMock = mock(
+    async (
+      _cmd: string,
+      args?: string[],
+      options?: {
+        listeners?: {
+          stdout?: (data: Buffer) => void
+          stderr?: (data: Buffer) => void
+        }
+      },
+    ) => {
+      if (args?.[0] === 'diff') {
+        options?.listeners?.stdout?.(Buffer.from(diffOutput))
+      }
+      return 0
+    },
+  )
+  const getExecOutputMock = mock(async () => ({
+    stdout: 'true',
+    stderr: '',
+    exitCode: 0,
+  }))
+  mock.module('@actions/exec', () => ({
+    exec: execMock,
+    getExecOutput: getExecOutputMock,
+  }))
+
+  const setFailedMock = mock()
+  const debugMock = mock()
+  const isDebugMock = mock(() => false)
+  const getInputMock = mock((name: string) =>
+    name === 'token' ? 'TEST_TOKEN' : '',
+  )
+  mock.module('@actions/core', () => ({
+    setFailed: setFailedMock,
+    debug: debugMock,
+    isDebug: isDebugMock,
+    getInput: getInputMock,
+  }))
+
+  const updateVersionsPr = {
+    number: 42,
+    title: 'Update Versions',
+    merged_at: '2024-01-01T00:00:00Z',
+    merge_commit_sha: pastSha,
+    head: { sha: 'head123' },
+    base: { ref: 'main', sha: baseSha },
+  }
+  const pullsListMock = mock(async () => ({
+    data: [updateVersionsPr],
+  }))
+  const octokit = {
+    rest: {
+      pulls: { list: pullsListMock },
+    },
+  }
+  const contextMock = {
+    repo: { owner: 'acme', repo: 'widgets' },
+    ref: 'refs/heads/main',
+  }
+  const getOctokitMock = mock((_token: string) => octokit)
+  mock.module('@actions/github', () => ({
+    getOctokit: getOctokitMock,
+    context: contextMock,
+  }))
+
+  const installChangepacksMock = mock()
+  mock.module('../install-changepacks', () => ({
+    installChangepacks: installChangepacksMock,
+  }))
+
+  const payload: ChangepackResultMap = {
+    'packages/a/package.json': {
+      logs: [{ type: 'Patch', note: 'fix' }],
+      path: 'packages/a/package.json',
+      changed: false,
+      version: '1.0.0',
+      nextVersion: '1.0.1',
+      name: 'a',
+    },
+  }
+  const checkChangepacksMock = mock(async () => payload)
+  mock.module('../run-changepacks', () => ({
+    runChangepacks: checkChangepacksMock,
+  }))
+
+  const { checkPastChangepacks } = await import('../check-past-changepacks')
+  const result = await checkPastChangepacks()
+
+  expect(result).toEqual(payload)
+  expect(getExecOutputMock).toHaveBeenCalledWith(
+    'git',
+    ['rev-parse', '--is-shallow-repository'],
+    expect.objectContaining({ silent: true }),
+  )
+  expect(execMock).toHaveBeenCalledWith(
+    'git',
+    ['fetch', '--unshallow', 'origin'],
+    expect.objectContaining({ silent: true }),
+  )
+  expect(execMock).toHaveBeenCalledWith(
+    'git',
+    ['fetch', '--no-tags', 'origin', baseSha],
     expect.objectContaining({ silent: true }),
   )
   expect(setFailedMock).not.toHaveBeenCalled()
@@ -912,7 +1115,14 @@ test('checkPastChangepacks uses the PR base when merge_commit_sha is absent', as
       return 0
     },
   )
-  mock.module('@actions/exec', () => ({ exec: execMock }))
+  mock.module('@actions/exec', () => ({
+    exec: execMock,
+    getExecOutput: mock(async () => ({
+      stdout: 'false',
+      stderr: '',
+      exitCode: 0,
+    })),
+  }))
 
   const setFailedMock = mock()
   const debugMock = mock()
@@ -983,7 +1193,7 @@ test('checkPastChangepacks uses the PR base when merge_commit_sha is absent', as
   )
   expect(execMock).toHaveBeenCalledWith(
     'git',
-    ['fetch', '--no-tags', '--depth=1', 'origin', 'base456'],
+    ['fetch', '--no-tags', 'origin', 'base456'],
     expect.objectContaining({ silent: true }),
   )
   expect(execMock).toHaveBeenCalledWith(
@@ -1035,7 +1245,14 @@ test('checkPastChangepacks handles GitHub API failure gracefully', async () => {
       return 0
     },
   )
-  mock.module('@actions/exec', () => ({ exec: execMock }))
+  mock.module('@actions/exec', () => ({
+    exec: execMock,
+    getExecOutput: mock(async () => ({
+      stdout: 'false',
+      stderr: '',
+      exitCode: 0,
+    })),
+  }))
 
   const setFailedMock = mock()
   const debugMock = mock()
@@ -1138,7 +1355,7 @@ test('checkPastChangepacks fails when the exact PR base cannot be fetched', asyn
         }
       },
     ) => {
-      if (args?.[0] === 'fetch' && args?.[4] === baseSha) {
+      if (args?.[0] === 'fetch' && args?.[3] === baseSha) {
         throw new Error('fetch failed')
       } else if (args?.[0] === 'diff') {
         options?.listeners?.stdout?.(Buffer.from(diffOutput))
@@ -1146,7 +1363,14 @@ test('checkPastChangepacks fails when the exact PR base cannot be fetched', asyn
       return 0
     },
   )
-  mock.module('@actions/exec', () => ({ exec: execMock }))
+  mock.module('@actions/exec', () => ({
+    exec: execMock,
+    getExecOutput: mock(async () => ({
+      stdout: 'false',
+      stderr: '',
+      exitCode: 0,
+    })),
+  }))
 
   const setFailedMock = mock()
   const debugMock = mock()
@@ -1220,7 +1444,7 @@ test('checkPastChangepacks fails when the exact PR base cannot be fetched', asyn
   )
   expect(execMock).toHaveBeenCalledWith(
     'git',
-    ['fetch', '--no-tags', '--depth=1', 'origin', baseSha],
+    ['fetch', '--no-tags', 'origin', baseSha],
     expect.objectContaining({ silent: true }),
   )
   expect(setFailedMock).toHaveBeenCalledWith(expect.any(Error))
@@ -1260,7 +1484,14 @@ test('checkPastChangepacks setsFailed when git diff throws non-revision error', 
       return 0
     },
   )
-  mock.module('@actions/exec', () => ({ exec: execMock }))
+  mock.module('@actions/exec', () => ({
+    exec: execMock,
+    getExecOutput: mock(async () => ({
+      stdout: 'false',
+      stderr: '',
+      exitCode: 0,
+    })),
+  }))
   const setFailedMock = mock()
   const debugMock = mock()
   const isDebugMock = mock(() => false)
@@ -1335,7 +1566,14 @@ test('checkPastChangepacks recovers without a commit-distance cutoff', async () 
       return 0
     },
   )
-  mock.module('@actions/exec', () => ({ exec: execMock }))
+  mock.module('@actions/exec', () => ({
+    exec: execMock,
+    getExecOutput: mock(async () => ({
+      stdout: 'false',
+      stderr: '',
+      exitCode: 0,
+    })),
+  }))
 
   const setFailedMock = mock()
   const debugMock = mock()
@@ -1443,7 +1681,14 @@ test('checkPastChangepacks does not discard releases after three commits', async
       return 0
     },
   )
-  mock.module('@actions/exec', () => ({ exec: execMock }))
+  mock.module('@actions/exec', () => ({
+    exec: execMock,
+    getExecOutput: mock(async () => ({
+      stdout: 'false',
+      stderr: '',
+      exitCode: 0,
+    })),
+  }))
 
   const setFailedMock = mock()
   const debugMock = mock()
@@ -1551,7 +1796,14 @@ test('checkPastChangepacks keeps retrying pending releases on later pushes', asy
       return 0
     },
   )
-  mock.module('@actions/exec', () => ({ exec: execMock }))
+  mock.module('@actions/exec', () => ({
+    exec: execMock,
+    getExecOutput: mock(async () => ({
+      stdout: 'false',
+      stderr: '',
+      exitCode: 0,
+    })),
+  }))
 
   const setFailedMock = mock()
   const debugMock = mock()
@@ -1644,7 +1896,14 @@ test('checkPastChangepacks never invokes rev-list during recovery', async () => 
     }
     return 0
   })
-  mock.module('@actions/exec', () => ({ exec: execMock }))
+  mock.module('@actions/exec', () => ({
+    exec: execMock,
+    getExecOutput: mock(async () => ({
+      stdout: 'false',
+      stderr: '',
+      exitCode: 0,
+    })),
+  }))
 
   const setFailedMock = mock()
   const debugMock = mock()
@@ -1737,7 +1996,14 @@ test('checkPastChangepacks fetches the exact PR base SHA for shallow recovery', 
       return 0
     },
   )
-  mock.module('@actions/exec', () => ({ exec: execMock }))
+  mock.module('@actions/exec', () => ({
+    exec: execMock,
+    getExecOutput: mock(async () => ({
+      stdout: 'false',
+      stderr: '',
+      exitCode: 0,
+    })),
+  }))
 
   const setFailedMock = mock()
   mock.module('@actions/core', () => ({
@@ -1796,7 +2062,7 @@ test('checkPastChangepacks fetches the exact PR base SHA for shallow recovery', 
   expect(result).toEqual({ changepacks, sourceSha: mergeSha })
   expect(execMock).toHaveBeenCalledWith(
     'git',
-    ['fetch', '--no-tags', '--depth=1', 'origin', baseSha],
+    ['fetch', '--no-tags', 'origin', baseSha],
     expect.objectContaining({ silent: true }),
   )
   expect(execMock).toHaveBeenCalledWith(
@@ -1842,7 +2108,14 @@ test('checkPastChangepacks fetches the exact PR base when the checkout is shallo
       return 0
     },
   )
-  mock.module('@actions/exec', () => ({ exec: execMock }))
+  mock.module('@actions/exec', () => ({
+    exec: execMock,
+    getExecOutput: mock(async () => ({
+      stdout: 'false',
+      stderr: '',
+      exitCode: 0,
+    })),
+  }))
 
   const setFailedMock = mock()
   mock.module('@actions/core', () => ({
@@ -1903,7 +2176,7 @@ test('checkPastChangepacks fetches the exact PR base when the checkout is shallo
   expect(result).toEqual(changepacksResult)
   expect(execMock).toHaveBeenCalledWith(
     'git',
-    ['fetch', '--no-tags', '--depth=1', 'origin', baseSha],
+    ['fetch', '--no-tags', 'origin', baseSha],
     expect.objectContaining({ silent: true }),
   )
   expect(execMock).toHaveBeenCalledWith(
