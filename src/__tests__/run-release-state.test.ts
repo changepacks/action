@@ -229,3 +229,169 @@ test('run cleans the repository when branch restoration fails', async () => {
   mock.module('../run-changepacks', () => originalRun)
   mock.module('../update-pr-comment', () => originalComment)
 })
+
+test.each(['success', 'dry-run failure', 'publish failure'])(
+  'run preserves current publish commands through %s',
+  async (outcome) => {
+    const originalPreserve = { ...(await import('../preserve-publish-config')) }
+    const restoreConfig = mock(async () => {})
+    const preserveConfig = mock(async () => restoreConfig)
+    mock.module('../preserve-publish-config', () => ({
+      preservePublishConfig: preserveConfig,
+    }))
+    const originalCore = { ...(await import('@actions/core')) }
+    const originalExec = { ...(await import('@actions/exec')) }
+    const originalGithub = { ...(await import('@actions/github')) }
+    const originalCheckPast = { ...(await import('../check-past-changepacks')) }
+    const originalCreatePr = { ...(await import('../create-pr')) }
+    const originalCreateRelease = { ...(await import('../create-release')) }
+    const originalFetch = { ...(await import('../fetch-origin')) }
+    const originalConfig = { ...(await import('../get-changepacks-config')) }
+    const originalInstall = { ...(await import('../install-changepacks')) }
+    const originalPublish = { ...(await import('../publish-changepacks')) }
+    const originalRunChangepacks = { ...(await import('../run-changepacks')) }
+    const originalSlack = { ...(await import('../send-slack-notification')) }
+    const originalUpdatePr = { ...(await import('../update-pr-comment')) }
+    const originalValidate = { ...(await import('../validate-publish')) }
+
+    const changepack = (path: string) => ({
+      logs: [],
+      version: '1.0.0',
+      nextVersion: '1.1.0',
+      name: path,
+      path,
+      changed: false,
+    })
+    const pastChangepacks = {
+      'pkg/a': changepack('pkg/a'),
+      'pkg/b': changepack('pkg/b'),
+      'pkg/c': changepack('pkg/c'),
+    }
+    const releases = {
+      'pkg/a': {
+        releaseId: 1,
+        tagName: 'a@1.1.0',
+        makeLatest: false,
+        status: 'pending' as const,
+      },
+      'pkg/b': {
+        releaseId: 2,
+        tagName: 'b@1.1.0',
+        makeLatest: true,
+        status: 'published' as const,
+      },
+    }
+    const validateMock = mock(async () => outcome !== 'dry-run failure')
+    const publishMock = mock(async () => {
+      if (outcome === 'publish failure') throw new Error('publish failed')
+      return { failed: false, publishedPaths: ['pkg/a'] }
+    })
+    const slackMock = mock()
+    const getOctokitMock = mock()
+    const execMock = mock(async (_command: string, args: string[]) => {
+      if (args[0] === 'checkout' && args[1] === 'main') {
+        expect(restoreConfig).toHaveBeenCalledTimes(1)
+      }
+      return 0
+    })
+
+    mock.module('@actions/core', () => ({
+      getBooleanInput: mock((name: string) => name === 'publish'),
+      getInput: mock(() => ''),
+      info: mock(),
+      isDebug: mock(() => false),
+      setOutput: mock(),
+    }))
+    mock.module('@actions/exec', () => ({ exec: execMock }))
+    mock.module('@actions/github', () => ({
+      context: {
+        ...realContext,
+        ref: 'refs/heads/main',
+        repo: { owner: 'acme', repo: 'widgets' },
+      },
+      getOctokit: getOctokitMock,
+    }))
+    mock.module('../check-past-changepacks', () => ({
+      checkPastChangepacks: mock(async () => ({
+        changepacks: pastChangepacks,
+        sourceSha: 'release-source-sha',
+      })),
+    }))
+    mock.module('../create-pr', () => ({ createPr: mock() }))
+    mock.module('../create-release', () => ({
+      createRelease: mock(async () => releases),
+    }))
+    mock.module('../fetch-origin', () => ({ fetchOrigin: mock() }))
+    mock.module('../get-changepacks-config', () => ({
+      getChangepacksConfig: mock(async () => ({
+        baseBranch: 'main',
+        ignore: [],
+        latestPackage: null,
+        publish: { node: 'npm publish' },
+        publishDryRun: { node: 'npm publish --dry-run' },
+      })),
+    }))
+    mock.module('../install-changepacks', () => ({
+      installChangepacks: mock(),
+    }))
+    mock.module('../publish-changepacks', () => ({
+      publishChangepacks: publishMock,
+    }))
+    mock.module('../run-changepacks', () => ({
+      runChangepacks: mock(async () => ({})),
+    }))
+    mock.module('../send-slack-notification', () => ({
+      sendSlackNotification: slackMock,
+    }))
+    mock.module('../update-pr-comment', () => ({ updatePrComment: mock() }))
+    mock.module('../validate-publish', () => ({
+      validatePublish: validateMock,
+    }))
+
+    const { run } = await import('../run')
+    try {
+      if (outcome === 'publish failure') {
+        await expect(run()).rejects.toThrow('publish failed')
+      } else {
+        await run()
+      }
+      expect(preserveConfig).toHaveBeenCalledWith(
+        expect.objectContaining({
+          publish: { node: 'npm publish' },
+          publishDryRun: { node: 'npm publish --dry-run' },
+        }),
+      )
+      expect(preserveConfig.mock.invocationCallOrder[0]).toBeLessThan(
+        validateMock.mock.invocationCallOrder[0],
+      )
+      expect(restoreConfig).toHaveBeenCalledTimes(1)
+      if (outcome !== 'dry-run failure') {
+        expect(publishMock.mock.invocationCallOrder[0]).toBeLessThan(
+          restoreConfig.mock.invocationCallOrder[0],
+        )
+      } else {
+        expect(publishMock).not.toHaveBeenCalled()
+      }
+      expect(getOctokitMock).not.toHaveBeenCalled()
+      expect(execMock).toHaveBeenCalledWith('git', ['clean', '-fd'], {
+        silent: true,
+      })
+    } finally {
+      mock.module('../preserve-publish-config', () => originalPreserve)
+      mock.module('@actions/core', () => originalCore)
+      mock.module('@actions/exec', () => originalExec)
+      mock.module('@actions/github', () => originalGithub)
+      mock.module('../check-past-changepacks', () => originalCheckPast)
+      mock.module('../create-pr', () => originalCreatePr)
+      mock.module('../create-release', () => originalCreateRelease)
+      mock.module('../fetch-origin', () => originalFetch)
+      mock.module('../get-changepacks-config', () => originalConfig)
+      mock.module('../install-changepacks', () => originalInstall)
+      mock.module('../publish-changepacks', () => originalPublish)
+      mock.module('../run-changepacks', () => originalRunChangepacks)
+      mock.module('../send-slack-notification', () => originalSlack)
+      mock.module('../update-pr-comment', () => originalUpdatePr)
+      mock.module('../validate-publish', () => originalValidate)
+    }
+  },
+)
