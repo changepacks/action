@@ -220,6 +220,20 @@ jobs:
         run: npm run build --workspace=packages/b
 ```
 
+### Retrying a Release After Changing Publish Authentication
+
+Release retries check out the original version-update commit. The action applies
+the workflow checkout's current `publish` and `publishDryRun` maps from
+`.changepacks/config.json` during validation and publication, so authentication
+fixes such as switching from Bun publishing to npm OIDC also apply to pending
+releases. Other configuration and release source files remain from the original
+commit. The original configuration is restored before switching back, including
+when validation or publication fails.
+
+Configure both maps when switching publishing tools; dry-run commands are
+selected independently. Custom commands must be executable from the release
+commit (scripts added only after that commit are not available).
+
 ### Disable Release Creation
 
 ```yaml

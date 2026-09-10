@@ -18,6 +18,7 @@ import {
 import { getChangepacksConfig } from './get-changepacks-config'
 import { installChangepacks } from './install-changepacks'
 import { normalizeReleaseIntent } from './normalize-release-intent'
+import { preservePublishConfig } from './preserve-publish-config'
 import { publishChangepacks } from './publish-changepacks'
 import { runChangepacks } from './run-changepacks'
 import { sendSlackNotification } from './send-slack-notification'
@@ -35,6 +36,7 @@ export async function run() {
   }
 
   let restoreBranch: string | null = null
+  let restorePublishConfig: (() => Promise<void>) | undefined
   try {
     await installChangepacks()
 
@@ -100,6 +102,12 @@ export async function run() {
               setOutput('changepacks', [])
               return
             }
+            if (sourceSha && shouldPublish) {
+              restorePublishConfig = await preservePublishConfig(config)
+              info(
+                'using current publish and publishDryRun commands with the release source',
+              )
+            }
             if (
               shouldPublish &&
               !(await validatePublish(pendingPaths, publishOptions))
@@ -123,6 +131,7 @@ export async function run() {
     }
   } finally {
     try {
+      await restorePublishConfig?.()
       if (restoreBranch) {
         await exec('git', ['checkout', restoreBranch], {
           silent: !isDebug(),

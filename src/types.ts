@@ -28,6 +28,8 @@ export interface ReleaseInfo {
 }
 
 export interface ChangepackConfig {
+  publish?: Record<string, string>
+  publishDryRun?: Record<string, string>
   ignore: string[]
   baseBranch: string
   latestPackage: string | null
